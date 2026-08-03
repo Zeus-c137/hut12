@@ -1,0 +1,185 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+export type ThemePreset = "duolingo-playful" | "emerald-farm" | "cyber-arcade" | "sunset-gold" | "royal-violet" | "apple" | "terminal-hacker" | "8-bit-pixel" | "cyberpunk-neon" | "luxury-dark-gold" | "neumorphic" | "custom";
+export type ThemeMode = "light" | "dark" | "system";
+export type CardStyle = "playful-3d" | "glass" | "liquid-glass" | "solid" | "neo-brutalist" | "chunky-border" | "textured-wood" | "textured-metal";
+export type ButtonStyle = "playful-3d" | "pill-gradient" | "neo-brutalist" | "glass" | "minimal-solid";
+export type BorderRadiusStyle = "rounded-xl" | "rounded-2xl" | "rounded-3xl";
+
+export interface SiteConfig {
+  adminPhone?: string;
+  adminPass?: string;
+  adminUsername?: string;
+  whatsappLink?: string;
+  telegramLink?: string;
+  brandName?: string;
+  logoType?: string;
+  logoUrl?: string;
+  logoSvg?: string;
+  manifestShortName?: string;
+  manifestDescription?: string;
+  manifestThemeColor?: string;
+  manifestBgColor?: string;
+  allowAutoDeposit?: boolean;
+  allowManualDeposit?: boolean;
+  mtnReceiverPhone?: string;
+  mtnReceiverName?: string;
+  airtelReceiverPhone?: string;
+  airtelReceiverName?: string;
+  usdtAddress?: string;
+  usdtNetwork?: string;
+  usdtLogoUrl?: string;
+  mtnLogoUrl?: string;
+  airtelLogoUrl?: string;
+  allowAutoWithdraw?: boolean;
+  allowManualWithdraw?: boolean;
+  registrationBonus?: number;
+  inviteBonus?: number;
+  level1InviteIncomePct?: number;
+  level2InviteIncomePct?: number;
+  checkinBaseBonus?: number;
+  checkinIncrement?: number;
+  exchangeRateUSD?: number;
+  hasBeenActivatedSeeded?: boolean;
+  minimumWithdrawal?: number;
+  withdrawalFeePercent?: number;
+  telegramSupport?: string;
+  whatsappSupport?: string;
+  noticeBanner?: string;
+  paymentGateways?: any;
+  categories?: any;
+  withdrawFee?: number;
+  withdrawMode?: "automatic" | "manual";
+  depositMode?: "automatic" | "manual";
+  welcomeBonus?: number;
+  usdtQrUrl?: string;
+  usdtRate?: number;
+  // Theme & Layout Customizations
+  themePreset?: ThemePreset;
+  themeMode?: ThemeMode;
+  authBgImage?: string;
+  dashboardBgImage?: string;
+  cardStyle?: CardStyle;
+  buttonStyle?: ButtonStyle;
+  borderRadius?: BorderRadiusStyle;
+  primaryColor?: string;
+  accentColor?: string;
+  secondaryColor?: string;
+  bgColor?: string;
+  cardBgColor?: string;
+  fontFamily?: string;
+  fontSizeScale?: "sm" | "md" | "lg" | "xl";
+  textColor?: string;
+}
+
+export interface UserProfile {
+  phone: string;
+  username: string;
+  password?: string;
+  inviteCode: string;
+  referredByCode?: string;
+  operator?: string;
+  points: number; // withdrawable balance in UGX (daily income, reg bonus, checkins, gift codes, rewards)
+  rechargeBalance?: number; // account recharge balance in UGX (from deposits, used for buying products)
+  withdrawnCash: number; // accumulated withdraw amount in UGX
+  createdAt: string;
+  // Referral stats
+  invitesCount: number;
+  referralRewardsEarned: number;
+  totalDeposits?: number; // total deposits in UGX
+  aiIncome?: number; // total passive yield claims built up
+  claimedVipTasks?: string[]; // VIP tasks already claimed (e.g. ["vip-1"])
+  locked?: boolean; // account locked status
+  usdtAddress?: string;
+  lastCheckinDate?: string;
+  checkinStreak?: number;
+  redeemedGiftCodes?: string[];
+}
+
+export interface NotificationItem {
+  id: string;
+  userId: string;
+  category: "register" | "deposit" | "withdraw" | "system" | "rewards" | "daily accumulation" | "announcement" | "news" | string;
+  title: string;
+  message: string;
+  amount?: number;
+  timestamp: string;
+  metadata?: any;
+}
+
+export interface SubscriptionItem {
+  id: string;
+  name: string;
+  image: string; // Tailwind gradient / visual key
+  amount: number; // points price
+  duration: number; // in days
+  dailyYield: number; // points yielded daily
+  category: string; // "DS" | "D" | "G" | "E" | "F", etc.
+  inviteBonusPercent: number; // custom invite bonus percentage for referrals
+  imageUrl?: string; // Open-source graphic or illustration URL
+  outOfStock?: boolean; // mark if node is out of stock
+  disabled?: boolean; // hidden or disabled node
+}
+
+export interface SubscribedNode {
+  id: string;
+  userId: string;
+  itemId: string;
+  itemName: string;
+  image: string;
+  amount: number;
+  duration: number;
+  dailyYield: number;
+  startDate: string; // ISO String
+  endDate: string; // ISO String
+  lastClaimedDate: string; // ISO Date YYYY-MM-DD
+  totalEarned: number;
+  status: "active" | "completed" | "expired";
+}
+
+export interface ReferralStat {
+  phone?: string;
+  username?: string;
+  totalDeposits?: number;
+  rewardEarned?: number;
+  joinedDate?: string;
+  inviteePhone?: string;
+  inviteeName?: string;
+  itemCategory?: string;
+  rewardAmount?: number;
+  dateJoined?: string;
+  level?: number;
+  balance?: number;
+  activeProductsCount?: number;
+}
+
+export interface ChatMessage {
+  id: string;
+  roomId: string; // "shared" or "direct_<userPhone>"
+  sender: string; // userPhone or "admin" or "system"
+  senderName: string;
+  text: string;
+  image?: string; // base64 or illustration URL
+  timestamp: string; // ISO string
+}
+
+export interface SystemStats {
+  totalUsers: number;
+  totalSubscribedPoints: number;
+  activeNodesCount: number;
+  totalSharedMessages: number;
+}
+
+export interface GiftCode {
+  id: string; // The unique code itself
+  code: string;
+  amount: number;
+  maxRedemptions: number;
+  currentRedemptions: number;
+  expiryDate: string; // ISO String
+  status: "active" | "expired" | "depleted";
+  createdAt: string;
+}
