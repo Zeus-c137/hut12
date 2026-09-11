@@ -5,6 +5,7 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import { UserProfile, ChatMessage } from "../types";
+import { useCurrency } from "../currency";
 import { 
   Send, 
   Image as ImageIcon, 
@@ -32,6 +33,7 @@ interface AdminChatDeskProps {
 }
 
 export default function AdminChatDesk({ usersList }: AdminChatDeskProps) {
+  const { formatCurrency } = useCurrency();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedRoomId, setSelectedRoomId] = useState<string>("shared");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -329,7 +331,7 @@ export default function AdminChatDesk({ usersList }: AdminChatDeskProps) {
                 {activeUser.locked ? "LOCKED" : "ACTIVE NODE"}
               </span>
               <div className="text-[12px] font-sans text-[var(--theme-text)] opacity-70 mt-1 font-bold">
-                Balance: UGX {activeUser.points?.toLocaleString() || 0}
+                Balance: {formatCurrency(activeUser.points || 0)}
               </div>
             </div>
           )}

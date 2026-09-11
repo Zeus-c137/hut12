@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useCurrency } from "../currency";
 import MetricCard from "./MetricCard";
+import { readApiJson } from "../utils/api";
 
 interface ReferralViewProps {
   userProfile: UserProfile;
@@ -29,23 +30,42 @@ export default function ReferralView({ userProfile, siteConfig, onBack }: Referr
   const [stats, setStats] = useState<ReferralStat[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const [liveSiteConfig, setLiveSiteConfig] = useState<any>(siteConfig || null);
 
   useEffect(() => {
     const fetchReferrals = async () => {
       try {
         const res = await fetch(`/api/profile/referrals/${userProfile.phone}`);
-        if (res.ok) {
-          const data = await res.json();
-          setStats(data);
-        }
-      } catch (e) {
+        const data = await readApiJson<ReferralStat[]>(res);
+        setStats(Array.isArray(data) ? data : []);
+        setLoadError("");
+      } catch (e: any) {
         console.error("Failed to load referrals list stats:", e);
+        setLoadError(e.message || "Referral data is temporarily unavailable.");
       } finally {
         setIsLoading(false);
       }
     };
     fetchReferrals();
   }, [userProfile.phone]);
+
+  useEffect(() => {
+    let isCurrent = true;
+    const fetchReferralConfig = async () => {
+      try {
+        const res = await fetch("/api/config/site");
+        const data = await readApiJson<any>(res);
+        if (isCurrent && data && !data.error) setLiveSiteConfig(data);
+      } catch (error) {
+        console.warn("Failed to refresh referral site config:", error);
+      }
+    };
+    void fetchReferralConfig();
+    return () => {
+      isCurrent = false;
+    };
+  }, []);
 
   const baseUrl = window.location.origin.replace(/\/$/, "");
   const inviteLink = userProfile.inviteCode 
@@ -61,15 +81,18 @@ export default function ReferralView({ userProfile, siteConfig, onBack }: Referr
   };
 
   // Compute metrics from stats
-  const lv1Stats = stats.filter((s) => s.level === 1);
-  const lv2Stats = stats.filter((s) => s.level === 2);
-  const lv1Count = lv1Stats.length;
-  const lv2Count = lv2Stats.length;
-  const lv1Earned = lv1Stats.reduce((sum, s) => sum + (s.rewardAmount || 0), 0);
-  const lv2Earned = lv2Stats.reduce((sum, s) => sum + (s.rewardAmount || 0), 0);
-
-  const lvl1Pct = siteConfig?.level1InviteIncomePct !== undefined ? siteConfig.level1InviteIncomePct : 15;
-  const lvl2Pct = siteConfig?.level2InviteIncomePct !== undefined ? siteConfig.level2InviteIncomePct : 5;
+  const referralConfig = liveSiteConfig || siteConfig || {};
+  const levelMetrics = [1, 2, 3, 4].map((level) => {
+    const levelStats = stats.filter((s) => Number(s.level) === level);
+    const fallbackPct = level === 1 ? 15 : level === 2 ? 5 : 0;
+    const configuredPct = Number(referralConfig[`level${level}InviteIncomePct`]);
+    return {
+      level,
+      count: levelStats.length,
+      earned: levelStats.reduce((sum, s) => sum + Number(s.rewardAmount || 0), 0),
+      pct: Number.isFinite(configuredPct) ? configuredPct : fallbackPct
+    };
+  });
 
   return (
     <div className="space-y-5 select-none text-[var(--theme-text)] p-1 rounded-2xl pb-16">
@@ -84,7 +107,7 @@ export default function ReferralView({ userProfile, siteConfig, onBack }: Referr
         </button>
       )}
 
-      {/* Shareable Link Box with Integrated Level 1 & Level 2 Metric Cards */}
+      {/* Shareable Link Box with four-level metrics */}
       <div className="theme-card card-playful-3d p-4 rounded-[var(--theme-radius)] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-4">
         <div className="flex items-center justify-between text-xs">
           <span className="font-extrabold text-[var(--theme-text)] opacity-90 flex items-center gap-1.5">
@@ -121,25 +144,35 @@ export default function ReferralView({ userProfile, siteConfig, onBack }: Referr
           </button>
         </div>
 
-        {/* Level 1 & Level 2 Metric Cards Grid BELOW input */}
-        <div className="grid grid-cols-2 gap-3 pt-1">
-          <MetricCard
-            title={`Level 1 (${lvl1Pct}%)`}
-            value={formatCurrency(lv1Earned)}
-            subtitle={`${lv1Count} Direct ${lv1Count === 1 ? 'Friend' : 'Friends'}`}
-            titleColor="primary"
-            isLoading={isLoading}
-          />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-1">
+          {levelMetrics.map((metric) => (
+            <MetricCard
+              key={metric.level}
+              title={`Level ${metric.level} (${metric.pct}%)`}
+              value={formatCurrency(metric.earned)}
+              subtitle={`${metric.count} ${metric.level === 1 ? "Direct" : "Indirect"}`}
+              titleColor={metric.level % 2 === 0 ? "secondary" : "primary"}
+              isLoading={isLoading}
+            />
+          ))}
+        </div>
 
-          <MetricCard
-            title={`Level 2 (${lvl2Pct}%)`}
-            value={formatCurrency(lv2Earned)}
-            subtitle={`${lv2Count} Indirect ${lv2Count === 1 ? 'Friend' : 'Friends'}`}
-            titleColor="secondary"
-            isLoading={isLoading}
-          />
+        <div className="flex items-center justify-between gap-4 border-t border-[var(--theme-card-border)] pt-3">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-wider opacity-60">Collected invite income</p>
+            <p className="text-[11px] opacity-60 mt-0.5">Actual referral bonuses credited to your balance</p>
+          </div>
+          <strong className="text-lg font-black font-display text-[var(--theme-primary)] whitespace-nowrap">
+            {formatCurrency(Number(userProfile.referralRewardsEarned || 0))}
+          </strong>
         </div>
       </div>
+
+      {loadError && (
+        <div className="rounded-[var(--theme-radius)] border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-xs font-semibold text-amber-600">
+          {loadError}
+        </div>
+      )}
 
       {/* Friendly Commission Structure Card */}
       <div className="theme-card card-playful-3d p-5 rounded-[var(--theme-radius)] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-4">
@@ -150,31 +183,17 @@ export default function ReferralView({ userProfile, siteConfig, onBack }: Referr
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {/* Level 1 Card */}
-          <div className="p-3.5 rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border border-[var(--theme-card-border)] space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-black text-[var(--theme-text)]">Level 1 Direct Friends</span>
-              <span className="text-xs font-mono font-black text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                {lvl1Pct}% Bonus
-              </span>
+          {levelMetrics.map((metric) => (
+            <div key={metric.level} className="p-3.5 rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border border-[var(--theme-card-border)] space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-black text-[var(--theme-text)]">Level {metric.level} {metric.level === 1 ? "Direct" : "Network"}</span>
+                <span className="text-xs font-mono font-black text-[var(--theme-primary)] bg-[var(--theme-primary)]/10 px-2 py-0.5 rounded-full border border-[var(--theme-primary)]/20">{metric.pct}% Bonus</span>
+              </div>
+              <p className="text-xs text-[var(--theme-text)] opacity-75 leading-relaxed font-sans">
+                Earn {metric.pct}% whenever a Level {metric.level} referral activates a server machine.
+              </p>
             </div>
-            <p className="text-xs text-[var(--theme-text)] opacity-75 leading-relaxed font-sans">
-              Earn {lvl1Pct}% daily bonus yield every time your direct friends activate server machines.
-            </p>
-          </div>
-
-          {/* Level 2 Card */}
-          <div className="p-3.5 rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border border-[var(--theme-card-border)] space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-black text-[var(--theme-text)]">Level 2 Friends' Crew</span>
-              <span className="text-xs font-mono font-black text-[var(--theme-primary)] bg-[var(--theme-primary)]/10 px-2 py-0.5 rounded-full border border-[var(--theme-primary)]/20">
-                {lvl2Pct}% Bonus
-              </span>
-            </div>
-            <p className="text-xs text-[var(--theme-text)] opacity-75 leading-relaxed font-sans">
-              Earn {lvl2Pct}% extra bonus whenever friends brought in by your crew start mining.
-            </p>
-          </div>
+          ))}
         </div>
       </div>
 

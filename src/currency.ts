@@ -1,71 +1,77 @@
 import { useState, useEffect } from 'react';
 
-// Global cache to avoid repeated API calls
-let cachedCurrency: "UGX" | "USD" | null = null;
-const EXCHANGE_RATE = 3700; // 1 USD = 3700 UGX
+type Currency = "UGX" | "USD";
+export type CurrencyPreference = "default" | "USD";
 
-// Simple event listener list to sync across all hooks
-const listeners: Array<(currency: "UGX" | "USD") => void> = [];
+export const EXCHANGE_RATE = 3700; // 1 USD = 3700 UGX
+const CURRENCY_PREFERENCE_KEY = "user_currency_preference";
 
-function setGlobalCurrency(val: "UGX" | "USD") {
+// Keep state minimal: currency is always UGX for this app
+let cachedCurrency: Currency = "UGX";
+let currencyPreference: CurrencyPreference = "default";
+
+const listeners: Array<(currency: Currency) => void> = [];
+const preferenceListeners: Array<(preference: CurrencyPreference) => void> = [];
+
+function setGlobalCurrency(val: Currency) {
   cachedCurrency = val;
-  if (typeof window !== 'undefined') {
-    localStorage.setItem("user_currency", val);
-  }
   listeners.forEach(l => l(val));
 }
 
-// Synchronously restore from localStorage on script import to prevent initial-mount mismatches
+// Remove old persisted user currency and ignore any stored USD preference
 if (typeof window !== 'undefined') {
-  const stored = localStorage.getItem("user_currency") as "UGX" | "USD" | null;
-  if (stored) {
-    cachedCurrency = stored;
+  try {
+    window.localStorage.removeItem("user_currency");
+    const stored = window.localStorage.getItem(CURRENCY_PREFERENCE_KEY);
+    if (stored === "USD") {
+      window.localStorage.removeItem(CURRENCY_PREFERENCE_KEY);
+    }
+  } catch {
+    // ignore
   }
 }
 
+async function detectCurrency(): Promise<Currency> {
+  // Disabled IP-based detection: always UGX
+  setGlobalCurrency("UGX");
+  return "UGX";
+}
+
+export function setCurrencyPreference(_preference: CurrencyPreference) {
+  // Prevent switching to USD — always enforce UGX/default
+  currencyPreference = "default";
+  try {
+    if (typeof window !== 'undefined') window.localStorage.removeItem(CURRENCY_PREFERENCE_KEY);
+  } catch {}
+
+  preferenceListeners.forEach(listener => listener(currencyPreference));
+  setGlobalCurrency("UGX");
+}
+
 export function useCurrency() {
-  const [currency, setCurrency] = useState<"UGX" | "USD">(cachedCurrency || "UGX");
+  const [currency, setCurrency] = useState<Currency>(cachedCurrency);
+  const [preference, setPreference] = useState<CurrencyPreference>(currencyPreference);
 
   useEffect(() => {
-    const handleUpdate = (newVal: "UGX" | "USD") => {
-      setCurrency(newVal);
-    };
+    const handleUpdate = (newVal: Currency) => setCurrency(newVal);
+    const handlePref = (p: CurrencyPreference) => setPreference(p);
     listeners.push(handleUpdate);
+    preferenceListeners.push(handlePref);
 
-    // If cache already populated, make sure we reflect it instantly
-    if (cachedCurrency) {
-      setCurrency(cachedCurrency);
-    } else {
-      // Auto-detect based on IP
-      fetch('https://ipapi.co/json/')
-        .then(res => res.json())
-        .then(data => {
-          const detected = data.country_code === 'UG' ? 'UGX' : 'USD';
-          setGlobalCurrency(detected);
-        })
-        .catch(err => {
-          console.error('Failed to auto-detect location', err);
-          setGlobalCurrency('UGX');
-        });
-    }
+    // Ensure UGX on mount
+    void detectCurrency();
 
     return () => {
-      const index = listeners.indexOf(handleUpdate);
-      if (index > -1) {
-        listeners.splice(index, 1);
-      }
+      const i = listeners.indexOf(handleUpdate);
+      if (i > -1) listeners.splice(i, 1);
+      const j = preferenceListeners.indexOf(handlePref);
+      if (j > -1) preferenceListeners.splice(j, 1);
     };
   }, []);
 
   const formatCurrency = (amountUgx: number) => {
-    if (currency === "USD") {
-      const usdAmount = amountUgx / EXCHANGE_RATE;
-      return '$' + usdAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    } else {
-      return 'UGX ' + amountUgx.toLocaleString();
-    }
+    return 'UGX ' + amountUgx.toLocaleString();
   };
 
-  return { currency, formatCurrency, EXCHANGE_RATE };
+  return { currency, preference, setCurrencyPreference, formatCurrency, EXCHANGE_RATE };
 }
-

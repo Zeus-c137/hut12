@@ -205,6 +205,14 @@ export async function ensureDatabaseSchema(): Promise<void> {
       throw error;
     }
   }
+
+  try {
+    await connection.query("ALTER TABLE notifications ADD COLUMN amount DOUBLE DEFAULT 0");
+  } catch (error: any) {
+    if (!String(error?.code || "").includes("DUPLICATE") && error?.errno !== 1060) {
+      throw error;
+    }
+  }
 }
 
 export { schema };

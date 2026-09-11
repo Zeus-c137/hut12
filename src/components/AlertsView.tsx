@@ -6,10 +6,12 @@ import { motion, AnimatePresence } from "motion/react";
 interface AlertsViewProps {
   profile: UserProfile;
   onBack: () => void;
+  initialNotifications?: NotificationItem[];
+  onNotificationsChange?: (notifications: NotificationItem[]) => void;
 }
 
-export default function AlertsView({ profile, onBack }: AlertsViewProps) {
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+export default function AlertsView({ profile, onBack, initialNotifications = [], onNotificationsChange }: AlertsViewProps) {
+  const [notifications, setNotifications] = useState<NotificationItem[]>(initialNotifications);
   const [loading, setLoading] = useState(false);
   const [selectedAlert, setSelectedAlert] = useState<NotificationItem | null>(null);
   const [readIds, setReadIds] = useState<string[]>(() => {
@@ -33,27 +35,52 @@ export default function AlertsView({ profile, onBack }: AlertsViewProps) {
     }
   };
 
-  const fetchAlerts = async (force = false) => {
-    try {
-      setLoading(true);
-      const res = await fetch(`/api/profile/notifications/${profile.phone}`);
-      if (res.ok) {
-        const data = await res.json();
-        setNotifications(data);
-      } else {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || `Unable to load alerts (${res.status}).`);
-      }
-    } catch (err) {
-      console.error("Error fetching alerts history:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // The app keeps this list warm in the background, so opening the sheet can
+  // render immediately while the network refresh runs in the background.
+  useEffect(() => {
+    setNotifications(initialNotifications);
+  }, [initialNotifications]);
 
   useEffect(() => {
-    fetchAlerts(false);
-  }, [profile.phone]);
+    const controller = new AbortController();
+
+    const fetchAlerts = async () => {
+      try {
+        setLoading(true);
+        const res = await fetch(`/api/profile/notifications/${profile.phone}`, {
+          signal: controller.signal
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || `Unable to load alerts (${res.status}).`);
+        }
+        const data = await res.json() as NotificationItem[];
+        if (controller.signal.aborted) return;
+        setNotifications(data);
+        onNotificationsChange?.(data);
+      } catch (err: any) {
+        if (err?.name !== "AbortError") {
+          console.error("Error fetching alerts history:", err);
+        }
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    };
+
+    const refreshIfVisible = () => {
+      if (document.visibilityState === "visible") void fetchAlerts();
+    };
+
+    refreshIfVisible();
+    const intervalId = window.setInterval(refreshIfVisible, 120_000);
+    document.addEventListener("visibilitychange", refreshIfVisible);
+
+    return () => {
+      controller.abort();
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
+    };
+  }, [profile.phone, onNotificationsChange]);
 
   function renderMessageWithLinks(text: string) {
     if (!text) return "";

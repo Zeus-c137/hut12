@@ -7,26 +7,30 @@ interface NewsCarouselProps {
   fullWidth?: boolean;
 }
 
-export default function NewsCarousel({ phone, dynamicNews = [], fullWidth = false }: NewsCarouselProps) {
+export default function NewsCarousel({ phone, dynamicNews, fullWidth = false }: NewsCarouselProps) {
+  const normalizedDynamicNews = dynamicNews ?? [];
+  const dynamicNewsLen = normalizedDynamicNews.length;
   const [newsList, setNewsList] = useState<any[]>(() => {
-    if (dynamicNews && dynamicNews.length > 0) return dynamicNews;
+    if (dynamicNewsLen > 0) return normalizedDynamicNews;
     return [];
   });
   const [loading, setLoading] = useState<boolean>(newsList.length === 0);
   const [currentSlide, setCurrentSlide] = useState(0);
 
   useEffect(() => {
-    if (dynamicNews && dynamicNews.length > 0) {
-      setNewsList(dynamicNews);
+    if (dynamicNewsLen > 0) {
+      setNewsList(normalizedDynamicNews);
       setLoading(false);
       return;
     }
 
     const userPhone = phone || localStorage.getItem("session_phone");
     if (userPhone) {
-      fetch(`/api/profile/notifications/${userPhone}`)
+      const controller = new AbortController();
+      fetch(`/api/profile/notifications/${userPhone}`, { signal: controller.signal })
         .then(r => r.json())
         .then(data => {
+          if (controller.signal.aborted) return;
           if (Array.isArray(data)) {
             const backendNews = data.filter((n: any) => n.category === "news").map((n: any) => ({
               id: n.id,
@@ -40,12 +44,15 @@ export default function NewsCarousel({ phone, dynamicNews = [], fullWidth = fals
             setNewsList(backendNews);
           }
         })
-        .catch(err => console.error("Failed to fetch backend news in NewsCarousel:", err))
-        .finally(() => setLoading(false));
+        .catch(err => {
+          if ((err as any)?.name !== "AbortError") console.error("Failed to fetch backend news in NewsCarousel:", err);
+        })
+        .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+      return () => controller.abort();
     } else {
       setLoading(false);
     }
-  }, [phone, dynamicNews]);
+  }, [phone, dynamicNewsLen]);
 
   useEffect(() => {
     if (newsList.length === 0) return;

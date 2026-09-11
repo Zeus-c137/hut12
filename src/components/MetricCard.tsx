@@ -1,4 +1,5 @@
 import React from "react";
+import { useTheme } from "../context/ThemeContext";
 
 interface MetricCardProps {
   key?: React.Key;
@@ -7,55 +8,79 @@ interface MetricCardProps {
   subtitle?: string;
   isLoading?: boolean;
   titleColor?: "primary" | "secondary" | "accent" | string;
+  icon?: React.ReactNode;
+  variant?: "hero" | "muted";
 }
 
-export default function MetricCard({ title, value, subtitle, isLoading, titleColor }: MetricCardProps) {
-  let titleColorStyle: React.CSSProperties = {};
-  let titleClass = "text-[var(--theme-text)] opacity-70 group-hover:opacity-90 font-extrabold";
+export default function MetricCard({ title, value, subtitle, isLoading, titleColor, icon, variant = "hero" }: MetricCardProps) {
+  const { cardStyle } = useTheme();
+  const isPlayful = cardStyle === "playful-3d";
+  const isGlass = cardStyle === "glass" || cardStyle === "liquid-glass";
+  const isMuted = variant === "muted";
+
+  let accent: { bg: string; shadow: string; text: string } = { bg: "var(--theme-card-border)", shadow: "var(--theme-card-shadow)", text: "var(--theme-text)" };
+  let titleClass = "text-[var(--theme-text)] opacity-60 font-black tracking-widest";
 
   if (titleColor === "primary") {
-    titleColorStyle = { color: "var(--theme-primary)" };
-    titleClass = "font-black opacity-100";
+    accent = { bg: "var(--theme-primary)", shadow: "var(--theme-primary-shadow)", text: "var(--theme-primary)" };
+    titleClass = "font-black";
   } else if (titleColor === "secondary") {
-    titleColorStyle = { color: "var(--theme-secondary)" };
-    titleClass = "font-black opacity-100";
+    accent = { bg: "var(--theme-secondary)", shadow: "var(--theme-secondary-shadow)", text: "var(--theme-secondary)" };
+    titleClass = "font-black";
   } else if (titleColor === "accent") {
-    titleColorStyle = { color: "var(--theme-accent)" };
-    titleClass = "font-black opacity-100";
-  } else if (titleColor) {
-    titleClass = `font-black opacity-100 ${titleColor}`;
+    accent = { bg: "var(--theme-accent)", shadow: "var(--theme-accent-shadow)", text: "var(--theme-accent)" };
+    titleClass = "font-black";
+  } else if (titleColor === "gold") {
+    accent = { bg: "#F59E0B", shadow: "#B45309", text: "#D97706" };
+    titleClass = "font-black";
   }
 
+  const cardBase = isMuted
+    ? "bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] shadow-none opacity-95"
+    : isGlass
+    ? "bg-[var(--theme-card-bg)]/80 backdrop-blur-xl border-white/20 shadow-lg"
+    : isPlayful
+    ? "bg-[var(--theme-card-bg)] border-2 border-[var(--theme-card-border)] shadow-[0_5px_0_0_var(--theme-card-shadow)]"
+    : "bg-[var(--theme-card-bg)] border-2 border-[var(--theme-card-border)] shadow-md";
+
+  const heightClass = isMuted ? "h-[96px]" : "h-[112px]";
+
   return (
-    <div className="relative overflow-hidden theme-card rounded-[var(--theme-radius)] p-4 h-[84px] flex flex-col justify-between transition-all group">
-      {/* Subtle border shine */}
-      <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-[var(--theme-card-border)] to-transparent opacity-40" />
+    <div className={`relative overflow-hidden theme-card rounded-[var(--theme-radius)] p-3.5 ${heightClass} flex flex-col justify-between transition-all group ${cardBase}`}>
       
-      <div className="space-y-1">
+      <div className="flex items-start justify-between gap-2">
         <span
-          style={titleColorStyle}
-          className={`text-[10px] font-sans uppercase tracking-widest block transition-colors ${titleClass}`}
+          style={{ color: titleColor ? accent.text : undefined }}
+          className={`text-[10.5px] font-display uppercase tracking-[0.12em] leading-none block pt-1 ${titleClass}`}
         >
           {title}
         </span>
-        <div className="flex items-baseline gap-1">
+        {icon && (
+          <div
+            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-white shadow-md border border-white/15"
+            style={{ background: accent.bg, boxShadow: `0 3px 0 0 ${accent.shadow}` }}
+          >
+            <span className="w-4.5 h-4.5 flex items-center justify-center [&>svg]:w-4.5 [&>svg]:h-4.5">{icon}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-0.5">
+        <div className="flex items-baseline gap-1.5 flex-wrap">
           {isLoading ? (
-            <div className="h-5 w-24 bg-[var(--theme-card-border)]/50 rounded animate-pulse mt-1" />
+            <div className="h-6 w-28 bg-[var(--theme-card-border)]/40 rounded-xl animate-pulse" />
           ) : (
-            <span className="font-sans font-black text-[15.5px] text-[var(--theme-text)] leading-tight tracking-tight select-text">
+            <span className="font-display font-black text-[18px] sm:text-[19px] text-[var(--theme-text)] leading-none tracking-tight select-text">
               {value}
             </span>
           )}
           {subtitle && !isLoading && (
-            <span className="text-[11.5px] text-[var(--theme-text)] opacity-60 font-medium lowercase">
+            <span className="text-[11px] text-[var(--theme-text)] opacity-50 font-bold">
               {subtitle}
             </span>
           )}
         </div>
       </div>
-      
-      {/* Tiny clean tech element at bottom */}
-      <div className="w-5 h-[1.5px] bg-[var(--theme-primary)] rounded-full transition-all group-hover:w-8" />
     </div>
   );
 }

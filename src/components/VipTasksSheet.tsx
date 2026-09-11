@@ -1,9 +1,53 @@
-import React, { useState, useEffect } from "react";
-import { UserProfile, ReferralStat } from "../types";
-import { X, Crown, Award, CheckCircle2, Trophy, Flame, Coins, Sparkles, RefreshCw, Lock, Star, Rocket, ShieldCheck } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { UserProfile } from "../types";
+import { X, CheckCircle2, Trophy, RefreshCw, Sparkles, ShieldCheck, Lock } from "lucide-react";
 import { motion } from "motion/react";
 import { toast } from "sonner";
 import { useCurrency } from "../currency";
+import { readApiJson } from "../utils/api";
+
+declare module "react/jsx-runtime" {
+  export * from "react";
+}
+
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      [elemName: string]: any;
+    }
+  }
+}
+
+interface VipTask {
+  id: string;
+  title: string;
+  description?: string;
+  category: string;
+  requiredBonus: number;
+  reward: number;
+  progress: number;
+  unlocked: boolean;
+  claimed: boolean;
+}
+
+interface VipTaskboard {
+  tasks: VipTask[];
+  vipLevel?: number;
+  referralRates?: {
+    level1: number;
+    level2: number;
+    level3: number;
+    level4: number;
+  };
+  progress: {
+    level1Bonus: number;
+    level2Bonus: number;
+    level3Bonus: number;
+    level4Bonus: number;
+    accumulatedBonus: number;
+    totalReferralBonus: number;
+  };
+}
 
 interface VipTasksSheetProps {
   isOpen: boolean;
@@ -12,286 +56,160 @@ interface VipTasksSheetProps {
   onClaimSuccess: (updatedProfile: UserProfile) => void;
 }
 
-interface VipTaskTier {
-  id: string;
-  level: number;
-  required: number;
-  reward: number;
-  badgeColor: string;
-  glowColor: string;
-}
-
-const VIP_TASKS_CONFIG: VipTaskTier[] = [
-  { id: "vip-0", level: 0, required: 0, reward: 0, badgeColor: "text-slate-400 bg-slate-500/15 border-slate-500/25", glowColor: "from-slate-400/20 to-transparent" },
-  { id: "vip-1", level: 1, required: 2, reward: 20000, badgeColor: "text-amber-500 bg-amber-500/15 border-amber-500/25", glowColor: "from-amber-500/20 to-transparent" },
-  { id: "vip-2", level: 2, required: 6, reward: 50000, badgeColor: "text-slate-400 bg-slate-500/15 border-slate-500/25", glowColor: "from-slate-400/20 to-transparent" },
-  { id: "vip-3", level: 3, required: 15, reward: 100000, badgeColor: "text-yellow-500 bg-yellow-500/15 border-yellow-500/25", glowColor: "from-yellow-500/20 to-transparent" },
-  { id: "vip-4", level: 4, required: 30, reward: 200000, badgeColor: "text-sky-500 bg-sky-500/15 border-sky-500/25", glowColor: "from-sky-500/20 to-transparent" },
-  { id: "vip-5", level: 5, required: 60, reward: 400000, badgeColor: "text-teal-500 bg-teal-500/15 border-teal-500/25", glowColor: "from-teal-500/20 to-transparent" },
-  { id: "vip-6", level: 6, required: 100, reward: 800000, badgeColor: "text-blue-500 bg-blue-500/15 border-blue-500/25", glowColor: "from-blue-500/20 to-transparent" },
-  { id: "vip-7", level: 7, required: 150, reward: 1600000, badgeColor: "text-pink-500 bg-pink-500/15 border-pink-500/25", glowColor: "from-pink-500/20 to-transparent" },
-  { id: "vip-8", level: 8, required: 300, reward: 4000000, badgeColor: "text-rose-500 bg-rose-500/15 border-rose-500/25", glowColor: "from-rose-500/20 to-transparent" },
-  { id: "vip-9", level: 9, required: 600, reward: 10000000, badgeColor: "text-fuchsia-500 bg-fuchsia-500/15 border-fuchsia-500/25", glowColor: "from-fuchsia-500/20 to-transparent" },
-  { id: "vip-10", level: 10, required: 1000, reward: 50000000, badgeColor: "text-red-500 bg-red-500/15 border-red-500/25", glowColor: "from-red-500/20 to-transparent" }
-];
-
 export default function VipTasksSheet({ isOpen, onClose, userProfile, onClaimSuccess }: VipTasksSheetProps) {
   const { formatCurrency } = useCurrency();
-  const [referrals, setReferrals] = useState<ReferralStat[]>([]);
+  const [board, setBoard] = useState<VipTaskboard>({
+    tasks: [],
+    vipLevel: 0,
+    referralRates: { level1: 15, level2: 5, level3: 0, level4: 0 },
+    progress: { level1Bonus: 0, level2Bonus: 0, level3Bonus: 0, level4Bonus: 0, accumulatedBonus: 0, totalReferralBonus: 0 }
+  });
   const [loading, setLoading] = useState(false);
   const [claimingId, setClaimingId] = useState<string | null>(null);
 
-  const fetchReferralsList = async () => {
-    try {
+  const loadTaskboard = async () => {
       setLoading(true);
-      const res = await fetch(`/api/profile/referrals/${userProfile.phone}`);
-      if (res.ok) {
-        const data = await res.json();
-        setReferrals(data);
-      }
-    } catch (err) {
-      console.error("Error loading referral stats list for VIP logic:", err);
+      try {
+        const res = await fetch(`/api/profile/vip-tasks/${encodeURIComponent(userProfile.phone)}`);
+      const data = await readApiJson<any>(res);
+      const rawProgress = data?.progress || {};
+      const rawRates = data?.referralRates || {};
+      setBoard({
+        tasks: Array.isArray(data?.tasks) ? data.tasks : [],
+        vipLevel: Number(data?.vipLevel || 0),
+        referralRates: {
+          level1: Number(rawRates.level1 ?? 15),
+          level2: Number(rawRates.level2 ?? 5),
+          level3: Number(rawRates.level3 ?? 0),
+          level4: Number(rawRates.level4 ?? 0)
+        },
+        progress: {
+          level1Bonus: Number(rawProgress.level1Bonus ?? rawProgress.level1 ?? data?.level1Bonus ?? 0),
+          level2Bonus: Number(rawProgress.level2Bonus ?? rawProgress.level2 ?? data?.level2Bonus ?? 0),
+          level3Bonus: Number(rawProgress.level3Bonus ?? rawProgress.level3 ?? data?.level3Bonus ?? 0),
+          level4Bonus: Number(rawProgress.level4Bonus ?? rawProgress.level4 ?? data?.level4Bonus ?? 0),
+          accumulatedBonus: Number(rawProgress.accumulatedBonus ?? data?.accumulatedBonus ?? 0),
+          totalReferralBonus: Number(rawProgress.totalReferralBonus ?? data?.totalReferralBonus ?? 0)
+        }
+      });
+    } catch (error: any) {
+      console.error("[VIP taskboard] load failed:", error);
+      toast.error(error.message || "VIP tasks are temporarily unavailable.");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (isOpen) {
-      fetchReferralsList();
-    }
+    if (isOpen) void loadTaskboard();
   }, [isOpen, userProfile.phone]);
 
   if (!isOpen) return null;
 
-  // Compute verified referral active products count (sum of all active product nodes activated by referrals)
-  const verifiedCount = referrals.reduce((sum, r) => {
-    const activeCount = (r as any).activeProductsCount !== undefined 
-      ? (r as any).activeProductsCount 
-      : (r.itemCategory && r.itemCategory !== "None" && r.itemCategory !== "No Active Node" && r.itemCategory !== "No Active Product" && r.itemCategory !== "Free tier" ? 1 : 0);
-    return sum + activeCount;
-  }, 0);
-  const totalReferralsJoin = referrals.length;
+  const { accumulatedBonus, level1Bonus, level2Bonus, level3Bonus, level4Bonus, totalReferralBonus } = board.progress;
+  const rates = board.referralRates || { level1: 15, level2: 5, level3: 0, level4: 0 };
+  const nextTask = board.tasks.find((task) => !task.unlocked && !task.claimed);
+  const nextRequirement = nextTask?.requiredBonus || accumulatedBonus || 1;
+  const overallProgress = Math.min((accumulatedBonus / nextRequirement) * 100, 100);
 
-  const handleClaimReward = async (taskId: string, rewardAmount: number) => {
+  const handleClaim = async (task: VipTask) => {
     try {
-      setClaimingId(taskId);
+      setClaimingId(task.id);
       const res = await fetch("/api/profile/vip-tasks/claim", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: userProfile.phone, taskId })
+        body: JSON.stringify({ phone: userProfile.phone, taskId: task.id })
       });
+      const data = await readApiJson<{ bonus: number; claimedVipTasks?: string[] }>(res);
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to claim exclusive VIP reward.");
-      }
-
-      toast.success(`Success! VIP reward of ${formatCurrency(rewardAmount)} added to ledger.`);
-      
-      const updatedProfile: UserProfile = {
+      const creditedBonus = Number(data.bonus || 0);
+      toast.success(`VIP reward of ${formatCurrency(creditedBonus)} added to your balance.`);
+      onClaimSuccess({
         ...userProfile,
-        points: userProfile.points + rewardAmount,
-        claimedVipTasks: data.claimedVipTasks || [...(userProfile.claimedVipTasks || []), taskId]
-      };
-      onClaimSuccess(updatedProfile);
-
-    } catch (err: any) {
-      toast.error(err.message || "Something went wrong.");
+        points: Number(userProfile.points || 0) + creditedBonus,
+        claimedVipTasks: data.claimedVipTasks || [...(userProfile.claimedVipTasks || []), task.id]
+      });
+      await loadTaskboard();
+    } catch (error: any) {
+      console.error("[VIP taskboard] claim failed:", error);
+      toast.error(error.message || "Unable to claim this VIP reward.");
     } finally {
       setClaimingId(null);
     }
   };
 
-  const claimedTasks = userProfile.claimedVipTasks || [];
-
-  // Determine active VIP milestone level based on verifiedCount
-  const nextMilestoneTier = VIP_TASKS_CONFIG.find(t => verifiedCount < t.required) || VIP_TASKS_CONFIG[VIP_TASKS_CONFIG.length - 1];
-  const activeLevelNumber = VIP_TASKS_CONFIG.filter(t => verifiedCount >= t.required).length;
-  const xpProgressPct = Math.min((verifiedCount / nextMilestoneTier.required) * 100, 100);
-
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">
-      {/* Backdrop */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={onClose}
-        className="absolute inset-0 bg-black/75 backdrop-blur-xs"
-      />
-      
-      {/* Drawer Body - Theme-Aware 85vh sheet */}
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} onClick={onClose} className="absolute inset-0 bg-black/75 backdrop-blur-xs" />
       <motion.div
         initial={{ y: "100%", x: "-50%" }}
         animate={{ y: 0, x: "-50%" }}
-        exit={{ y: "100%", x: "-50%" }}
         transition={{ type: "spring", damping: 25, stiffness: 220 }}
-        className="absolute bottom-0 left-1/2 w-full max-w-md h-[85vh] bg-[var(--theme-card-bg)] text-[var(--theme-text)] border-t border-[var(--theme-card-border)] rounded-t-[32px] flex flex-col z-10 overflow-hidden select-none text-left shadow-2xl"
+        className="absolute bottom-0 left-1/2 w-full max-w-md h-[95vh] bg-[var(--theme-card-bg)] text-[var(--theme-text)] border-t border-[var(--theme-card-border)] rounded-t-[32px] flex flex-col z-10 overflow-hidden shadow-2xl"
       >
-        {/* Header ribbon block */}
-        <div className="px-5 pt-5 pb-3 border-b border-[var(--theme-card-border)] flex items-center justify-between shrink-0 bg-[var(--theme-card-bg)] relative z-20">
+        <div className="px-5 pt-5 pb-3 border-b border-[var(--theme-card-border)] flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-amber-500/15 border border-amber-500/30 rounded-xl text-amber-500">
-              <Trophy className="w-5 h-5 text-amber-400 fill-amber-400" />
-            </div>
+            <div className="p-2 bg-amber-500/15 border border-amber-500/30 rounded-xl text-amber-500"><Trophy className="w-5 h-5" /></div>
             <div>
-              <h4 className="font-display font-extrabold text-base text-[var(--theme-text)] uppercase tracking-tight">VIP Taskboard</h4>
-              <p className="text-[11px] text-[var(--theme-text)] opacity-60">Unlock cash prizes for verified machine invites</p>
+              <div className="flex items-center gap-2"><h4 className="font-display font-extrabold text-base uppercase tracking-tight">VIP Taskboard</h4><span className="text-[10px] font-black uppercase rounded-full border border-[var(--theme-primary)]/25 bg-[var(--theme-primary)]/10 text-[var(--theme-primary)] px-2 py-0.5">VIP {board.vipLevel || 0}</span></div>
+              <p className="text-[11px] opacity-60 mt-0.5">Admin-configured referral bonus rewards</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70 hover:opacity-100 cursor-pointer transition-all"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <button onClick={onClose} className="p-1.5 rounded-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] opacity-70 hover:opacity-100 cursor-pointer"><X className="w-4 h-4" /></button>
         </div>
 
-        {/* Scrollable Body Content */}
-        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4 scrollbar-none pb-20 relative z-10">
-          
-          {/* Level XP Progress Box */}
-          <div className="p-3.5 rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border border-[var(--theme-card-border)] space-y-3 shadow-xs">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Trophy className="w-4 h-4 text-amber-500" />
-                <span className="text-xs font-black text-[var(--theme-text)]">
-                  Level {activeLevelNumber}: VIP Tier
-                </span>
-              </div>
-              <span className="text-xs font-sans font-black text-[var(--theme-primary)]">
-                {verifiedCount} / {nextMilestoneTier.required} Verified Machines
-              </span>
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 scrollbar-none pb-20">
+          <div className="p-4 rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border border-[var(--theme-card-border)] space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2"><Trophy className="w-4 h-4 text-amber-500" /><span className="text-xs font-black">VIP task progress · Levels 1–4</span></div>
+              {loading && <RefreshCw className="w-4 h-4 animate-spin text-[var(--theme-primary)]" />}
+            </div>
+            <div className="text-2xl font-black font-display text-[var(--theme-primary)]">{formatCurrency(accumulatedBonus)}</div>
+            <div className="w-full h-2.5 bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] rounded-full overflow-hidden">
+              <motion.div initial={{ width: 0 }} animate={{ width: `${overallProgress}%` }} className="h-full bg-gradient-to-r from-[var(--theme-primary)] to-amber-500 rounded-full" />
             </div>
 
-            {/* XP Bar */}
-            <div className="w-full h-3 bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] rounded-full overflow-hidden p-0.5">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${xpProgressPct}%` }}
-                transition={{ duration: 0.8, ease: "easeOut" }}
-                className="h-full bg-gradient-to-r from-[var(--theme-primary)] via-[var(--theme-secondary)] to-amber-500 rounded-full shadow-xs"
-              />
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+              <div className="p-2.5 rounded-lg bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)]"><span className="block opacity-60">Level 1 ({rates.level1}%)</span><strong>{formatCurrency(level1Bonus)}</strong></div>
+              <div className="p-2.5 rounded-lg bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)]"><span className="block opacity-60">Level 2 ({rates.level2}%)</span><strong>{formatCurrency(level2Bonus)}</strong></div>
+              <div className="p-2.5 rounded-lg bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)]"><span className="block opacity-60">Level 3 ({rates.level3}%)</span><strong>{formatCurrency(level3Bonus)}</strong></div>
+              <div className="p-2.5 rounded-lg bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)]"><span className="block opacity-60">Level 4 ({rates.level4}%)</span><strong>{formatCurrency(level4Bonus)}</strong></div>
             </div>
+          </div>
 
-            {/* Badges Grid (VIP Tiers 0-10) */}
-            <div className="pt-1 flex items-center justify-between gap-1 overflow-x-auto scrollbar-none">
-              {VIP_TASKS_CONFIG.map((tier) => {
-                const isAchieved = verifiedCount >= tier.required;
+          {board.tasks.length === 0 ? (
+            <div className="p-6 text-center rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border border-dashed border-[var(--theme-card-border)]">
+              <Trophy className="w-8 h-8 mx-auto mb-2 opacity-40" />
+              <p className="text-sm font-black">No VIP tasks available yet</p>
+              <p className="text-xs opacity-60 mt-1">New tasks will appear here when the admin publishes them.</p>
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {board.tasks.map((task) => {
+                const progress = Math.min((task.progress / Math.max(task.requiredBonus, 1)) * 100, 100);
                 return (
-                  <div key={tier.id} className="flex flex-col items-center gap-1 shrink-0">
-                    <div className={`w-7.5 h-7.5 rounded-xl flex items-center justify-center text-[11px] font-black transition-all ${
-                      isAchieved
-                        ? "bg-[var(--theme-primary)] text-white shadow-md scale-105"
-                        : "bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-40"
-                    }`}>
-                      {tier.level}
+                  <div key={task.id} className={`p-3.5 rounded-[var(--theme-radius)] border transition-all ${task.claimed ? "opacity-60 bg-[var(--theme-bg)] border-[var(--theme-card-border)]" : task.unlocked ? "bg-[var(--theme-card-bg)] border-[var(--theme-primary)]/40 shadow-md" : "bg-[var(--theme-card-bg)] border-[var(--theme-card-border)]"}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider bg-[var(--theme-primary)]/10 text-[var(--theme-primary)]">{task.category}</span>
+                          {task.claimed && <span className="text-[10px] font-bold text-emerald-500 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" />CLAIMED</span>}
+                        </div>
+                        <h5 className="text-sm font-black mt-2">{task.title}</h5>
+                        <p className="text-xs opacity-65 mt-1">{task.description}</p>
+                      </div>
+                      <span className="text-sm font-black font-display text-[var(--theme-primary)] whitespace-nowrap">+{formatCurrency(task.reward)}</span>
                     </div>
-                    <span className={`text-[9px] font-bold ${isAchieved ? "text-[var(--theme-primary)]" : "text-[var(--theme-text)] opacity-40"}`}>
-                      VIP {tier.level}
-                    </span>
+                    <div className="mt-3 space-y-1.5">
+                      <div className="flex justify-between text-[11px] font-bold"><span>{formatCurrency(task.progress)} / {formatCurrency(task.requiredBonus)}</span><span className="opacity-60">{task.unlocked ? "Unlocked" : "Locked"}</span></div>
+                      <div className="w-full h-2 bg-[var(--theme-bg)] rounded-full overflow-hidden border border-[var(--theme-card-border)]"><div className={`h-full rounded-full ${task.unlocked ? "bg-[var(--theme-primary)]" : "bg-[var(--theme-primary)]/50"}`} style={{ width: `${progress}%` }} /></div>
+                    </div>
+                    {task.claimed ? <div className="mt-3 text-xs font-bold opacity-70 flex items-center gap-1"><CheckCircle2 className="w-4 h-4 text-emerald-500" />Reward claimed</div> : task.unlocked ? <button onClick={() => void handleClaim(task)} disabled={claimingId === task.id} className="btn-3d-primary w-full mt-3 py-2.5 text-xs font-black uppercase tracking-wider text-white flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60">{claimingId === task.id ? <RefreshCw className="w-4 h-4 animate-spin" /> : <><Sparkles className="w-4 h-4" />Claim {formatCurrency(task.reward)}</>}</button> : <div className="mt-3 text-xs font-bold opacity-55 flex items-center gap-1"><Lock className="w-3.5 h-3.5" />Keep building your referral bonus</div>}
                   </div>
                 );
               })}
             </div>
-          </div>
-
-          {/* Quick Stats Grid */}
-          <div className="grid grid-cols-2 gap-2.5">
-            <div className="p-3 rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border border-[var(--theme-card-border)] space-y-0.5">
-              <span className="text-[10.5px] font-extrabold uppercase text-[var(--theme-text)] opacity-65 block">Active Machines</span>
-              <span className="text-xl font-black font-display text-[var(--theme-primary)]">{verifiedCount}</span>
-            </div>
-            <div className="p-3 rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border border-[var(--theme-card-border)] space-y-0.5">
-              <span className="text-[10.5px] font-extrabold uppercase text-[var(--theme-text)] opacity-65 block">Invites Joined</span>
-              <span className="text-xl font-black font-display text-[var(--theme-text)]">{totalReferralsJoin}</span>
-            </div>
-          </div>
-
-          {/* Rules Banner */}
-          <div className="p-3 rounded-[var(--theme-radius)] bg-[var(--theme-primary)]/10 border border-[var(--theme-primary)]/20 space-y-1">
-            <h5 className="text-xs font-black text-[var(--theme-primary)] flex items-center gap-1.5">
-              <ShieldCheck className="w-4 h-4" />
-              <span>Verified Referral Qualification</span>
-            </h5>
-            <p className="text-xs leading-relaxed text-[var(--theme-text)] opacity-80 font-sans">
-              Referred members must purchase at least one machine to qualify. Rewards are credited directly to your balance.
-            </p>
-          </div>
-
-          {/* List of VIP task tiers */}
-          <div className="space-y-2.5">
-            {VIP_TASKS_CONFIG.map((tier) => {
-              if (tier.level === 0) return null; // Skip claiming tier 0 reward since required is 0
-              const isClaimed = claimedTasks.includes(tier.id);
-              const isAchieved = verifiedCount >= tier.required;
-              const hasButton = isAchieved && !isClaimed;
-              const percent = Math.min((verifiedCount / tier.required) * 100, 100);
-
-              return (
-                <div
-                  key={tier.id}
-                  className={`theme-card p-3.5 rounded-[var(--theme-radius)] border transition-all relative overflow-hidden flex flex-col gap-2.5 ${
-                    isClaimed
-                      ? "border-[var(--theme-card-border)] bg-[var(--theme-bg)] opacity-60"
-                      : isAchieved
-                      ? "border-[var(--theme-primary)]/40 bg-[var(--theme-card-bg)] shadow-md"
-                      : "border-[var(--theme-card-border)] bg-[var(--theme-card-bg)]"
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${tier.badgeColor}`}>
-                        VIP {tier.level}
-                      </span>
-                      {isClaimed && (
-                        <span className="text-[10px] font-bold text-[var(--theme-primary)] bg-[var(--theme-primary)]/10 px-2 py-0.5 rounded-full border border-[var(--theme-primary)]/20">
-                          CLAIMED
-                        </span>
-                      )}
-                    </div>
-
-                    <span className="text-sm font-black font-display text-[var(--theme-primary)]">
-                      +{formatCurrency(tier.reward)}
-                    </span>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between text-xs font-bold text-[var(--theme-text)]">
-                      <span>Requirement: {tier.required} Active Machines</span>
-                      <span className="opacity-60">{verifiedCount} / {tier.required}</span>
-                    </div>
-
-                    <div className="w-full h-2 bg-[var(--theme-bg)] rounded-full overflow-hidden border border-[var(--theme-card-border)]">
-                      <div
-                        className={`h-full transition-all duration-500 ${isAchieved ? "bg-[var(--theme-primary)]" : "bg-[var(--theme-primary)]/50"}`}
-                        style={{ width: `${percent}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Claim Button */}
-                  {hasButton && (
-                    <button
-                      onClick={() => handleClaimReward(tier.id, tier.reward)}
-                      disabled={claimingId === tier.id}
-                      className="btn-3d-primary w-full py-2.5 text-xs font-black uppercase tracking-wider text-white flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98"
-                    >
-                      {claimingId === tier.id ? (
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <>
-                          <Sparkles className="w-4 h-4" />
-                          <span>CLAIM {formatCurrency(tier.reward)}</span>
-                        </>
-                      )}
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+          )}
         </div>
       </motion.div>
     </div>

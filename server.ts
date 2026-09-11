@@ -8,7 +8,6 @@ import { createHmac, timingSafeEqual } from "crypto";
 import path from "path";
 import fs from "fs";
 import cron from "node-cron";
-import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import {
   seedDatabaseIfEmpty,
@@ -18,11 +17,11 @@ import {
   updateUserProfile,
   getSubscriptionItems,
   subscribeToItem,
-  distributeReferralBonus,
   getUserSubscriptions,
   getUserTransactions,
   claimDailyReward,
   requestCashout,
+  createNotification,
   getReferreeStatsList,
   getChatMessages,
   sendChatMessage,
@@ -36,6 +35,7 @@ import {
   completeSuccessfulGpuActivation,
   completeFailedTransaction,
   autoCollectUserYields,
+  ensureUserDailyYields,
   flushDatabase,
   adminGetAllUsers,
   adminOverridePassword,
@@ -50,6 +50,7 @@ import {
   redeemGiftCode,
   dailyCheckin,
   adminGetCatalogItems,
+  getVipTaskboard,
   claimVipTask,
   adminUpdateUserLockStatus,
   adminCreateAnnouncement,
@@ -58,7 +59,15 @@ import {
   adminDeleteAnnouncement,
   adminGetChatConversations,
   getSiteConfig,
-  updateSiteConfig
+  updateSiteConfig,
+  getConfiguredWithdrawMode,
+  getMinimumDepositAmount,
+  getMaximumDepositAmount,
+  getMinimumWithdrawalAmount,
+  getMaximumWithdrawalAmount,
+  getPlatformDateKey,
+  createTransactionId,
+  getTransactionByExternalReference
 } from "./src/server/db";
 
 // Ensure .env is loaded robustly in production iisnode and custom hosting environments (like SmarterASP)
@@ -113,8 +122,15 @@ if (!loadedEnv) {
 }
 
 const app = express();
-const PORT = 3000;
+// IISNode provides PORT (often a named pipe). Keep 3000 only for local development.
+const PORT = process.env.PORT || 3000;
 let databaseReady = false;
+type DailyCreditRunResult = {
+  status: "completed" | "already-ran";
+  platformDate: string;
+  processed?: number;
+};
+let dailyCreditRunner: ((reason: string) => Promise<DailyCreditRunResult>) | null = null;
 const processStartedAt = Date.now();
 const PAYMENT_GATEWAY_URL = process.env.PAYMENT_GATEWAY_URL?.replace(/\/$/, "") || "https://zulupay.org";
 const UPSTREAM_TIMEOUT_MS = Number(process.env.UPSTREAM_TIMEOUT_MS || 12_000);
@@ -141,6 +157,33 @@ app.get("/readyz", (_req, res) => {
   res.json({ ok: true, ready: true });
 });
 
+function isValidDailyCreditJobRequest(req: express.Request): boolean {
+  const expected = String(process.env.DAILY_CREDIT_JOB_SECRET || "");
+  const provided = String(req.query.key || req.headers["x-daily-credit-secret"] || "");
+  if (!expected || !provided) return false;
+  const expectedBytes = Buffer.from(expected);
+  const providedBytes = Buffer.from(provided);
+  return expectedBytes.length === providedBytes.length && timingSafeEqual(expectedBytes, providedBytes);
+}
+
+// Optional hosting scheduler hook. It is protected and idempotent, so a host
+// can call it periodically without relying on the Node process staying alive
+// at exactly midnight.
+app.get("/api/jobs/daily-credit", async (req, res) => {
+  if (!isValidDailyCreditJobRequest(req)) {
+    return res.status(401).json({ error: "Invalid daily credit job secret." });
+  }
+  if (!dailyCreditRunner) {
+    return res.status(503).json({ error: "Daily credit worker is not ready." });
+  }
+  try {
+    res.json(await dailyCreditRunner("External"));
+  } catch (error: any) {
+    console.error("[Daily Credit Job] External run failed:", error);
+    res.status(500).json({ error: "Daily credit job failed." });
+  }
+});
+
 const PHONE_PATTERN = /^\d{9,10}$/;
 const MAX_PASSWORD_LENGTH = 128;
 
@@ -159,6 +202,8 @@ function errorResponse(error: unknown, fallback: string, defaultStatus = 500) {
 
 const ADMIN_SESSION_COOKIE = "referral_admin_session";
 const ADMIN_SESSION_TTL_SECONDS = 8 * 60 * 60;
+const USER_SESSION_COOKIE = "referral_user_session";
+const USER_SESSION_TTL_SECONDS = 24 * 60 * 60;
 
 function getCookieValue(req: express.Request, name: string): string | null {
   const cookies = String(req.headers.cookie || "").split(";");
@@ -167,7 +212,9 @@ function getCookieValue(req: express.Request, name: string): string | null {
 }
 
 function adminSessionSecret(config: any): string {
-  return process.env.ADMIN_SESSION_SECRET || config.adminPass || process.env.ADMIN_PASSWORD || process.env.ADMIN_PASS || "";
+  // Reuse the existing administrator secret; no additional environment
+  // variable is required for the session cookie.
+  return config.adminPass || process.env.ADMIN_PASSWORD || process.env.ADMIN_PASS || "";
 }
 
 function signAdminSession(phone: string, secret: string): string {
@@ -180,6 +227,31 @@ function validAdminSignature(payload: string, signature: string, secret: string)
   const expected = createHmac("sha256", secret).update(payload).digest();
   const received = Buffer.from(signature, "base64url");
   return received.length === expected.length && timingSafeEqual(received, expected);
+}
+
+function signUserSession(phone: string, secret: string): string {
+  const payload = Buffer.from(JSON.stringify({ phone, exp: Math.floor(Date.now() / 1000) + USER_SESSION_TTL_SECONDS })).toString("base64url");
+  const signature = createHmac("sha256", secret).update(`user:${payload}`).digest("base64url");
+  return `${payload}.${signature}`;
+}
+
+async function getAuthenticatedUserPhone(req: express.Request): Promise<string | null> {
+  const token = getCookieValue(req, USER_SESSION_COOKIE);
+  if (!token) return null;
+  try {
+    const [payload, signature] = token.split(".");
+    if (!payload || !signature) return null;
+    const session = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+    const config = await getSiteConfig();
+    const secret = adminSessionSecret(config);
+    const expected = createHmac("sha256", secret).update(`user:${payload}`).digest();
+    const received = Buffer.from(signature, "base64url");
+    if (!secret || received.length !== expected.length || !timingSafeEqual(received, expected)) return null;
+    if (typeof session.phone !== "string" || Number(session.exp) < Math.floor(Date.now() / 1000)) return null;
+    return session.phone;
+  } catch {
+    return null;
+  }
 }
 
 // Admin API calls are same-origin and use this HttpOnly cookie. This closes the
@@ -203,28 +275,29 @@ app.use("/api/admin", async (req, res, next) => {
   }
 });
 
-// Initialize Gemini SDK with telemetry header
-let ai: GoogleGenAI | null = null;
-try {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (apiKey) {
-    ai = new GoogleGenAI({
-      apiKey,
-      httpOptions: {
-        headers: {
-          "User-Agent": "aistudio-build",
-        },
-      },
-    });
-    console.log("[Gemini AI] Initialized for help assistant.");
-  } else {
-    console.warn("GEMINI_API_KEY is not defined in environment variables.");
-  }
-} catch (e) {
-  console.error("Failed to initialize GoogleGenAI", e);
-}
+// AI provider is OpenRouter (free route). No startup client needed — per-request fetch with rotation.
 
 // ================= AUTH ENDPOINTS =================
+
+// Restore the signed HttpOnly user session after a browser refresh. The
+// client never needs to persist the profile or the session token itself.
+app.get("/api/auth/session", async (req, res) => {
+  try {
+    const phone = await getAuthenticatedUserPhone(req);
+    if (!phone) return res.status(401).json({ authenticated: false });
+    const profile = await getUserProfile(phone);
+    if (!profile) return res.status(401).json({ authenticated: false });
+    res.json({ authenticated: true, profile });
+  } catch (error: any) {
+    console.error("[Auth] Session restore failed:", error);
+    res.status(401).json({ authenticated: false });
+  }
+});
+
+app.post("/api/auth/logout", (_req, res) => {
+  res.setHeader("Set-Cookie", `${USER_SESSION_COOKIE}=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0`);
+  res.json({ success: true });
+});
 
 // Registration
 app.post("/api/auth/register", async (req, res) => {
@@ -287,6 +360,12 @@ app.post("/api/auth/login", async (req, res) => {
     if (!profile) {
       return res.status(401).json({ success: false, error: "Phone number or password is incorrect." });
     }
+    const config = await getSiteConfig();
+    const secret = adminSessionSecret(config);
+    if (!secret) {
+      return res.status(503).json({ error: "Sign-in is temporarily unavailable because secure session configuration is missing." });
+    }
+    res.setHeader("Set-Cookie", `${USER_SESSION_COOKIE}=${encodeURIComponent(signUserSession(normalizedPhone, secret))}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${USER_SESSION_TTL_SECONDS}`);
     res.json({ success: true, profile });
   } catch (error: any) {
     console.error("Login Error:", error);
@@ -322,6 +401,7 @@ app.post("/api/auth/profile", async (req, res) => {
 // Fetch Profile details
 app.get("/api/profile/:phone", async (req, res) => {
   try {
+    await ensureUserDailyYields(req.params.phone);
     const profile = await getUserProfile(req.params.phone);
     res.json(profile);
   } catch (error: any) {
@@ -346,6 +426,7 @@ app.get("/api/items", async (req, res) => {
 // Get user active subscriptions nodes
 app.get("/api/subscriptions/:phone", async (req, res) => {
   try {
+    await ensureUserDailyYields(req.params.phone);
     const list = await getUserSubscriptions(req.params.phone);
     res.json(list);
   } catch (error: any) {
@@ -365,10 +446,6 @@ app.post("/api/items/subscribe", async (req, res) => {
   try {
     const subNode = await subscribeToItem(phone, itemId);
     
-    // Distribute referral rewards immediately on secondary async thread!
-    distributeReferralBonus(phone, subNode.itemId)
-      .catch((err) => console.error("Referral triggers exception:", err));
-
     res.json({ success: true, subscription: subNode });
   } catch (error: any) {
     console.error("Subscription purchase error:", error);
@@ -395,15 +472,28 @@ app.post("/api/subscriptions/claim", async (req, res) => {
 
 // Cashout Point conversion
 app.post("/api/profile/withdraw", async (req, res) => {
-  const { phone, points } = req.body;
+  const phone = normalizePhone(req.body?.phone);
+  const points = req.body?.points;
   const numPoints = parseInt(points);
 
   if (!phone || isNaN(numPoints) || numPoints <= 0) {
     return res.status(400).json({ error: "Specify a valid non-zero points amount for withdrawal." });
   }
+  const authenticatedPhone = await getAuthenticatedUserPhone(req);
+  if (!authenticatedPhone || authenticatedPhone !== phone) {
+    return res.status(401).json({ error: "Please sign in again before requesting a withdrawal." });
+  }
 
   try {
-    const result = await requestCashout(phone, numPoints);
+    // This legacy endpoint has no payment-provider payload/callback wiring.
+    // Do not let it create an automatic withdrawal that can never receive a
+    // webhook; current clients must use /api/payment/withdraw.
+    const config = await getSiteConfig();
+    if (getConfiguredWithdrawMode(config) === "automatic") {
+      return res.status(409).json({ error: "Automatic withdrawals must be submitted through the payment gateway flow." });
+    }
+
+    const result = await requestCashout(phone, numPoints, undefined, "manual");
     res.json(result);
   } catch (error: any) {
     console.error("Cashout request error:", error);
@@ -411,12 +501,32 @@ app.post("/api/profile/withdraw", async (req, res) => {
   }
 });
 
-// VIP Tasks Claiming Endpoint
+// VIP Taskboard endpoints. Progress and rewards are calculated server-side;
+// both endpoints require the signed user session created during login.
+app.get("/api/profile/vip-tasks/:phone", async (req, res) => {
+  const authenticatedPhone = await getAuthenticatedUserPhone(req);
+  if (!authenticatedPhone || authenticatedPhone !== normalizePhone(req.params.phone)) {
+    return res.status(401).json({ error: "Please sign in again to view your VIP taskboard." });
+  }
+  try {
+    const board = await getVipTaskboard(req.params.phone);
+    res.json(board);
+  } catch (error: any) {
+    console.error("[VIP tasks] load error:", error);
+    res.status(500).json({ error: error.message || "Unable to load VIP tasks right now." });
+  }
+});
+
 app.post("/api/profile/vip-tasks/claim", async (req, res) => {
   const { phone, taskId } = req.body;
 
   if (!phone || !taskId) {
     return res.status(400).json({ error: "Missing required parameters phone and taskId." });
+  }
+
+  const authenticatedPhone = await getAuthenticatedUserPhone(req);
+  if (!authenticatedPhone || authenticatedPhone !== normalizePhone(phone)) {
+    return res.status(401).json({ error: "Please sign in again before claiming a VIP task." });
   }
 
   try {
@@ -432,7 +542,7 @@ app.post("/api/profile/vip-tasks/claim", async (req, res) => {
 async function getZuluPayToken(): Promise<string> {
   const publicKey = process.env.PAYMENT_PUBLIC_KEY;
   if (!publicKey) {
-    throw new Error(`ZuluPay environment configuration is missing (PAYMENT_PUBLIC_KEY). Env loaded path: "${appliedEnvPath || "None"}". Checked paths: [${searchPaths.slice(0, 10).join(", ")}]. Loaded env keys: ${Object.keys(process.env).filter(k => k.includes("PAYMENT") || k.includes("PORT") || k.includes("APP")).join(", ")}`);
+    throw new Error(`environment configuration is missing (PAYMENT_PUBLIC_KEY). Env loaded path: "${appliedEnvPath || "None"}". Checked paths: [${searchPaths.slice(0, 10).join(", ")}]. Loaded env keys: ${Object.keys(process.env).filter(k => k.includes("PAYMENT") || k.includes("PORT") || k.includes("APP")).join(", ")}`);
   }
 
   const response = await fetchWithTimeout(`${PAYMENT_GATEWAY_URL}/api/register`, {
@@ -445,7 +555,7 @@ async function getZuluPayToken(): Promise<string> {
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`ZuluPay API token auth failure (${response.status}): ${text}`);
+    throw new Error(` API token auth failure (${response.status}): ${text}`);
   }
 
   const rawText = await response.text();
@@ -469,18 +579,30 @@ app.post("/api/payment/deposit", async (req, res) => {
   const { phone, amount, operator, depositPhone, type, itemId } = req.body;
   const depAmt = parseInt(amount);
 
-  if (!phone || isNaN(depAmt) || depAmt < 500 || !operator || !depositPhone) {
-    return res.status(400).json({ error: "Missing parameters. Amount must be at least 500 UGX." });
+  if (!phone || isNaN(depAmt) || depAmt <= 0 || !operator || !depositPhone) {
+    return res.status(400).json({ error: "Missing parameters. Enter a valid deposit amount." });
   }
 
   try {
+    const config = await getSiteConfig();
+    const minimumDeposit = getMinimumDepositAmount(config);
+    const maximumDeposit = getMaximumDepositAmount(config);
+    if (depAmt < minimumDeposit) {
+      return res.status(400).json({ error: `Minimum deposit is UGX ${minimumDeposit.toLocaleString()}.` });
+    }
+    if (maximumDeposit > 0 && depAmt > maximumDeposit) {
+      return res.status(400).json({ error: `Maximum deposit is UGX ${maximumDeposit.toLocaleString()}.` });
+    }
+
     const zKey = process.env.PAYMENT_SECRET_KEY;
     if (!zKey) {
-      throw new Error(`ZuluPay configuration secret key is missing (PAYMENT_SECRET_KEY). Env loaded path: "${appliedEnvPath || "None"}". Checked paths: [${searchPaths.slice(0, 10).join(", ")}]. Loaded env keys: ${Object.keys(process.env).filter(k => k.includes("PAYMENT") || k.includes("PORT") || k.includes("APP")).join(", ")}`);
+      throw new Error(` configuration secret key is missing (PAYMENT_SECRET_KEY). Env loaded path: "${appliedEnvPath || "None"}". Checked paths: [${searchPaths.slice(0, 10).join(", ")}]. Loaded env keys: ${Object.keys(process.env).filter(k => k.includes("PAYMENT") || k.includes("PORT") || k.includes("APP")).join(", ")}`);
     }
 
     const token = await getZuluPayToken();
-    const trans_id = "ZP-" + type.toUpperCase().slice(0, 3) + "-" + Date.now().toString().slice(-6) + Math.floor(Math.random() * 100);
+    const trans_id = String(type || "").toLowerCase() === "gpu"
+      ? createTransactionId("RNT")
+      : createTransactionId("DEP");
     const webhookUrl = process.env.PAYMENT_WEBHOOK_URL || `${req.protocol}://${req.get("host")}/api/payment/webhook`;
 
     const depositRes = await fetchWithTimeout(`${PAYMENT_GATEWAY_URL}/api/deposit`, {
@@ -505,7 +627,7 @@ app.post("/api/payment/deposit", async (req, res) => {
     try {
       depResult = JSON.parse(bodyText);
     } catch (e) {
-      console.warn("ZuluPay deposit returned non-JSON:", bodyText);
+      console.warn(" deposit returned non-JSON:", bodyText);
     }
 
     if (!depositRes.ok) {
@@ -516,6 +638,13 @@ app.post("/api/payment/deposit", async (req, res) => {
 
     // Save pending transaction record in Firestore
     await saveTransaction(trans_id, phone, depAmt, type, depositPhone, operator, itemId);
+    await createNotification(
+      phone,
+      "Deposit Initiated",
+      `Your deposit of UGX ${depAmt.toLocaleString()} is pending payment confirmation. Reference: ${trans_id}.`,
+      "deposit",
+      depAmt
+    );
 
     res.json({
       success: true,
@@ -525,7 +654,7 @@ app.post("/api/payment/deposit", async (req, res) => {
     });
 
   } catch (error: any) {
-    console.error("Zulupay collection error:", error);
+    console.error(" collection error:", error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -535,22 +664,56 @@ app.post("/api/manual/deposit", async (req, res) => {
   const { phone, amount, operator, senderPhone, transId, itemId } = req.body;
   const depAmt = parseInt(amount);
 
-  if (!phone || isNaN(depAmt) || depAmt < 500 || !operator || !senderPhone || !transId) {
-    return res.status(400).json({ error: "Please fill in all manual deposit fields. Amount must be at least 500 UGX." });
+  if (!phone || isNaN(depAmt) || depAmt <= 0 || !operator || !senderPhone || !transId) {
+    return res.status(400).json({ error: "Please fill in all manual deposit fields with a valid amount." });
   }
 
   try {
-    const existingTx = await getTransaction(transId);
+    const config = await getSiteConfig();
+    const minimumDeposit = getMinimumDepositAmount(config);
+    const maximumDeposit = getMaximumDepositAmount(config);
+    if (depAmt < minimumDeposit) {
+      return res.status(400).json({ error: `Minimum deposit is UGX ${minimumDeposit.toLocaleString()}.` });
+    }
+    if (maximumDeposit > 0 && depAmt > maximumDeposit) {
+      return res.status(400).json({ error: `Maximum deposit is UGX ${maximumDeposit.toLocaleString()}.` });
+    }
+
+    const existingTx = await getTransaction(transId) || await getTransactionByExternalReference(transId);
     if (existingTx) {
       return res.status(400).json({ error: "This transaction reference / ID has already been submitted." });
     }
 
-    // Create a manual transaction record in firestore
-    await saveTransaction(transId, phone, depAmt, itemId ? "gpu" : "deposit", senderPhone, operator, itemId, "manual");
+    const internalTransactionId = itemId ? createTransactionId("RNT") : createTransactionId("DEP");
+    // Keep the payer's provider/hash reference as metadata while the local
+    // ledger uses the same recognizable ID format as every other transaction.
+    await saveTransaction({
+      id: internalTransactionId,
+      userId: phone,
+      type: itemId ? "gpu" : "deposit",
+      amount: depAmt,
+      currency: "UGX",
+      status: "pending",
+      paymentMethod: operator,
+      phone: senderPhone,
+      itemId: itemId || "",
+      operator,
+      mode: "manual",
+      metadata: { externalReference: transId },
+      timestamp: new Date().toISOString()
+    });
+    await createNotification(
+      phone,
+      "Deposit Submitted",
+      `Your deposit proof for UGX ${depAmt.toLocaleString()} is pending admin approval. Reference: ${internalTransactionId}. External payment reference: ${transId}.`,
+      "deposit",
+      depAmt
+    );
 
     res.json({
       success: true,
-      trans_id: transId,
+      trans_id: internalTransactionId,
+      external_reference: transId,
       status: "PENDING",
       message: "Proof of payment submitted successfully! Verification is now pending admin approval."
     });
@@ -579,6 +742,13 @@ app.post("/api/payment/status", async (req, res) => {
       return res.json({ success: true, status: tx.status, transaction: tx });
     }
 
+    // Automatic withdrawals are settled exclusively by /api/payment/webhook.
+    // This status endpoint must never race the callback or become a second
+    // settlement path.
+    if (tx.type === "withdrawal" || tx.type === "withdraw") {
+      return res.json({ success: true, status: String(tx.status || "PENDING").toUpperCase(), transaction: tx });
+    }
+
     const token = await getZuluPayToken();
     const zKey = process.env.PAYMENT_SECRET_KEY;
 
@@ -601,7 +771,7 @@ app.post("/api/payment/status", async (req, res) => {
     try {
       zuluTx = JSON.parse(bodyText);
     } catch (e) {
-      console.warn("Zulupay query response parsing error:", bodyText);
+      console.warn(" query response parsing error:", bodyText);
     }
 
     const status = zuluTx.status || zuluTx.data?.status || "PENDING";
@@ -657,62 +827,128 @@ app.post("/api/payment/status", async (req, res) => {
     });
 
   } catch (error: any) {
-    console.error("ZuluPay status check error:", error);
+    console.error("Webhook status check error:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
 // 3. ZULUPAY WITHDRAW / DISBURSEMENT
 app.post("/api/payment/withdraw", async (req, res) => {
-  const { phone, amount, operator, withdrawPhone } = req.body;
-  const withAmt = parseInt(amount);
+  const phone = normalizePhone(req.body?.phone);
+  const operator = String(req.body?.operator || "").trim().toUpperCase();
+  const withdrawPhone = typeof req.body?.withdrawPhone === "string" ? req.body.withdrawPhone.trim() : "";
+  const withAmt = Number(req.body?.amount);
+  const authenticatedPhone = await getAuthenticatedUserPhone(req);
 
-  if (!phone || isNaN(withAmt) || withAmt < 500 || !operator || !withdrawPhone) {
-    return res.status(400).json({ error: "Missing payout parameters. Minimum 500 Shs." });
+  if (!authenticatedPhone || authenticatedPhone !== phone) {
+    return res.status(401).json({ error: "Please sign in again before requesting a withdrawal." });
+  }
+  if (!PHONE_PATTERN.test(phone) || !Number.isInteger(withAmt) || withAmt <= 0 || !["MTN", "AIRTEL", "USDT"].includes(operator) || !withdrawPhone) {
+    return res.status(400).json({ error: "Missing payout parameters. Enter a valid withdrawal amount." });
   }
 
   try {
     const config = await getSiteConfig();
-    const allowAutoWithdraw = config.allowAutoWithdraw !== false;
+    const minimumWithdrawal = getMinimumWithdrawalAmount(config);
+    const maximumWithdrawal = getMaximumWithdrawalAmount(config);
+    if (withAmt < minimumWithdrawal) {
+      return res.status(400).json({ error: `Minimum withdrawal is UGX ${minimumWithdrawal.toLocaleString()}.` });
+    }
+    if (maximumWithdrawal > 0 && withAmt > maximumWithdrawal) {
+      return res.status(400).json({ error: `Maximum withdrawal is UGX ${maximumWithdrawal.toLocaleString()}.` });
+    }
 
-    if (!allowAutoWithdraw) {
-      // Manual/offline withdrawal processing!
-      const cashoutResult = await requestCashout(phone, withAmt, undefined, "manual", withdrawPhone, operator);
+    const activeSubscriptions = await getUserSubscriptions(phone);
+    if (!activeSubscriptions.some((subscription) => subscription.status === "active")) {
+      return res.status(400).json({ error: "You must have an active product subscription to withdraw." });
+    }
+    const withdrawMode = getConfiguredWithdrawMode(config);
+    const withdrawFeePercent = config.withdrawFee ?? 0;
+    const withdrawFeeAmount = Math.max(0, Math.floor(withAmt * (withdrawFeePercent / 100)));
+    const payoutAmount = Math.max(0, withAmt - withdrawFeeAmount);
+
+    if (payoutAmount <= 0) {
+      return res.status(400).json({ error: "Withdrawal amount is too small after fees. Please request a larger amount." });
+    }
+
+    // Give the user a balance-specific response before checking gateway
+    // configuration. The atomic reservation below repeats this check to
+    // protect against concurrent withdrawals.
+    const currentUser = await getUserProfile(phone);
+    if (!currentUser) {
+      return res.status(404).json({ error: "User account not found." });
+    }
+    if (Number(currentUser.points || 0) < withAmt) {
+      return res.status(400).json({ error: `Insufficient withdrawable balance. Available: UGX ${Number(currentUser.points || 0).toLocaleString()}.` });
+    }
+
+    if (withdrawMode === "manual") {
+      const cashoutResult = await requestCashout(phone, withAmt, undefined, "manual", withdrawPhone, operator, {
+        feePercent: withdrawFeePercent,
+        feeAmount: withdrawFeeAmount,
+        payoutAmount
+      });
       return res.json({
         success: true,
+        status: "PENDING",
+        mode: "manual",
         profile: cashoutResult.profile,
-        message: "Offline withdrawal requested! Pending manual validation."
+        transaction: cashoutResult,
+        message: "Withdrawal submitted and is pending admin approval."
       });
     }
 
     const zKey = process.env.PAYMENT_SECRET_KEY;
     const pin = process.env.PAYMENT_WITHDRAW_PASSWORD || "";
     if (!zKey) {
-      throw new Error(`ZuluPay configuration secret key is missing (PAYMENT_SECRET_KEY). Env loaded path: "${appliedEnvPath || "None"}". Checked paths: [${searchPaths.slice(0, 10).join(", ")}]. Loaded env keys: ${Object.keys(process.env).filter(k => k.includes("PAYMENT") || k.includes("PORT") || k.includes("APP")).join(", ")}`);
+      throw new Error(` configuration secret key is missing (PAYMENT_SECRET_KEY). Env loaded path: "${appliedEnvPath || "None"}". Checked paths: [${searchPaths.slice(0, 10).join(", ")}]. Loaded env keys: ${Object.keys(process.env).filter(k => k.includes("PAYMENT") || k.includes("PORT") || k.includes("APP")).join(", ")}`);
     }
 
+    const trans_id = createTransactionId("WDR");
     const token = await getZuluPayToken();
-    const trans_id = "WD-" + Date.now().toString().slice(-6) + Math.floor(Math.random() * 100);
     const webhookUrl = process.env.PAYMENT_WEBHOOK_URL || `${req.protocol}://${req.get("host")}/api/payment/webhook`;
 
-    const withdrawRes = await fetchWithTimeout(`${PAYMENT_GATEWAY_URL}/api/withdraw`, {
-      method: "POST",
-      headers: {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-        "secret_key": zKey,
-        "Authorization": `Bearer ${token}`,
-        "password": pin
-      },
-      body: JSON.stringify({
-        amount: withAmt,
-        phone: withdrawPhone,
-        trans_id,
-        reason: "Customer withdraw from mining grid",
-        callback_url: webhookUrl,
-        webhook_url: webhookUrl
-      })
+    // Record the pending withdrawal before contacting the provider. A fast
+    // provider callback must always find a local transaction to settle.
+    const cashoutResult = await requestCashout(phone, withAmt, trans_id, "automatic", withdrawPhone, operator, {
+      feePercent: withdrawFeePercent,
+      feeAmount: withdrawFeeAmount,
+      payoutAmount
     });
+
+    let withdrawRes: Response;
+    try {
+      withdrawRes = await fetchWithTimeout(`${PAYMENT_GATEWAY_URL}/api/withdraw`, {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+          "secret_key": zKey,
+          "Authorization": `Bearer ${token}`,
+          "password": pin
+        },
+        body: JSON.stringify({
+          amount: payoutAmount,
+          phone: withdrawPhone,
+          trans_id,
+          reason: trans_id,
+          callback_url: webhookUrl,
+          webhook_url: webhookUrl
+        })
+      });
+    } catch (error: any) {
+      // A timeout can mean the provider accepted the payout. Keep the local
+      // record pending so a later webhook cannot pay against a refunded user.
+      console.error("Withdrawal request outcome is unknown:", error);
+      return res.status(202).json({
+        success: true,
+        status: "PENDING",
+        mode: "automatic",
+        profile: cashoutResult.profile,
+        transaction: cashoutResult,
+        message: "Withdrawal submitted. Awaiting payment-provider webhook confirmation."
+      });
+    }
 
     const bodyText = await withdrawRes.text();
     let withResult: any = {};
@@ -723,22 +959,25 @@ app.post("/api/payment/withdraw", async (req, res) => {
     }
 
     if (!withdrawRes.ok) {
+      await completeFailedTransaction(trans_id);
       return res.status(400).json({
-        error: withResult.message || withResult.error || `Payout gateway failed: ${withdrawRes.status}`
+        error: withResult.message || withResult.error || `Withdrawal gateway failed: ${withdrawRes.status}`
       });
     }
 
-    // Process the cashout in db (deducts points, updates history & records notification)
-    const cashoutResult = await requestCashout(phone, withAmt, trans_id, undefined, withdrawPhone, operator);
-
+    const finalTransaction = await getTransaction(trans_id);
+    const finalProfile = await getUserProfile(phone);
     res.json({
       success: true,
-      profile: cashoutResult.profile,
+      status: String(finalTransaction?.status || "PENDING").toUpperCase(),
+      mode: "automatic",
+      profile: finalProfile || cashoutResult.profile,
+      transaction: finalTransaction || cashoutResult,
       zuluResponse: withResult
     });
 
   } catch (error: any) {
-    console.error("Zulupay payout error:", error);
+    console.error("Withdrawal error:", error);
     res.status(400).json({ error: error.message });
   }
 });
@@ -746,19 +985,19 @@ app.post("/api/payment/withdraw", async (req, res) => {
 // 4. ZULUPAY WEBHOOK / CALLBACK (Provide this URL to your provider)
 app.post("/api/payment/webhook", async (req, res) => {
   try {
-    console.log("Received ZuluPay Webhook Callback:", JSON.stringify(req.body, null, 2));
+    console.log("Received Webhook Callback:", JSON.stringify(req.body, null, 2));
 
     const payload = req.body || {};
-    const trans_id = payload.trans_id || payload.data?.trans_id;
-    const rawStatus = payload.status || payload.data?.status;
+    const trans_id = payload.trans_id || payload.transaction_id || payload.data?.trans_id || payload.data?.transaction_id;
+    const rawStatus = payload.status || payload.transaction_status || payload.data?.status || payload.data?.transaction_status;
 
     if (!trans_id) {
-      console.warn("ZuluPay webhook received without transaction ID:", payload);
+      console.warn("Webhook received without transaction ID:", payload);
       return res.status(200).json({ received: true, status: "ignored_missing_trans_id" });
     }
 
     if (!rawStatus) {
-      console.warn("ZuluPay webhook received without status:", payload);
+      console.warn("Webhook received without status:", payload);
       return res.status(200).json({ received: true, status: "ignored_missing_status" });
     }
 
@@ -771,18 +1010,23 @@ app.post("/api/payment/webhook", async (req, res) => {
       normalizedStatus = "FAILED";
     }
 
-    console.log(`ZuluPay webhook parsed: trans_id=${trans_id}, status=${normalizedStatus} (original: ${rawStatus})`);
+    console.log(`Webhook parsed: trans_id=${trans_id}, status=${normalizedStatus} (original: ${rawStatus})`);
 
     // Fetch local transaction record
     const tx = await getTransaction(trans_id);
     if (!tx) {
-      console.warn(`ZuluPay webhook transaction not found in local DB: ${trans_id}`);
+      console.warn(`Webhook transaction not found in local DB: ${trans_id}`);
       return res.status(200).json({ received: true, status: "ignored_not_found" });
+    }
+
+    if ((tx.type === "withdrawal" || tx.type === "withdraw") && String(tx.mode || "").toLowerCase() !== "automatic") {
+      console.warn(`Ignoring provider webhook for manual withdrawal: ${trans_id}`);
+      return res.status(200).json({ received: true, status: "ignored_manual_withdrawal" });
     }
 
     // Prevent double processing
     if (tx.status === "SUCCESSFUL" || tx.status === "FAILED") {
-      console.log(`ZuluPay webhook transaction already settled: trans_id=${trans_id}, status=${tx.status}`);
+      console.log(`Webhook transaction already settled: trans_id=${trans_id}, status=${tx.status}`);
       return res.status(200).json({ received: true, status: "already_settled" });
     }
 
@@ -796,10 +1040,10 @@ app.post("/api/payment/webhook", async (req, res) => {
           tx.operator,
           trans_id
         );
-        console.log(`ZuluPay Webhook successfully processed deposit: ${trans_id}`);
+        console.log(`Webhook successfully processed deposit: ${trans_id}`);
       } else if (tx.type === "withdrawal" || tx.type === "withdraw") {
         await completeSuccessfulWithdrawal(trans_id);
-        console.log(`ZuluPay Webhook successfully processed withdrawal: ${trans_id}`);
+        console.log(`Webhook successfully processed withdrawal: ${trans_id}`);
       } else {
         await completeSuccessfulGpuActivation(
           tx.userId,
@@ -809,20 +1053,21 @@ app.post("/api/payment/webhook", async (req, res) => {
           tx.operator,
           tx.amount
         );
-        console.log(`ZuluPay Webhook successfully processed GPU activation: ${trans_id}`);
+        console.log(`Webhook successfully processed GPU activation: ${trans_id}`);
       }
     } else if (normalizedStatus === "FAILED") {
       await completeFailedTransaction(trans_id);
-      console.log(`ZuluPay Webhook successfully processed failed transaction: ${trans_id}`);
+      console.log(`Webhook successfully processed failed transaction: ${trans_id}`);
     } else {
-      console.log(`ZuluPay Webhook status still pending: ${trans_id}`);
+      console.log(`Webhook status still pending: ${trans_id}`);
     }
 
     res.status(200).json({ received: true, status: "processed", transaction_status: normalizedStatus });
   } catch (error) {
-    console.error("ZuluPay Webhook error:", error);
-    // Still return 200 OK so the provider knows we received the request and doesn't retry infinitely on crash
-    res.status(200).json({ received: true, error: error instanceof Error ? error.message : String(error) });
+    console.error("Webhook error:", error);
+    // A settlement failure should be retried by the provider. Returning 200
+    // here would acknowledge the webhook while leaving the withdrawal stuck.
+    res.status(500).json({ received: false, error: error instanceof Error ? error.message : String(error) });
   }
 });
 
@@ -836,6 +1081,16 @@ app.post("/api/profile/deposit", async (req, res) => {
   }
 
   try {
+    const config = await getSiteConfig();
+    const minimumDeposit = getMinimumDepositAmount(config);
+    const maximumDeposit = getMaximumDepositAmount(config);
+    if (depAmt < minimumDeposit) {
+      return res.status(400).json({ error: `Minimum deposit is UGX ${minimumDeposit.toLocaleString()}.` });
+    }
+    if (maximumDeposit > 0 && depAmt > maximumDeposit) {
+      return res.status(400).json({ error: `Maximum deposit is UGX ${maximumDeposit.toLocaleString()}.` });
+    }
+
     const updatedProfile = await processDeposit(phone, depAmt, operator, depositPhone);
     res.json({ success: true, profile: updatedProfile });
   } catch (error: any) {
@@ -847,7 +1102,12 @@ app.post("/api/profile/deposit", async (req, res) => {
 // Fetch non-simulated persistent user notification logs
 app.get("/api/profile/notifications/:phone", async (req, res) => {
   try {
-    const logs = await getUserNotifications(req.params.phone);
+    const phone = normalizePhone(req.params.phone);
+    const authenticatedPhone = await getAuthenticatedUserPhone(req);
+    if (!authenticatedPhone || authenticatedPhone !== phone) {
+      return res.status(401).json({ error: "Please sign in again to view alert history." });
+    }
+    const logs = await getUserNotifications(phone);
     res.json(logs);
   } catch (error: any) {
     console.error("Fetch notifications list exception:", error);
@@ -858,7 +1118,12 @@ app.get("/api/profile/notifications/:phone", async (req, res) => {
 // Fetch non-simulated user transactions
 app.get("/api/profile/transactions/:phone", async (req, res) => {
   try {
-    const list = await getUserTransactions(req.params.phone);
+    const phone = normalizePhone(req.params.phone);
+    const authenticatedPhone = await getAuthenticatedUserPhone(req);
+    if (!authenticatedPhone || authenticatedPhone !== phone) {
+      return res.status(401).json({ error: "Please sign in again to view transaction history." });
+    }
+    const list = await getUserTransactions(phone);
     res.json(list);
   } catch (error: any) {
     console.error("Fetch transactions exception:", error);
@@ -991,13 +1256,13 @@ app.post("/api/copilot/chat", async (req, res) => {
   }
 
   const keys = [
-    process.env.GEMINI_API_KEY,
-    process.env.GEMINI_API_KEY_2,
-    process.env.GEMINI_API_KEY_3
-  ].map(k => k?.trim()).filter(Boolean).filter(k => k && k !== "MY_GEMINI_API_KEY" && k !== "YOUR_GEMINI_API_KEY" && k.length > 10) as string[];
+    process.env.OPENROUTER_API_KEY,
+    process.env.OPENROUTER_API_KEY_2,
+    process.env.OPENROUTER_API_KEY_3
+  ].map(k => k?.trim()).filter(Boolean).filter(k => k && k !== "MY_OPENROUTER_API_KEY" && k !== "YOUR_OPENROUTER_API_KEY" && k.length > 10) as string[];
 
   if (keys.length === 0) {
-    return res.status(503).json({ error: "Gemini Copilot Service is offline. No valid API key configured." });
+    return res.status(503).json({ error: "AI Copilot Service is offline. No valid API key configured. Set OPENROUTER_API_KEY in env." });
   }
 
   try {
@@ -1009,6 +1274,8 @@ Platform Config & Financial Parameters:
 - **Withdrawal Fee**: ${siteConfig?.withdrawFee || 0}% for all withdrawal requests (MTN, Airtel, USDT TRC20)
 - **Level 1 Referral Commission Rate**: ${siteConfig?.level1InviteIncomePct !== undefined ? siteConfig.level1InviteIncomePct : 15}%
 - **Level 2 Referral Commission Rate**: ${siteConfig?.level2InviteIncomePct !== undefined ? siteConfig.level2InviteIncomePct : 5}%
+- **Level 3 Referral Commission Rate**: ${siteConfig?.level3InviteIncomePct !== undefined ? siteConfig.level3InviteIncomePct : 0}%
+- **Level 4 Referral Commission Rate**: ${siteConfig?.level4InviteIncomePct !== undefined ? siteConfig.level4InviteIncomePct : 0}%
 - **Registration Bonus**: UGX ${(siteConfig?.registrationBonus || 1000).toLocaleString()} Shs
 - **Official WhatsApp Support Link**: ${siteConfig?.whatsappLink || "Not configured"}
 - **Official Telegram Group Link**: ${siteConfig?.telegramLink || "Not configured"}
@@ -1032,93 +1299,81 @@ Current User Details:
 Knowledge & Capabilities:
 - **Recharge (Deposit)**: Users can deposit UGX via MTN/Airtel Mobile Money or USDT TRC20 to buy server nodes.
 - **Withdrawal**: Cash out balance directly to Mobile Money or USDT. Withdrawal fee is exactly ${siteConfig?.withdrawFee || 0}%.
-- **Invite Program**: Users earn ${siteConfig?.level1InviteIncomePct || 15}% on Level 1 and ${siteConfig?.level2InviteIncomePct || 5}% on Level 2 when invited friends activate GPU nodes.
+- **Invite Program**: Users earn ${siteConfig?.level1InviteIncomePct ?? 15}% on Level 1, ${siteConfig?.level2InviteIncomePct ?? 5}% on Level 2, ${siteConfig?.level3InviteIncomePct ?? 0}% on Level 3, and ${siteConfig?.level4InviteIncomePct ?? 0}% on Level 4 when invited friends activate GPU nodes.
 - **VIP Tasks**: Complete referral targets to unlock rewards up to UGX 50,000,000.
 - **Support Links**: WhatsApp (${siteConfig?.whatsappLink || "N/A"}) and Telegram (${siteConfig?.telegramLink || "N/A"}).
 
 Instructions:
 1. Speak confidently, warmly, and helpfully like a knowledgeable crypto advisor and developer.
-2. Provide exact facts when users ask about withdrawal fees (${siteConfig?.withdrawFee || 0}%), invite rates (${siteConfig?.level1InviteIncomePct || 15}% L1, ${siteConfig?.level2InviteIncomePct || 5}% L2), support links, or active gift codes.
+2. Provide exact facts when users ask about withdrawal fees (${siteConfig?.withdrawFee || 0}%), invite rates (${siteConfig?.level1InviteIncomePct ?? 15}% L1, ${siteConfig?.level2InviteIncomePct ?? 5}% L2, ${siteConfig?.level3InviteIncomePct ?? 0}% L3, ${siteConfig?.level4InviteIncomePct ?? 0}% L4), support links, or active gift codes.
 3. Keep replies concise, friendly, and structured. Limit responses below 70 words.
 4. Format response strictly as simple JSON object:
 {
   "text": "Your response in clean markdown layout."
 }`;
 
-    const convoText = messages.map((m: any) => `${m.sender === "user" ? "User" : `${brand} AI`}: ${m.text}`).join("\n");
+    // Build OpenRouter messages: system + conversation history
+    const historyMessages = (messages || []).map((m: any) => ({
+      role: m.sender === "user" ? "user" : "assistant",
+      content: String(m.text || "")
+    }));
 
+    const openRouterMessages = [
+      { role: "system", content: systemInstruction },
+      ...historyMessages
+    ];
+
+    const model = process.env.OPENROUTER_MODEL?.trim() || "openrouter/free";
     let responseText = "";
     let lastError: any = null;
 
-    // Standard valid model alias for Google GenAI SDK
-    const modelsToTry = ["gemini-2.5-flash"];
-
     for (let i = 0; i < keys.length; i++) {
       const currentKey = keys[i];
-      const rotationAi = new GoogleGenAI({
-        apiKey: currentKey,
-        httpOptions: {
+      try {
+        console.log(`[OpenRouter] Attempting model ${model} with key index ${i}`);
+        const appUrl = process.env.APP_URL?.replace(/\/$/, "") || process.env.VITE_APP_URL?.replace(/\/$/, "") || "https://www.pjnatal.com";
+        const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
           headers: {
-            "User-Agent": "aistudio-build",
+            "Authorization": `Bearer ${currentKey}`,
+            "Content-Type": "application/json",
+            "HTTP-Referer": appUrl,
+            "X-Title": brand
           },
-        },
-      });
+          body: JSON.stringify({
+            model,
+            messages: openRouterMessages,
+            max_tokens: 512,
+            temperature: 0.7
+          })
+        });
 
-      for (const currentModel of modelsToTry) {
-        try {
-          console.log(`[Gemini Rotation] Attempting model ${currentModel} with key index ${i}`);
-          
-          let response;
-          try {
-            // First attempt with strict JSON schema
-            response = await rotationAi.models.generateContent({
-              model: currentModel,
-              contents: `${convoText}\n${brand} AI:`,
-              config: {
-                systemInstruction,
-                responseMimeType: "application/json",
-                responseSchema: {
-                  type: Type.OBJECT,
-                  properties: {
-                    text: { type: Type.STRING }
-                  },
-                  required: ["text"]
-                }
-              }
-            });
-            responseText = response.text ? response.text.trim() : "";
-          } catch (schemaErr: any) {
-            console.warn(`[Gemini Schema warning] Schema generation failed with ${currentModel}. Falling back to unstructured content.`, schemaErr.message || schemaErr);
-            // Fallback to unstructured text generation
-            response = await rotationAi.models.generateContent({
-              model: currentModel,
-              contents: `${convoText}\n${brand} AI:`,
-              config: {
-                systemInstruction
-              }
-            });
-            
-            const rawText = response.text ? response.text.trim() : "";
-            responseText = JSON.stringify({ text: rawText });
-          }
-
-          if (responseText) {
-            lastError = null;
-            break; // Success! Break the model loop
-          }
-        } catch (err: any) {
-          console.warn(`[Gemini Model warning] Model ${currentModel} failed with key index ${i}.`, err.message || err);
-          lastError = err;
+        const raw = await res.text();
+        if (!res.ok) {
+          let parsed: any = null;
+          try { parsed = JSON.parse(raw); } catch {}
+          const msg = parsed?.error?.message || parsed?.error || raw || `OpenRouter ${res.status}`;
+          throw new Error(msg);
         }
-      }
 
-      if (!lastError && responseText) {
-        break; // Success! Break the key loop
+        let data: any = null;
+        try { data = JSON.parse(raw); } catch { throw new Error("Invalid JSON from OpenRouter"); }
+
+        const content = data?.choices?.[0]?.message?.content || data?.choices?.[0]?.text || "";
+        if (!content) throw new Error("Empty response from OpenRouter");
+        // Wrap as our expected JSON envelope
+        responseText = JSON.stringify({ text: String(content).trim() });
+        lastError = null;
+        if (responseText) break;
+      } catch (err: any) {
+        console.warn(`[AI Model warning] key index ${i} failed.`, err.message || err);
+        lastError = err;
       }
+      if (!lastError && responseText) break;
     }
 
     if (lastError || !responseText) {
-      throw lastError || new Error("Failed to get any valid response from Gemini rotation pool.");
+      throw lastError || new Error("Failed to get any valid response from AI rotation pool.");
     }
 
     // Strip any markdown codeblock wrappers if present
@@ -1128,7 +1383,7 @@ Instructions:
     try {
       result = JSON.parse(cleanedTextStr);
     } catch (parseErr) {
-      console.error("[Gemini parse error] could not parse response text directly:", cleanedTextStr);
+      console.error("[AI parse error] could not parse response text directly:", cleanedTextStr);
       result = { text: cleanedTextStr };
     }
 
@@ -1149,8 +1404,8 @@ Instructions:
 
     res.json(result);
   } catch (err: any) {
-    console.error("Gemini Copilot Error:", err);
-    res.status(503).json({ error: "The Gemini AI Copilot service is undergoing system calibration. Please ensure a valid GEMINI_API_KEY is saved in settings.", details: err.message });
+    console.error("AI Copilot Error:", err);
+    res.status(503).json({ error: "The AI Copilot service is undergoing system calibration. Please ensure a valid OPENROUTER_API_KEY is saved in settings.", details: err.message });
   }
 });
 
@@ -1229,17 +1484,25 @@ app.post("/api/admin/catalog/save", async (req, res) => {
     return res.status(400).json({ error: "Missing required fields to update catalog item parameters." });
   }
   try {
-    const numAmount = parseInt(item.amount);
-    const numDuration = parseInt(item.duration);
-    const numYield = parseInt(item.dailyYield);
-    const numBonus = parseInt(item.inviteBonusPercent || "10");
+    const numAmount = Number(item.amount);
+    const numDuration = Number(item.duration);
+    const numYield = Number(item.dailyYield);
+    const numBonus = item.inviteBonusPercent == null || item.inviteBonusPercent === ""
+      ? 0
+      : Number(item.inviteBonusPercent);
+    if (!Number.isInteger(numAmount) || numAmount <= 0 || !Number.isInteger(numDuration) || numDuration <= 0 || !Number.isFinite(numYield) || numYield < 0 || !Number.isFinite(numBonus) || numBonus < 0) {
+      return res.status(400).json({ error: "Amount and duration must be positive whole numbers; yields and bonuses must be valid non-negative numbers." });
+    }
 
     await adminSaveCatalogItem({
       ...item,
-      amount: isNaN(numAmount) ? 0 : numAmount,
-      duration: isNaN(numDuration) ? 0 : numDuration,
-      dailyYield: isNaN(numYield) ? 0 : numYield,
-      inviteBonusPercent: isNaN(numBonus) ? 10 : numBonus
+      id: String(item.id).trim(),
+      name: String(item.name).trim(),
+      category: String(item.category).trim(),
+      amount: numAmount,
+      duration: numDuration,
+      dailyYield: numYield,
+      inviteBonusPercent: numBonus
     });
     res.json({ success: true, message: `Catalog item ${item.name} configured successfully.` });
   } catch (err: any) {
@@ -1459,6 +1722,10 @@ app.get("/api/config/site", async (req, res) => {
       logoType: config.logoType,
       logoSvg: config.logoSvg,
       withdrawFee: config.withdrawFee !== undefined ? config.withdrawFee : 0,
+      minimumDeposit: getMinimumDepositAmount(config),
+      maximumDeposit: getMaximumDepositAmount(config),
+      minimumWithdrawal: getMinimumWithdrawalAmount(config),
+      maximumWithdrawal: getMaximumWithdrawalAmount(config),
       allowAutoDeposit: config.allowAutoDeposit !== undefined ? config.allowAutoDeposit : true,
       allowManualDeposit: config.allowManualDeposit !== undefined ? config.allowManualDeposit : false,
       mtnReceiverPhone: config.mtnReceiverPhone || "",
@@ -1474,8 +1741,12 @@ app.get("/api/config/site", async (req, res) => {
       airtelLogoUrl: config.airtelLogoUrl || "",
       allowAutoWithdraw: config.allowAutoWithdraw !== undefined ? config.allowAutoWithdraw : true,
       allowManualWithdraw: config.allowManualWithdraw !== undefined ? config.allowManualWithdraw : false,
-      level1InviteIncomePct: config.level1InviteIncomePct !== undefined ? config.level1InviteIncomePct : 15,
-      level2InviteIncomePct: config.level2InviteIncomePct !== undefined ? config.level2InviteIncomePct : 5,
+      level1InviteIncomePct: Number(config.level1InviteIncomePct ?? 15),
+      level2InviteIncomePct: Number(config.level2InviteIncomePct ?? 5),
+      level3InviteIncomePct: Number(config.level3InviteIncomePct ?? 0),
+      level4InviteIncomePct: Number(config.level4InviteIncomePct ?? 0),
+      vipTasks: Array.isArray(config.vipTasks) ? config.vipTasks : [],
+      vipTaskCategories: Array.isArray(config.vipTaskCategories) ? config.vipTaskCategories : [],
       registrationBonus: config.registrationBonus !== undefined ? config.registrationBonus : 1000,
       inviteBonus: config.inviteBonus !== undefined ? config.inviteBonus : 3000,
       checkinBaseBonus: config.checkinBaseBonus !== undefined ? config.checkinBaseBonus : 100,
@@ -1485,9 +1756,17 @@ app.get("/api/config/site", async (req, res) => {
       authBgImage: config.authBgImage || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1600&q=80",
       dashboardBgImage: config.dashboardBgImage || "",
       cardStyle: config.cardStyle || "playful-3d",
+      buttonStyle: config.buttonStyle || "playful-3d",
       borderRadius: config.borderRadius || "rounded-2xl",
       primaryColor: config.primaryColor || "#58cc02",
-      accentColor: config.accentColor || "#ff4b4b"
+      accentColor: config.accentColor || "#ff4b4b",
+      secondaryColor: config.secondaryColor || "#1cb0f6",
+      bgColor: config.bgColor || "",
+      cardBgColor: config.cardBgColor || "",
+      fontFamily: config.fontFamily || "Fredoka",
+      fontSizeScale: config.fontSizeScale || "md",
+      textColor: config.textColor || "",
+      updatedAt: (config as any).updatedAt || 0
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -1527,7 +1806,6 @@ app.post("/api/admin/access/activate", async (req, res) => {
       phone: adminPhone,
       username: adminUsername,
       password: adminPass,
-      inviteCode: "ADMIN-INV",
       referredByCode: "",
       operator: "MTN",
       points: 0, // No funds
@@ -1605,7 +1883,6 @@ app.post("/api/admin/logout", (_req, res) => {
 app.get("/api/admin/config", async (req, res) => {
   try {
     const config = await getSiteConfig();
-    // Allow sending full config to admin (in a real app, require auth token)
     res.json(config);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -1614,10 +1891,11 @@ app.get("/api/admin/config", async (req, res) => {
 
 app.put("/api/admin/config", async (req, res) => {
   try {
-    await updateSiteConfig(req.body);
-    res.json({ success: true });
+    const updated = await updateSiteConfig(req.body);
+    res.json({ success: true, config: updated });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    const response = errorResponse(err, "Unable to save site configuration.", 500);
+    res.status(response.status).json(response.body);
   }
 });
 
@@ -1706,10 +1984,16 @@ async function startServer() {
     return;
   }
 
-  // Background mock cron job: automatically collects and credits yields for ALL users every night at midnight Kampala time
-  cron.schedule("0 0 * * *", async () => {
+  // Run once per platform day. The date guard also lets a restart after
+  // midnight catch up without waiting for the next calendar day. The row lock
+  // inside claimDailyReward keeps multiple server instances idempotent.
+  let lastAutoCollectDate: string | null = null;
+  const runAutoCollectScan = async (reason: string): Promise<DailyCreditRunResult> => {
+    const platformDate = getPlatformDateKey();
+    if (lastAutoCollectDate === platformDate) return { status: "already-ran", platformDate };
+    lastAutoCollectDate = platformDate;
     try {
-      console.log("[Auto-Collect Cron] Scanning ledger to auto-credit daily mining yields for all users...");
+      console.log(`[Auto-Collect ${reason}] Scanning ledger for platform day ${platformDate}...`);
       
       const usersList = await adminGetAllUsers();
       let totalProcessed = 0;
@@ -1723,16 +2007,29 @@ async function startServer() {
             await autoCollectUserYields(u.phone);
             totalProcessed++;
           } catch (err) {
-            console.error(`[Auto-Collect Cron] Failed for user ${u.phone}:`, err);
+            console.error(`[Auto-Collect ${reason}] Failed for user ${u.phone}:`, err);
           }
         }
       });
       await Promise.all(workers);
       
-      console.log(`[Auto-Collect Cron] Finished scan successfully. Processed ${totalProcessed} users.`);
+      console.log(`[Auto-Collect ${reason}] Finished scan successfully. Processed ${totalProcessed} users.`);
+      return { status: "completed", platformDate, processed: totalProcessed };
     } catch (err) {
-      console.error("[Auto-Collect Cron Failure] error running scan:", err);
+      lastAutoCollectDate = null;
+      console.error(`[Auto-Collect ${reason} Failure] error running scan:`, err);
+      throw err;
     }
+  };
+  dailyCreditRunner = runAutoCollectScan;
+
+  // Catch up after a process restart instead of waiting until the next
+  // midnight. This is intentionally fire-and-forget so the HTTP server can
+  // become ready while the background scan is running.
+  void runAutoCollectScan("Startup").catch(() => undefined);
+
+  cron.schedule("0 0 * * *", () => {
+    void runAutoCollectScan("Cron").catch(() => undefined);
   }, {
     timezone: "Africa/Nairobi"
   });

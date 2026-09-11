@@ -65,12 +65,18 @@ import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { useCurrency } from "../currency";
 import ParticleBg from "./ParticleBg";
-import { UserProfile, SubscriptionItem, ThemePreset, ThemeMode, CardStyle, ButtonStyle, BorderRadiusStyle } from "../types";
+import { UserProfile, SubscriptionItem, ThemePreset, ThemeMode, CardStyle, ButtonStyle, BorderRadiusStyle, VipTaskConfig } from "../types";
 import AdminChatDesk from "./AdminChatDesk";
 import AdminChart from "./AdminChart";
 import { BrandLogo } from "./BrandLogo";
 import { useTheme, THEME_PRESETS, THEME_PRESET_OPTIONS } from "../context/ThemeContext";
 import { fixGitHubImageUrl } from "../utils/imageUtils";
+import { readApiJson } from "../utils/api";
+
+function isSettledTransaction(transaction: any): boolean {
+  const status = String(transaction?.status || "").toUpperCase();
+  return status === "SUCCESSFUL" || status === "COMPLETED" || status === "APPROVED";
+}
 
 function GiftCountdown({ expiryDate }: { expiryDate: string }) {
   const [timeLeft, setTimeLeft] = useState("");
@@ -158,7 +164,6 @@ export default function AdminView() {
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [adminLoginError, setAdminLoginError] = useState("");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Admin tabs
@@ -260,8 +265,133 @@ export default function AdminView() {
   const [editingAnnx, setEditingAnnx] = useState<any | null>(null);
   const [annSubTab, setAnnSubTab] = useState("announcements");
   const [annAlertUsers, setAnnAlertUsers] = useState(false);
-  const [configSubTab, setConfigSubTab] = useState<"brand" | "theme" | "rewards" | "gateways" | "giftcodes" | "checkin">("brand");
+  const [configSubTab, setConfigSubTab] = useState<"brand" | "theme" | "rewards" | "referral" | "vipTasks" | "gateways" | "giftcodes" | "checkin">("brand");
+  const [vipTaskTitle, setVipTaskTitle] = useState("");
+  const [vipTaskDescription, setVipTaskDescription] = useState("");
+  const [vipTaskCategory, setVipTaskCategory] = useState("");
+  const [vipTaskRequiredBonus, setVipTaskRequiredBonus] = useState(0);
+  const [vipTaskReward, setVipTaskReward] = useState(0);
+  const [isVipTaskModalOpen, setIsVipTaskModalOpen] = useState(false);
+  const [editingVipTaskId, setEditingVipTaskId] = useState<string | null>(null);
+  const [openVipTaskMenuId, setOpenVipTaskMenuId] = useState<string | null>(null);
+  const [isVipCategoryModalOpen, setIsVipCategoryModalOpen] = useState(false);
+  const [newVipCategory, setNewVipCategory] = useState("");
   const { updateLocalThemeConfig } = useTheme();
+
+  const getVipTasks = (): VipTaskConfig[] => Array.isArray(siteConfig?.vipTasks) ? siteConfig.vipTasks : [];
+  const getVipTaskCategories = (): string[] => Array.from(new Set([
+    ...(Array.isArray(siteConfig?.vipTaskCategories) ? siteConfig.vipTaskCategories : []),
+    ...getVipTasks().map((task) => task.category).filter(Boolean)
+  ]));
+  const currentWithdrawMode: "automatic" | "manual" = siteConfig?.allowAutoWithdraw === false ? "manual" : "automatic";
+
+  const persistVipConfig = async (nextFields: Record<string, unknown>, successMessage: string) => {
+    const nextConfig = { ...siteConfig, ...nextFields };
+    try {
+      setIsLoading(true);
+      const res = await fetch("/api/admin/config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(nextConfig)
+      });
+      await readApiJson<{ success: boolean }>(res);
+      setSiteConfig(nextConfig);
+      updateLocalThemeConfig(nextConfig);
+      toast.success(successMessage);
+      return true;
+    } catch (err: any) {
+      toast.error(err.message || "Could not save VIP configuration.");
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const resetVipTaskForm = () => {
+    setVipTaskTitle("");
+    setVipTaskDescription("");
+    setVipTaskCategory("");
+    setVipTaskRequiredBonus(0);
+    setVipTaskReward(0);
+  };
+
+  const handleAddVipTask = async () => {
+    const title = vipTaskTitle.trim();
+    const category = vipTaskCategory.trim();
+    const requiredBonus = Number(vipTaskRequiredBonus);
+    const reward = Number(vipTaskReward);
+    if (!title || !category) {
+      toast.error("Enter a VIP task title and category.");
+      return;
+    }
+    if (!Number.isFinite(requiredBonus) || requiredBonus <= 0 || !Number.isFinite(reward) || reward <= 0) {
+      toast.error("Requirement and reward must both be greater than zero.");
+      return;
+    }
+    const existingTask = editingVipTaskId ? getVipTasks().find((task) => task.id === editingVipTaskId) : undefined;
+    const task: VipTaskConfig = {
+      id: existingTask?.id || `vip_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      title,
+      description: vipTaskDescription.trim(),
+      category,
+      requiredBonus,
+      reward,
+      active: existingTask?.active !== false
+    };
+    const nextTasks = existingTask
+      ? getVipTasks().map((currentTask) => currentTask.id === existingTask.id ? task : currentTask)
+      : [...getVipTasks(), task];
+    const saved = await persistVipConfig({ vipTasks: nextTasks }, existingTask ? "VIP task updated." : "VIP task published.");
+    if (saved) {
+      resetVipTaskForm();
+      setEditingVipTaskId(null);
+      setIsVipTaskModalOpen(false);
+    }
+  };
+
+  const handleOpenVipTaskEditor = (task: VipTaskConfig) => {
+    setEditingVipTaskId(task.id);
+    setVipTaskTitle(task.title);
+    setVipTaskDescription(task.description || "");
+    setVipTaskCategory(task.category || "");
+    setVipTaskRequiredBonus(Number(task.requiredBonus || 0));
+    setVipTaskReward(Number(task.reward || 0));
+    setOpenVipTaskMenuId(null);
+    setIsVipTaskModalOpen(true);
+  };
+
+  const handleRemoveVipTask = async (taskId: string) => {
+    await persistVipConfig({ vipTasks: getVipTasks().filter((task) => task.id !== taskId) }, "VIP task removed.");
+  };
+
+  const handleToggleVipTask = async (taskId: string) => {
+    await persistVipConfig({
+      vipTasks: getVipTasks().map((task) => task.id === taskId ? { ...task, active: task.active === false } : task)
+    }, "VIP task status updated.");
+  };
+
+  const handleAddVipCategory = async () => {
+    const category = newVipCategory.trim();
+    if (!category) return;
+    if (getVipTaskCategories().some((existing) => existing.toLowerCase() === category.toLowerCase())) {
+      toast.info("That VIP category already exists.");
+      return;
+    }
+    const saved = await persistVipConfig({ vipTaskCategories: [...getVipTaskCategories(), category] }, "VIP category created.");
+    if (saved) {
+      setNewVipCategory("");
+      setVipTaskCategory(category);
+    }
+  };
+
+  const handleRemoveVipCategory = async (category: string) => {
+    const isUsed = getVipTasks().some((task) => task.category === category);
+    if (isUsed) {
+      toast.error("This category is used by a task. Move or remove that task first.");
+      return;
+    }
+    await persistVipConfig({ vipTaskCategories: getVipTaskCategories().filter((existing) => existing !== category) }, "VIP category removed.");
+  };
 
   // Password override state
   const [userToOverride, setUserToOverride] = useState<UserProfile | null>(null);
@@ -370,16 +500,13 @@ export default function AdminView() {
 
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setAdminLoginError("");
     if (!/^\d{9,10}$/.test(phone.trim())) {
       const message = "Phone number must be 9 or 10 digits.";
-      setAdminLoginError(message);
       toast.error(message);
       return;
     }
     if (!password || password.length > 128) {
       const message = "Enter a valid admin password.";
-      setAdminLoginError(message);
       toast.error(message);
       return;
     }
@@ -398,12 +525,10 @@ export default function AdminView() {
         fetchAllAdminData();
       } else {
         const message = data.error || "Admin phone number or password is incorrect.";
-        setAdminLoginError(message);
         toast.error(message);
       }
     } catch (err: any) {
       const message = err?.message || "Admin sign-in is temporarily unavailable.";
-      setAdminLoginError(message);
       toast.error(message);
     } finally {
       setIsLoggingIn(false);
@@ -935,17 +1060,43 @@ export default function AdminView() {
       toast.error("Admin phone number must be 9 or 10 digits.");
       return;
     }
+    const minimumDeposit = Number(siteConfig.minimumDeposit) > 0 ? Math.floor(Number(siteConfig.minimumDeposit)) : 20000;
+    const maximumDeposit = Number(siteConfig.maximumDeposit) > 0 ? Math.floor(Number(siteConfig.maximumDeposit)) : 0;
+    const minimumWithdrawal = Number(siteConfig.minimumWithdrawal) > 0 ? Math.floor(Number(siteConfig.minimumWithdrawal)) : 10000;
+    const maximumWithdrawal = Number(siteConfig.maximumWithdrawal) > 0 ? Math.floor(Number(siteConfig.maximumWithdrawal)) : 0;
+    if (maximumDeposit > 0 && maximumDeposit < minimumDeposit) {
+      toast.error("Maximum deposit cannot be lower than minimum deposit.");
+      return;
+    }
+    if (maximumWithdrawal > 0 && maximumWithdrawal < minimumWithdrawal) {
+      toast.error("Maximum withdrawal cannot be lower than minimum withdrawal.");
+      return;
+    }
     try {
       setIsLoading(true);
+      const payload = { ...siteConfig, updatedAt: Date.now() };
       const res = await fetch("/api/admin/config", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(siteConfig)
+        body: JSON.stringify(payload)
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      if (!res.ok) throw new Error(data.error || "Unable to save site configuration.");
       toast.success("Site configuration updated successfully");
-      updateLocalThemeConfig(siteConfig);
+      const saved = data.config || {
+        ...payload,
+        minimumDeposit,
+        maximumDeposit,
+        minimumWithdrawal,
+        maximumWithdrawal
+      };
+      setSiteConfig(saved);
+      updateLocalThemeConfig(saved);
+      // Notify user tabs (same browser) to refetch siteConfig immediately — prevents 60s delay
+      try { 
+        localStorage.setItem("siteConfigUpdatedAt", String(Date.now())); 
+        window.dispatchEvent(new Event("siteConfigUpdated"));
+      } catch {}
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -1049,10 +1200,12 @@ export default function AdminView() {
 
   const filteredTransactions = transactionsList.filter(tx => {
     const isWithdraw = tx.type === "withdrawal" || tx.type === "withdraw";
-    const isDeposit = tx.type === "deposit" || tx.type === "balance" || tx.type === "manual";
+    const isAccountDeposit = tx.type === "deposit" || tx.type === "balance" || tx.type === "manual";
+    const isRental = tx.type === "gpu" || tx.type === "gpu_activation" || tx.type === "subscription";
 
-    // Strictly ONLY show deposits and withdrawals
-    if (!isWithdraw && !isDeposit) return false;
+    // Keep account deposits, product-rental debits, and withdrawals together
+    // in this ledger; yield and reward events belong elsewhere.
+    if (!isWithdraw && !isAccountDeposit && !isRental) return false;
 
     // 1. Status filter (normalized)
     if (txFilterStatus !== "ALL") {
@@ -1069,13 +1222,15 @@ export default function AdminView() {
     // 2. Type filter
     if (txFilterType !== "ALL") {
       if (txFilterType === "withdrawal" && !isWithdraw) return false;
-      if (txFilterType === "deposit" && !isDeposit) return false;
+      if (txFilterType === "deposit" && !isAccountDeposit) return false;
+      if (txFilterType === "rental" && !isRental) return false;
     }
 
     // 3. Mode filter
     if (txFilterMode !== "ALL") {
-      const actualMode = tx.mode || "auto";
-      if (txFilterMode.toLowerCase() !== actualMode.toLowerCase()) return false;
+      const actualMode = String(tx.mode || "automatic").toLowerCase() === "manual" ? "manual" : "automatic";
+      const requestedMode = txFilterMode.toLowerCase() === "auto" ? "automatic" : txFilterMode.toLowerCase();
+      if (requestedMode !== actualMode) return false;
     }
 
     // 4. Search text filter
@@ -1248,11 +1403,6 @@ export default function AdminView() {
           </div>
 
           <form onSubmit={handleAdminLogin} className="space-y-4">
-            {adminLoginError && (
-              <div role="alert" className="rounded-lg border border-rose-400/40 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-600">
-                {adminLoginError}
-              </div>
-            )}
             <div className="space-y-1.5">
               <label className="text-xs font-bold uppercase tracking-wider text-[var(--theme-text)] opacity-80">Username / Phone</label>
               <input
@@ -1456,8 +1606,8 @@ export default function AdminView() {
             {/* TAB: HOME */}
             {activeAdminTab === "home" && (() => {
               const totalWithdrawFees = transactionsList
-                .filter(tx => (tx.type === "withdrawal" || tx.type === "withdraw") && (tx.status === "SUCCESSFUL" || tx.status === "completed"))
-                .reduce((sum, tx) => sum + (tx.feeAmount || 0), 0);
+                .filter(tx => (tx.type === "withdrawal" || tx.type === "withdraw") && isSettledTransaction(tx))
+                .reduce((sum, tx) => sum + ((tx.feeAmount || tx.metadata?.feeAmount) || 0), 0);
 
               return (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -1472,10 +1622,10 @@ export default function AdminView() {
                         <span className="text-[11px] font-sans text-[var(--theme-text)] opacity-70 uppercase font-semibold tracking-wider block">Total Deposits</span>
                         <div>
                           <h4 className="text-2xl font-sans font-extrabold text-[var(--theme-text)] tracking-tight">
-                            {formatCurrency(transactionsList.filter(tx => (tx.type === "deposit" || tx.type === "gpu" || tx.type === "balance") ? (tx.status === "SUCCESSFUL" || tx.status === "completed") : false).reduce((sum, tx) => sum + (tx.amount || 0), 0))}
+                            {formatCurrency(transactionsList.filter(tx => (tx.type === "deposit" || tx.type === "balance") && isSettledTransaction(tx)).reduce((sum, tx) => sum + (tx.amount || 0), 0))}
                           </h4>
                           <p className="text-[12px] font-sans text-[var(--theme-text)] opacity-60 mt-1">
-                            {transactionsList.filter(tx => (tx.type === "deposit" || tx.type === "gpu" || tx.type === "balance") && (tx.status === "SUCCESSFUL" || tx.status === "completed")).length} successful deposit events
+                            {transactionsList.filter(tx => (tx.type === "deposit" || tx.type === "balance") && isSettledTransaction(tx)).length} successful account deposits
                           </p>
                         </div>
                       </div>
@@ -1490,10 +1640,10 @@ export default function AdminView() {
                         <span className="text-[11px] font-sans text-[var(--theme-text)] opacity-70 uppercase font-semibold tracking-wider block">Total Cashout</span>
                         <div>
                           <h4 className="text-2xl font-sans font-extrabold text-[var(--theme-text)] tracking-tight">
-                            {formatCurrency(transactionsList.filter(tx => (tx.type === "withdrawal" || tx.type === "withdraw") ? (tx.status === "SUCCESSFUL" || tx.status === "completed") : false).reduce((sum, tx) => sum + (tx.amount || 0), 0))}
+                            {formatCurrency(transactionsList.filter(tx => (tx.type === "withdrawal" || tx.type === "withdraw") && isSettledTransaction(tx)).reduce((sum, tx) => sum + (tx.amount || 0), 0))}
                           </h4>
                           <p className="text-[12px] font-sans text-[var(--theme-text)] opacity-60 mt-1">
-                            {transactionsList.filter(tx => (tx.type === "withdrawal" || tx.type === "withdraw") && (tx.status === "SUCCESSFUL" || tx.status === "completed")).length} paid requests
+                            {transactionsList.filter(tx => (tx.type === "withdrawal" || tx.type === "withdraw") && isSettledTransaction(tx)).length} paid requests
                           </p>
                         </div>
                       </div>
@@ -1623,6 +1773,10 @@ export default function AdminView() {
                   </div>
                 </div>
 
+                <p className="text-xs text-[var(--theme-text)] opacity-65">
+                  Users can rent the same product more than once. The count below shows active rentals, and edits apply to new rentals while existing rentals keep their original terms.
+                </p>
+
                 <div className="theme-card overflow-hidden flex flex-col text-[var(--theme-text)] transition-all">
                   <div className="overflow-x-auto min-h-[400px]">
                     <table className="w-full text-left text-sm whitespace-nowrap">
@@ -1633,7 +1787,7 @@ export default function AdminView() {
                           <th className="px-5 py-4 font-bold text-[var(--theme-text)] opacity-70 text-right">Cost</th>
                           <th className="px-5 py-4 font-bold text-[var(--theme-text)] opacity-70 text-right">Profits/Day</th>
                           <th className="px-5 py-4 font-bold text-[var(--theme-text)] opacity-70 text-center">Duration</th>
-                          <th className="px-5 py-4 font-bold text-[var(--theme-text)] opacity-70 text-center">Users</th>
+                          <th className="px-5 py-4 font-bold text-[var(--theme-text)] opacity-70 text-center">Active rentals</th>
                           <th className="px-5 py-4 font-bold text-[var(--theme-text)] opacity-70 text-center">Status</th>
                           <th className="px-5 py-4 font-bold text-[var(--theme-text)] opacity-70 text-right">Actions</th>
                         </tr>
@@ -1665,10 +1819,10 @@ export default function AdminView() {
                                 </span>
                               </td>
                               <td className="px-5 py-4 text-right text-[var(--theme-text)] font-bold">
-                                {item.amount.toLocaleString()}
+                                {formatCurrency(item.amount)}
                               </td>
                               <td className="px-5 py-4 text-right text-[var(--theme-text)] opacity-80 font-bold">
-                                +{item.dailyYield.toLocaleString()}
+                                +{formatCurrency(item.dailyYield)}
                               </td>
                               <td className="px-5 py-4 text-center text-[var(--theme-text)] opacity-70 font-bold">
                                 {item.duration}d
@@ -1778,7 +1932,7 @@ export default function AdminView() {
                           const nodesCount = (u as any).activeNodesCount || 0;
                           const isLocked = !!(u as any).locked;
                           const successWithdrawals = transactionsList
-                            .filter(tx => tx.userId === u.phone && (tx.type === "withdrawal" || tx.type === "withdraw") && (tx.status === "SUCCESSFUL" || tx.status === "completed"))
+                            .filter(tx => tx.userId === u.phone && (tx.type === "withdrawal" || tx.type === "withdraw") && isSettledTransaction(tx))
                             .reduce((sum, tx) => sum + (tx.amount || 0), 0);
                           return (
                             <tr key={u.phone} className={`hover:bg-[var(--theme-bg)]/50 transition-colors border-b border-[var(--theme-card-border)]/30 ${isLocked ? 'opacity-60' : ''}`}>
@@ -1796,13 +1950,13 @@ export default function AdminView() {
                                 <span className="font-bold text-[var(--theme-primary)]">{nodesCount}</span>
                               </td>
                               <td className="px-5 py-4 text-right">
-                                <div className="font-bold text-[var(--theme-text)]">{u.points.toLocaleString()}</div>
+                                <div className="font-bold text-[var(--theme-text)]">{formatCurrency(u.points || 0)}</div>
                               </td>
                               <td className="px-5 py-4 text-right">
-                                <div className="font-bold text-[var(--theme-text)]">{(u.totalDeposits || 0).toLocaleString()}</div>
+                                <div className="font-bold text-[var(--theme-text)]">{formatCurrency(u.totalDeposits || 0)}</div>
                               </td>
                               <td className="px-5 py-4 text-right">
-                                <div className="font-bold text-[var(--theme-text)]">{successWithdrawals.toLocaleString()}</div>
+                                <div className="font-bold text-[var(--theme-text)]">{formatCurrency(successWithdrawals)}</div>
                               </td>
                               <td className="px-5 py-4 text-center">
                                 {isLocked ? (
@@ -1908,6 +2062,7 @@ export default function AdminView() {
                       >
                         <option value="ALL" className="bg-[var(--theme-card-bg)] text-[var(--theme-text)]">All Types</option>
                         <option value="deposit" className="bg-[var(--theme-card-bg)] text-[var(--theme-text)]">Deposit (Account Credit)</option>
+                        <option value="rental" className="bg-[var(--theme-card-bg)] text-[var(--theme-text)]">Product Rental</option>
                         <option value="withdrawal" className="bg-[var(--theme-card-bg)] text-[var(--theme-text)]">Withdrawal</option>
                       </select>
                       <span className="text-[var(--theme-card-border)] font-mono">|</span>
@@ -1921,7 +2076,7 @@ export default function AdminView() {
                         className="bg-transparent text-[var(--theme-text)] outline-none cursor-pointer font-bold"
                       >
                         <option value="ALL" className="bg-[var(--theme-card-bg)] text-[var(--theme-text)]">All Modes</option>
-                        <option value="auto" className="bg-[var(--theme-card-bg)] text-[var(--theme-text)]">Automated</option>
+                        <option value="automatic" className="bg-[var(--theme-card-bg)] text-[var(--theme-text)]">Automated</option>
                         <option value="manual" className="bg-[var(--theme-card-bg)] text-[var(--theme-text)]">Manual</option>
                       </select>
                     </div>
@@ -1945,7 +2100,13 @@ export default function AdminView() {
                       <tbody className="divide-y divide-[var(--theme-card-border)]/30">
                         {paginatedTransactions.map((tx) => {
                           const isWithdraw = tx.type === "withdrawal" || tx.type === "withdraw";
-                          const isGpu = tx.type === "gpu" || tx.type === "subscription";
+                          const isGpu = tx.type === "gpu" || tx.type === "gpu_activation" || tx.type === "subscription";
+                          const isManual = String(tx.mode || "").toLowerCase() === "manual";
+                          const isAutomaticWithdrawal = isWithdraw && !isManual;
+                          const txMetadata = tx.metadata && typeof tx.metadata === "object" ? tx.metadata : {};
+                          const requestedAmount = Number(txMetadata.requestedAmount ?? tx.amount ?? 0);
+                          const payoutAmount = Number(txMetadata.payoutAmount ?? requestedAmount);
+                          const feeAmount = Number(txMetadata.feeAmount ?? Math.max(0, requestedAmount - payoutAmount));
                           return (
                             <tr key={tx.id} className="hover:bg-[var(--theme-bg)]/50 transition-colors border-b border-[var(--theme-card-border)]/30">
                               <td className="px-5 py-4">
@@ -1962,6 +2123,11 @@ export default function AdminView() {
                                     }
                                   })()}
                                 </div>
+                                {txMetadata.externalReference && (
+                                  <div className="text-[11px] text-[var(--theme-text)] opacity-55 mt-1 font-mono truncate max-w-[210px]" title={String(txMetadata.externalReference)}>
+                                    External: {String(txMetadata.externalReference)}
+                                  </div>
+                                )}
                               </td>
                               <td className="px-5 py-4">
                                 <div className="font-bold text-[var(--theme-text)]">
@@ -1997,18 +2163,23 @@ export default function AdminView() {
                                 <span className={`px-2.5 py-1 rounded-md text-[12px] font-medium uppercase ${
                                   isWithdraw ? "bg-rose-500/10 text-rose-400 border border-rose-500/20" : isGpu ? "bg-blue-500/10 text-blue-400 border border-blue-500/20" : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
                                 }`}>
-                                  {isWithdraw ? "Withdrawal Payout" : isGpu ? "Deposit: Server Renting" : "Deposit: Account Credit"}
+                                  {isWithdraw ? "Withdrawal Payout" : isGpu ? "Product Rental (Recharge Balance)" : "Deposit: Account Credit"}
                                 </span>
                               </td>
                               <td className="px-5 py-4 text-center">
                                 <span className={`px-2 py-0.5 rounded-md text-[11px] font-mono font-bold tracking-tight border ${
-                                  tx.mode === "manual" ? "bg-amber-500/10 text-amber-500 border-amber-500/20" : "bg-blue-500/10 text-blue-400 border-blue-500/20"
+                                  isManual ? "bg-amber-500/10 text-amber-500 border-amber-500/20" : "bg-blue-500/10 text-blue-400 border-blue-500/20"
                                 }`}>
-                                  {tx.mode === "manual" ? "MANUAL" : "AUTO"}
+                                  {isManual ? "MANUAL" : "AUTOMATIC"}
                                 </span>
                               </td>
                               <td className="px-5 py-4 text-right">
-                                <span className="font-extrabold text-[var(--theme-text)]">{(tx.amount || 0).toLocaleString()}</span>
+                                <span className="font-extrabold text-[var(--theme-text)]">{formatCurrency(requestedAmount)}</span>
+                                {isWithdraw && payoutAmount !== requestedAmount && (
+                                  <div className="text-[12px] text-[var(--theme-text)] font-medium opacity-60 mt-0.5">
+                                    Fee {formatCurrency(feeAmount)}
+                                  </div>
+                                )}
                               </td>
                               <td className="px-5 py-4 text-center">
                                 {(() => {
@@ -2026,6 +2197,9 @@ export default function AdminView() {
                                 {(() => {
                                   const st = (tx.status || "").toUpperCase();
                                   const isPending = st === "PENDING" || st === "PROCESSING";
+                                  if (isPending && isAutomaticWithdrawal) {
+                                    return <span className="text-xs text-blue-400 font-mono">Webhook</span>;
+                                  }
                                   if (isPending) {
                                     return (
                                       <>
@@ -2205,7 +2379,25 @@ export default function AdminView() {
                       configSubTab === "rewards" ? "border-[var(--theme-primary)] text-[var(--theme-text)]" : "border-transparent text-[var(--theme-text)] opacity-60 hover:opacity-100"
                     }`}
                   >
-                    Rewards & Referral
+                    Rewards
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfigSubTab("referral")}
+                    className={`pb-3 text-sm font-bold transition-all border-b-2 outline-none cursor-pointer shrink-0 ${
+                      configSubTab === "referral" ? "border-[var(--theme-primary)] text-[var(--theme-text)]" : "border-transparent text-[var(--theme-text)] opacity-60 hover:opacity-100"
+                    }`}
+                  >
+                    Referral Levels
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfigSubTab("vipTasks")}
+                    className={`pb-3 text-sm font-bold transition-all border-b-2 outline-none cursor-pointer shrink-0 ${
+                      configSubTab === "vipTasks" ? "border-[var(--theme-primary)] text-[var(--theme-text)]" : "border-transparent text-[var(--theme-text)] opacity-60 hover:opacity-100"
+                    }`}
+                  >
+                    VIP Tasks
                   </button>
                   
                   <button
@@ -2237,7 +2429,7 @@ export default function AdminView() {
                   </button>
                 </div>
 
-                {(configSubTab === "brand" || configSubTab === "theme" || configSubTab === "rewards") && (
+                {(configSubTab === "brand" || configSubTab === "theme" || configSubTab === "rewards" || configSubTab === "referral" || configSubTab === "vipTasks") && (
                   <form onSubmit={handleSaveSiteConfig} className="space-y-0">
                     {/* SUBTAB: BRAND */}
                   {configSubTab === "brand" && (
@@ -2339,21 +2531,21 @@ export default function AdminView() {
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
                               <label className="text-xs font-bold text-[var(--theme-text)] opacity-80 uppercase tracking-wider flex items-center gap-1.5">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-3.5 h-3.5 shrink-0 fill-emerald-500"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg>
-                                <span>WhatsApp Link</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-3.5 h-3.5 shrink-0 fill-sky-500"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.295-.6.295-.002 0-.003 0-.005 0l.213-3.054 5.56-5.022c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.135-.954l11.566-4.458c.538-.196 1.006.128.832.94z"/></svg>
+                                <span>Telegram Support Link</span>
                               </label>
                               <input
                                 type="url"
                                 value={siteConfig.whatsappLink || ""}
                                 onChange={(e) => setSiteConfig({ ...siteConfig, whatsappLink: e.target.value })}
-                                className="theme-input w-full px-4 py-3 text-sm focus:border-emerald-500"
-                                placeholder="https://wa.me/..."
+                                className="theme-input w-full px-4 py-3 text-sm focus:border-sky-500"
+                                placeholder="https://t.me/..."
                               />
                             </div>
                             <div className="space-y-2">
                               <label className="text-xs font-bold text-[var(--theme-text)] opacity-80 uppercase tracking-wider flex items-center gap-1.5">
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-3.5 h-3.5 shrink-0 fill-sky-500"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.295-.6.295-.002 0-.003 0-.005 0l.213-3.054 5.56-5.022c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.135-.954l11.566-4.458c.538-.196 1.006.128.832.94z"/></svg>
-                                <span>Telegram Link</span>
+                                <span>Telegram Channel Link</span>
                               </label>
                               <input
                                 type="url"
@@ -2437,7 +2629,9 @@ export default function AdminView() {
                                   value={siteConfig.fontFamily || "Fredoka"}
                                   onChange={(e) => {
                                     const val = e.target.value;
-                                    setSiteConfig({ ...siteConfig, fontFamily: val });
+                                    const next = { ...siteConfig, fontFamily: val };
+                                    setSiteConfig(next);
+                                    updateLocalThemeConfig(next);
                                   }}
                                   className="theme-input w-full px-3 py-2 text-xs font-bold cursor-pointer"
                                 >
@@ -2832,7 +3026,7 @@ export default function AdminView() {
                                     </div>
                                     <div>
                                       <h5 className="text-sm font-extrabold leading-tight" style={{ color: pText }}>
-                                        {siteConfig.brandName || "System"} Node
+                                        {siteConfig.brandName || "System"}
                                       </h5>
                                       <p className="text-[11px] opacity-70" style={{ color: pText }}>
                                         {siteConfig.fontFamily || "Fredoka"} · {cStyle}
@@ -2854,7 +3048,7 @@ export default function AdminView() {
                                 {/* Interactive Progress Bar */}
                                 <div className="space-y-1.5">
                                   <div className="flex justify-between text-xs font-bold">
-                                    <span style={{ color: pText }}>Activity Meter</span>
+                                    {/* <span style={{ color: pText }}>Activity Meter</span> */}
                                     <span style={{ color: pPrimary }}>85%</span>
                                   </div>
                                   <div
@@ -2925,17 +3119,19 @@ export default function AdminView() {
                   )}
 
                   {/* SUBTAB: REWARDS */}
-                  {configSubTab === "rewards" && (
+                  {configSubTab === "rewards" && false && (
                     <div className="flex flex-col md:flex-row md:gap-12 py-4">
                       <div className="md:w-1/3 mb-6 md:mb-0 shrink-0">
                         <h3 className="text-sm font-extrabold text-[var(--theme-text)]">Rewards & Referral</h3>
-                        <p className="text-xs text-[var(--theme-text)] opacity-70 mt-2 leading-relaxed">Define system welcome bonuses and multi-level referral commission percentages.</p>
+                        <p className="text-xs text-[var(--theme-text)] opacity-70 mt-2 leading-relaxed">Define welcome bonuses, four referral commission levels, and the admin-backed VIP taskboard.</p>
                       </div>
-                      <div className="md:w-2/3 max-w-xl grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-6">
+                      <div className="md:w-2/3 max-w-3xl space-y-8">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-6">
                         <div className="space-y-2">
-                          <label className="text-xs font-bold text-[var(--theme-text)] opacity-80 uppercase tracking-wider block">Registration Bonus ({currency})</label>
+                          <label className="text-xs font-bold text-[var(--theme-text)] opacity-80 uppercase tracking-wider block">Welcome Bonus ({currency})</label>
                           <input
-                            type="number"
+                            type="text"
+                            inputMode="decimal"
                             value={siteConfig.registrationBonus || 1000}
                             onChange={(e) => setSiteConfig({ ...siteConfig, registrationBonus: Number(e.target.value) })}
                             className="theme-input w-full px-4 py-3 text-sm"
@@ -2944,7 +3140,8 @@ export default function AdminView() {
                         <div className="space-y-2">
                           <label className="text-xs font-bold text-[var(--theme-text)] opacity-80 uppercase tracking-wider block">Base Invite Bonus ({currency})</label>
                           <input
-                            type="number"
+                            type="text"
+                            inputMode="decimal"
                             value={siteConfig.inviteBonus || 3000}
                             onChange={(e) => setSiteConfig({ ...siteConfig, inviteBonus: Number(e.target.value) })}
                             className="theme-input w-full px-4 py-3 text-sm"
@@ -2953,8 +3150,9 @@ export default function AdminView() {
                         <div className="space-y-2">
                           <label className="text-xs font-bold text-[var(--theme-text)] opacity-80 uppercase tracking-wider block">Level 1 Commission (%)</label>
                           <input
-                            type="number"
-                            value={siteConfig.level1InviteIncomePct || 15}
+                            type="text"
+                            inputMode="decimal"
+                            value={siteConfig.level1InviteIncomePct ?? 15}
                             onChange={(e) => setSiteConfig({ ...siteConfig, level1InviteIncomePct: Number(e.target.value) })}
                             className="theme-input w-full px-4 py-3 text-sm"
                           />
@@ -2962,12 +3160,214 @@ export default function AdminView() {
                         <div className="space-y-2">
                           <label className="text-xs font-bold text-[var(--theme-text)] opacity-80 uppercase tracking-wider block">Level 2 Commission (%)</label>
                           <input
-                            type="number"
-                            value={siteConfig.level2InviteIncomePct || 5}
+                            type="text"
+                            inputMode="decimal"
+                            value={siteConfig.level2InviteIncomePct ?? 5}
                             onChange={(e) => setSiteConfig({ ...siteConfig, level2InviteIncomePct: Number(e.target.value) })}
                             className="theme-input w-full px-4 py-3 text-sm"
                           />
                         </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-[var(--theme-text)] opacity-80 uppercase tracking-wider block">Level 3 Commission (%)</label>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            min="0"
+                            max="100"
+                            value={siteConfig.level3InviteIncomePct ?? 0}
+                            onChange={(e) => setSiteConfig({ ...siteConfig, level3InviteIncomePct: Number(e.target.value) })}
+                            className="theme-input w-full px-4 py-3 text-sm"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-[var(--theme-text)] opacity-80 uppercase tracking-wider block">Level 4 Commission (%)</label>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            min="0"
+                            max="100"
+                            value={siteConfig.level4InviteIncomePct ?? 0}
+                            onChange={(e) => setSiteConfig({ ...siteConfig, level4InviteIncomePct: Number(e.target.value) })}
+                            className="theme-input w-full px-4 py-3 text-sm"
+                          />
+                        </div>
+                        </div>
+
+                        <div className="border-t border-[var(--theme-card-border)] pt-6 space-y-4">
+                          <div>
+                            <h4 className="text-sm font-extrabold text-[var(--theme-text)] flex items-center gap-2"><Tags className="w-4 h-4 text-[var(--theme-primary)]" />VIP Taskboard</h4>
+                            <p className="text-xs text-[var(--theme-text)] opacity-65 mt-1">Create tasks using the user's total credited referral income across Levels 1–4. Tasks are saved inside site configuration and rewards are validated on the server.</p>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <input type="text" value={vipTaskTitle} onChange={(e) => setVipTaskTitle(e.target.value)} placeholder="Task title" className="theme-input px-3 py-2.5 text-sm" />
+                            <input type="text" value={vipTaskCategory} onChange={(e) => setVipTaskCategory(e.target.value)} placeholder="Category (e.g. Bronze)" className="theme-input px-3 py-2.5 text-sm" />
+                            <input type="text" value={vipTaskDescription} onChange={(e) => setVipTaskDescription(e.target.value)} placeholder="Short description (optional)" className="theme-input px-3 py-2.5 text-sm sm:col-span-2" />
+                            <label className="text-xs font-bold opacity-75">Required referral bonus ({currency})<input type="text" inputMode="numeric" value={vipTaskRequiredBonus || ""} onChange={(e) => setVipTaskRequiredBonus(Number(e.target.value) || 0)} className="theme-input w-full px-3 py-2.5 text-sm mt-1" /></label>
+                            <label className="text-xs font-bold opacity-75">Reward ({currency})<input type="text" inputMode="numeric" value={vipTaskReward || ""} onChange={(e) => setVipTaskReward(Number(e.target.value) || 0)} className="theme-input w-full px-3 py-2.5 text-sm mt-1" /></label>
+                          </div>
+                          <button type="button" onClick={handleAddVipTask} className="btn-3d-secondary px-4 py-2.5 text-xs font-black flex items-center gap-2 cursor-pointer"><Plus className="w-4 h-4" />Add VIP Task</button>
+
+                          {getVipTasks().length === 0 ? (
+                            <div className="rounded-[var(--theme-radius)] border border-dashed border-[var(--theme-card-border)] p-4 text-xs opacity-65">No VIP tasks configured. Add the first task above.</div>
+                          ) : (
+                            <div className="space-y-2">
+                              {getVipTasks().map((task) => (
+                                <div key={task.id} className="rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border border-[var(--theme-card-border)] p-3 flex items-center gap-3">
+                                  <div className="min-w-0 flex-1"><div className="flex items-center gap-2 flex-wrap"><span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-[var(--theme-primary)]/10 text-[var(--theme-primary)]">{task.category}</span><span className="text-sm font-bold truncate">{task.title}</span></div><p className="text-[11px] opacity-60 mt-1">Unlock at {formatCurrency(task.requiredBonus)} · Reward {formatCurrency(task.reward)}</p></div>
+                                  <button type="button" onClick={() => handleToggleVipTask(task.id)} className={`text-[10px] font-black px-2.5 py-1.5 rounded-full border cursor-pointer ${task.active === false ? "opacity-50 border-[var(--theme-card-border)]" : "text-emerald-500 border-emerald-500/30 bg-emerald-500/10"}`}>{task.active === false ? "INACTIVE" : "ACTIVE"}</button>
+                                  <button type="button" onClick={() => handleRemoveVipTask(task.id)} aria-label={`Remove ${task.title}`} className="p-2 rounded-lg text-rose-500 hover:bg-rose-500/10 cursor-pointer"><Trash2 className="w-4 h-4" /></button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {configSubTab === "rewards" && (
+                    <div className="flex flex-col md:flex-row md:gap-12 py-4">
+                      <div className="md:w-1/3 mb-6 md:mb-0 shrink-0">
+                        <h3 className="text-sm font-extrabold text-[var(--theme-text)]">Rewards</h3>
+                        <p className="text-xs text-[var(--theme-text)] opacity-70 mt-2 leading-relaxed">Set the welcome bonus issued during registration and the one-time bonus for a new referral.</p>
+                      </div>
+                      <div className="md:w-2/3 max-w-xl grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <label className="text-xs font-bold opacity-80 uppercase tracking-wider">Registration Bonus ({currency})
+                          <input type="text" inputMode="numeric" value={siteConfig.registrationBonus ?? 1000} onChange={(e) => setSiteConfig({ ...siteConfig, registrationBonus: Number(e.target.value) || 0 })} className="theme-input w-full px-4 py-3 text-sm mt-2" />
+                        </label>
+                        <label className="text-xs font-bold opacity-80 uppercase tracking-wider">Base Invite Bonus ({currency})
+                          <input type="text" inputMode="numeric" value={siteConfig.inviteBonus ?? 3000} onChange={(e) => setSiteConfig({ ...siteConfig, inviteBonus: Number(e.target.value) || 0 })} className="theme-input w-full px-4 py-3 text-sm mt-2" />
+                        </label>
+                      </div>
+                    </div>
+                  )}
+
+                  {configSubTab === "referral" && (
+                    <div className="flex flex-col md:flex-row md:gap-12 py-4">
+                      <div className="md:w-1/3 mb-6 md:mb-0 shrink-0">
+                        <h3 className="text-sm font-extrabold text-[var(--theme-text)]">Referral Levels</h3>
+                        <p className="text-xs text-[var(--theme-text)] opacity-70 mt-2 leading-relaxed">Configure commission earned when the network activates products. Levels 3 and 4 are enabled by setting a percentage above zero.</p>
+                      </div>
+                      <div className="md:w-2/3 max-w-xl grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {[1, 2, 3, 4].map((level) => {
+                          const key = `level${level}InviteIncomePct`;
+                          const fallback = level === 1 ? 15 : level === 2 ? 5 : 0;
+                          return (
+                            <label key={level} className="text-xs font-bold opacity-80 uppercase tracking-wider">Level {level} Commission (%)
+                              <input type="text" inputMode="decimal" value={siteConfig[key] ?? fallback} onChange={(e) => setSiteConfig({ ...siteConfig, [key]: Number(e.target.value) || 0 })} className="theme-input w-full px-4 py-3 text-sm mt-2" />
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {configSubTab === "vipTasks" && false && (
+                    <div className="flex flex-col md:flex-row md:gap-12 py-4">
+                      <div className="md:w-1/3 mb-6 md:mb-0 shrink-0">
+                        <h3 className="text-sm font-extrabold text-[var(--theme-text)] flex items-center gap-2"><Tags className="w-4 h-4 text-[var(--theme-primary)]" />VIP Taskboard</h3>
+                        <p className="text-xs text-[var(--theme-text)] opacity-70 mt-2 leading-relaxed">Create tasks using the server-calculated credited referral income across all four levels.</p>
+                      </div>
+                      <div className="md:w-2/3 max-w-3xl space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <input type="text" value={vipTaskTitle} onChange={(e) => setVipTaskTitle(e.target.value)} placeholder="Task title" className="theme-input px-3 py-2.5 text-sm" />
+                          <input type="text" value={vipTaskCategory} onChange={(e) => setVipTaskCategory(e.target.value)} placeholder="Category (e.g. Bronze)" className="theme-input px-3 py-2.5 text-sm" />
+                          <input type="text" value={vipTaskDescription} onChange={(e) => setVipTaskDescription(e.target.value)} placeholder="Short description (optional)" className="theme-input px-3 py-2.5 text-sm sm:col-span-2" />
+                          <label className="text-xs font-bold opacity-75">Required referral bonus ({currency})<input type="text" inputMode="numeric" value={vipTaskRequiredBonus || ""} onChange={(e) => setVipTaskRequiredBonus(Number(e.target.value) || 0)} className="theme-input w-full px-3 py-2.5 text-sm mt-1" /></label>
+                          <label className="text-xs font-bold opacity-75">Reward ({currency})<input type="text" inputMode="numeric" value={vipTaskReward || ""} onChange={(e) => setVipTaskReward(Number(e.target.value) || 0)} className="theme-input w-full px-3 py-2.5 text-sm mt-1" /></label>
+                        </div>
+                        <button type="button" onClick={handleAddVipTask} className="btn-3d-secondary px-4 py-2.5 text-xs font-black flex items-center gap-2 cursor-pointer"><Plus className="w-4 h-4" />Add VIP Task</button>
+                        {getVipTasks().length === 0 ? (
+                          <div className="rounded-[var(--theme-radius)] border border-dashed border-[var(--theme-card-border)] p-4 text-xs opacity-65">No VIP tasks configured. Add the first task above.</div>
+                        ) : (
+                          <div className="space-y-2">
+                            {getVipTasks().map((task) => (
+                              <div key={task.id} className="rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border border-[var(--theme-card-border)] p-3 flex items-center gap-3">
+                                <div className="min-w-0 flex-1"><div className="flex items-center gap-2 flex-wrap"><span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-[var(--theme-primary)]/10 text-[var(--theme-primary)]">{task.category}</span><span className="text-sm font-bold truncate">{task.title}</span></div><p className="text-[11px] opacity-60 mt-1">Unlock at {formatCurrency(task.requiredBonus)} · Reward {formatCurrency(task.reward)}</p></div>
+                                <button type="button" onClick={() => handleToggleVipTask(task.id)} className={`text-[10px] font-black px-2.5 py-1.5 rounded-full border cursor-pointer ${task.active === false ? "opacity-50 border-[var(--theme-card-border)]" : "text-emerald-500 border-emerald-500/30 bg-emerald-500/10"}`}>{task.active === false ? "INACTIVE" : "ACTIVE"}</button>
+                                <button type="button" onClick={() => handleRemoveVipTask(task.id)} aria-label={`Remove ${task.title}`} className="p-2 rounded-lg text-rose-500 hover:bg-rose-500/10 cursor-pointer"><Trash2 className="w-4 h-4" /></button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {configSubTab === "vipTasks" && (
+                    <div className="space-y-5 py-4">
+                      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--theme-radius)] bg-[var(--theme-primary)]/12 text-[var(--theme-primary)]"><Tags className="w-4 h-4" /></span>
+                          <div>
+                            <h3 className="text-base font-extrabold text-[var(--theme-text)]">VIP taskboard</h3>
+                            <p className="text-xs text-[var(--theme-text)] opacity-65 mt-0.5">Tasks unlock from the user's server-calculated credited referral income across Levels 1–4.</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button type="button" onClick={() => setIsVipCategoryModalOpen(true)} className="btn-3d-secondary px-3.5 py-2.5 text-xs font-black flex items-center gap-2 cursor-pointer"><Folder className="w-3.5 h-3.5" />Manage categories</button>
+                          <button type="button" onClick={() => { setEditingVipTaskId(null); resetVipTaskForm(); setVipTaskCategory(getVipTaskCategories()[0] || ""); setIsVipTaskModalOpen(true); }} className="btn-3d-primary text-white px-4 py-2.5 text-xs font-black flex items-center gap-2 cursor-pointer"><Plus className="w-4 h-4" />Create VIP task</button>
+                        </div>
+                      </div>
+
+                      <div className="rounded-[var(--theme-radius)] border border-[var(--theme-card-border)] overflow-hidden bg-[var(--theme-card-bg)]">
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-sm whitespace-nowrap">
+                            <thead>
+                              <tr className="bg-[var(--theme-bg)] border-b border-[var(--theme-card-border)]">
+                                <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider opacity-65">Task</th>
+                                <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider opacity-65">Category</th>
+                                <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider opacity-65 text-right"></th>
+                                <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider opacity-65 text-right">Reward</th>
+                                <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider opacity-65 text-center">Users</th>
+                                <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider opacity-65 text-center">Status</th>
+                                <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider opacity-65 text-right">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[var(--theme-card-border)]/40">
+                              {getVipTasks().map((task) => {
+                                const claimedUsers = usersList.filter((user) => (user.claimedVipTasks || []).includes(task.id)).length;
+                                return (
+                                  <tr key={task.id} className="hover:bg-[var(--theme-bg)]/45 transition-colors">
+                                    <td className="px-4 py-4 min-w-[220px]"><div className="font-bold text-[var(--theme-text)]">{task.title}</div><div className="text-[11px] opacity-55 mt-1 max-w-[290px] truncate">{task.description || "No description"}</div></td>
+                                    <td className="px-4 py-4"><span className="rounded-full bg-[var(--theme-primary)]/10 text-[var(--theme-primary)] px-2 py-1 text-[10px] font-black uppercase">{task.category}</span></td>
+                                    <td className="px-4 py-4 text-right font-bold">{formatCurrency(task.requiredBonus)}</td>
+                                    <td className="px-4 py-4 text-right font-bold text-[var(--theme-primary)]">+{formatCurrency(task.reward)}</td>
+                                    <td className="px-4 py-4 text-center font-bold">{claimedUsers}</td>
+                                    <td className="px-4 py-4 text-center"><button type="button" onClick={() => void handleToggleVipTask(task.id)} className={`rounded-full border px-2.5 py-1 text-[10px] font-black cursor-pointer ${task.active === false ? "border-[var(--theme-card-border)] opacity-55" : "border-emerald-500/30 bg-emerald-500/10 text-emerald-500"}`}>{task.active === false ? "INACTIVE" : "ACTIVE"}</button></td>
+                                    <td className="px-4 py-4 text-right">
+                                      <div className="relative inline-flex">
+                                        <button
+                                          type="button"
+                                          onClick={() => setOpenVipTaskMenuId((currentId) => currentId === task.id ? null : task.id)}
+                                          aria-label={`Actions for ${task.title}`}
+                                          aria-haspopup="menu"
+                                          aria-expanded={openVipTaskMenuId === task.id}
+                                          className="inline-flex p-2 rounded-lg text-[var(--theme-text)] opacity-65 hover:opacity-100 hover:bg-[var(--theme-bg)] cursor-pointer"
+                                        >
+                                          <MoreVertical className="w-4 h-4" />
+                                        </button>
+                                        {openVipTaskMenuId === task.id && (
+                                          <div role="menu" className="absolute right-0 top-full mt-2 z-30 min-w-32 rounded-[var(--theme-radius)] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] p-1 shadow-xl text-left">
+                                            <button type="button" role="menuitem" onClick={() => handleOpenVipTaskEditor(task)} className="w-full flex items-center gap-2 rounded-[calc(var(--theme-radius)-2px)] px-3 py-2 text-xs font-bold hover:bg-[var(--theme-bg)] cursor-pointer">
+                                              <Edit className="w-3.5 h-3.5 text-[var(--theme-primary)]" />
+                                              Edit
+                                            </button>
+                                            <button type="button" role="menuitem" onClick={() => { setOpenVipTaskMenuId(null); void handleRemoveVipTask(task.id); }} className="w-full flex items-center gap-2 rounded-[calc(var(--theme-radius)-2px)] px-3 py-2 text-xs font-bold text-rose-500 hover:bg-rose-500/10 cursor-pointer">
+                                              <Trash2 className="w-3.5 h-3.5" />
+                                              Delete
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                        {getVipTasks().length === 0 && <div className="p-10 text-center text-xs opacity-60">No VIP tasks published. Create one to make it available to users.</div>}
                       </div>
                     </div>
                   )}
@@ -2984,6 +3384,66 @@ export default function AdminView() {
                   </div>
                 </form>
               )}
+
+              <AnimatePresence>
+                {isVipTaskModalOpen && (
+                  <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsVipTaskModalOpen(false)} className="absolute inset-0 bg-black/70 backdrop-blur-xs" />
+                    <motion.div initial={{ opacity: 0, y: 16, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 16, scale: 0.98 }} className="relative w-full max-w-lg theme-card bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] shadow-2xl overflow-hidden text-[var(--theme-text)]">
+                      <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[var(--theme-card-border)]">
+                        <div><h3 className="text-base font-black">{editingVipTaskId ? "Edit VIP task" : "Create VIP task"}</h3><p className="text-xs opacity-60 mt-1">{editingVipTaskId ? "Update the reward, category, or referral-income threshold." : "Publish a reward that unlocks from credited Levels 1–4 referral income."}</p></div>
+                        <button type="button" onClick={() => setIsVipTaskModalOpen(false)} className="p-2 rounded-full hover:bg-[var(--theme-bg)] cursor-pointer opacity-70 hover:opacity-100"><X className="w-4 h-4" /></button>
+                      </div>
+                      <form onSubmit={(event) => { event.preventDefault(); void handleAddVipTask(); }} className="p-5 space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <label className="text-xs font-bold uppercase tracking-wider opacity-75">Task title
+                            <input type="text" required value={vipTaskTitle} onChange={(event) => setVipTaskTitle(event.target.value)} placeholder="e.g. Bronze bonus run" className="theme-input w-full px-3 py-2.5 text-sm mt-1.5" />
+                          </label>
+                          <label className="text-xs font-bold uppercase tracking-wider opacity-75">VIP category
+                            <div className="flex gap-2 mt-1.5">
+                              <select required value={vipTaskCategory} onChange={(event) => setVipTaskCategory(event.target.value)} className="theme-input min-w-0 flex-1 px-3 py-2.5 text-sm">
+                                <option value="" disabled>Select category</option>
+                                {getVipTaskCategories().map((category) => <option key={category} value={category}>{category}</option>)}
+                              </select>
+                              <button type="button" onClick={() => setIsVipCategoryModalOpen(true)} className="btn-3d-secondary px-2.5 cursor-pointer" title="Create category"><Plus className="w-4 h-4" /></button>
+                            </div>
+                          </label>
+                        </div>
+                        <label className="text-xs font-bold uppercase tracking-wider opacity-75">Description
+                          <textarea value={vipTaskDescription} onChange={(event) => setVipTaskDescription(event.target.value)} placeholder="Explain what this reward unlocks." rows={3} className="theme-input w-full px-3 py-2.5 text-sm mt-1.5 resize-none" />
+                        </label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <label className="text-xs font-bold uppercase tracking-wider opacity-75">Referral target ({currency})
+                            <input type="text" inputMode="numeric" required value={vipTaskRequiredBonus || ""} onChange={(event) => setVipTaskRequiredBonus(Number(event.target.value) || 0)} placeholder="500000" className="theme-input w-full px-3 py-2.5 text-sm mt-1.5" />
+                          </label>
+                          <label className="text-xs font-bold uppercase tracking-wider opacity-75">Reward ({currency})
+                            <input type="text" inputMode="numeric" required value={vipTaskReward || ""} onChange={(event) => setVipTaskReward(Number(event.target.value) || 0)} placeholder="50000" className="theme-input w-full px-3 py-2.5 text-sm mt-1.5" />
+                          </label>
+                        </div>
+                        <div className="flex justify-end gap-2 pt-2">
+                          <button type="button" onClick={() => setIsVipTaskModalOpen(false)} className="px-4 py-2.5 text-xs font-bold opacity-70 hover:opacity-100 cursor-pointer">Cancel</button>
+                          <button type="submit" disabled={isLoading || getVipTaskCategories().length === 0} className="btn-3d-primary text-white px-4 py-2.5 text-xs font-black flex items-center gap-2 cursor-pointer disabled:opacity-50"><Save className="w-4 h-4" />{editingVipTaskId ? "Save changes" : "Publish task"}</button>
+                        </div>
+                      </form>
+                    </motion.div>
+                  </div>
+                )}
+              </AnimatePresence>
+
+              <AnimatePresence>
+                {isVipCategoryModalOpen && (
+                  <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsVipCategoryModalOpen(false)} className="absolute inset-0 bg-black/70 backdrop-blur-xs" />
+                    <motion.div initial={{ opacity: 0, y: 16, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 16, scale: 0.98 }} className="relative w-full max-w-md theme-card bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] shadow-2xl overflow-hidden text-[var(--theme-text)]">
+                      <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[var(--theme-card-border)]"><div><h3 className="text-base font-black">VIP categories</h3><p className="text-xs opacity-60 mt-1">Create reusable labels for task tiers.</p></div><button type="button" onClick={() => setIsVipCategoryModalOpen(false)} className="p-2 rounded-full hover:bg-[var(--theme-bg)] cursor-pointer opacity-70 hover:opacity-100"><X className="w-4 h-4" /></button></div>
+                      <div className="p-5 space-y-4">
+                        <div className="flex gap-2"><input type="text" value={newVipCategory} onChange={(event) => setNewVipCategory(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void handleAddVipCategory(); } }} placeholder="e.g. Bronze" className="theme-input min-w-0 flex-1 px-3 py-2.5 text-sm" /><button type="button" onClick={() => void handleAddVipCategory()} disabled={isLoading} className="btn-3d-primary text-white px-3.5 text-xs font-black cursor-pointer disabled:opacity-50"><Plus className="w-4 h-4" /></button></div>
+                        <div className="space-y-2 max-h-56 overflow-y-auto">{getVipTaskCategories().length === 0 ? <p className="text-xs opacity-60 text-center py-5">No categories yet. Add your first tier above.</p> : getVipTaskCategories().map((category) => <div key={category} className="flex items-center justify-between gap-3 rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border border-[var(--theme-card-border)] px-3 py-2.5"><span className="text-sm font-bold">{category}</span><button type="button" onClick={() => void handleRemoveVipCategory(category)} className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded cursor-pointer"><Trash2 className="w-3.5 h-3.5" /></button></div>)}</div>
+                      </div>
+                    </motion.div>
+                  </div>
+                )}
+              </AnimatePresence>
 
               {/* SUBTAB: GIFT CODES */}
                   {configSubTab === "giftcodes" && (
@@ -3127,7 +3587,8 @@ export default function AdminView() {
                                   <div>
                                     <label className="block text-xs font-bold text-[var(--theme-text)] opacity-80 mb-1.5 uppercase tracking-wider">Reward Amount ({currency})</label>
                                     <input
-                                      type="number"
+                                      type="text"
+                                      inputMode="decimal"
                                       value={newGiftCodeAmount}
                                       onChange={(e) => setNewGiftCodeAmount(Number(e.target.value))}
                                       min={1}
@@ -3139,7 +3600,8 @@ export default function AdminView() {
                                   <div>
                                     <label className="block text-xs font-bold text-[var(--theme-text)] opacity-80 mb-1.5 uppercase tracking-wider">Max Claims</label>
                                     <input
-                                      type="number"
+                                      type="text"
+                                      inputMode="decimal"
                                       value={newGiftCodeMax}
                                       onChange={(e) => setNewGiftCodeMax(Number(e.target.value))}
                                       min={1}
@@ -3385,11 +3847,11 @@ export default function AdminView() {
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                               <label className="block text-xs font-bold text-[var(--theme-text)] opacity-80 uppercase tracking-wider mb-2">Base Bonus ({currency})</label>
-                              <input type="number" value={siteConfig.checkinBaseBonus || ""} onChange={e => setSiteConfig({ ...siteConfig, checkinBaseBonus: Number(e.target.value) })} className="theme-input w-full px-4 py-2.5 text-sm" />
+                              <input type="text" inputMode="numeric" value={siteConfig.checkinBaseBonus || ""} onChange={e => setSiteConfig({ ...siteConfig, checkinBaseBonus: Number(e.target.value) || 0 })} className="theme-input w-full px-4 py-2.5 text-sm" />
                             </div>
                             <div>
                               <label className="block text-xs font-bold text-[var(--theme-text)] opacity-80 uppercase tracking-wider mb-2">Daily Increment ({currency})</label>
-                              <input type="number" value={siteConfig.checkinIncrement || ""} onChange={e => setSiteConfig({ ...siteConfig, checkinIncrement: Number(e.target.value) })} className="theme-input w-full px-4 py-2.5 text-sm" />
+                              <input type="text" inputMode="numeric" value={siteConfig.checkinIncrement || ""} onChange={e => setSiteConfig({ ...siteConfig, checkinIncrement: Number(e.target.value) || 0 })} className="theme-input w-full px-4 py-2.5 text-sm" />
                             </div>
                           </div>
                         </div>
@@ -3400,6 +3862,60 @@ export default function AdminView() {
                   {/* SUBTAB: GATEWAYS */}
                   {configSubTab === "gateways" && (
                     <div className="space-y-0">
+                      {/* Deposit and withdrawal limits */}
+                      <div className="flex flex-col md:flex-row md:gap-12 py-4 border-b border-[var(--theme-card-border)]">
+                        <div className="md:w-1/3 mb-6 md:mb-0 shrink-0">
+                          <h3 className="text-sm font-extrabold text-[var(--theme-text)]">Transaction Limits</h3>
+                          <p className="text-xs text-[var(--theme-text)] opacity-70 mt-2 leading-relaxed">
+                            These limits are enforced on the server for automatic, manual, and legacy deposit/withdrawal requests. Enter 0 for no maximum.
+                          </p>
+                        </div>
+                        <div className="md:w-2/3 max-w-xl grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-[var(--theme-text)] opacity-80 uppercase tracking-wider block">Minimum Deposit ({currency})</label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={siteConfig.minimumDeposit ?? 20000}
+                              onChange={(e) => setSiteConfig({ ...siteConfig, minimumDeposit: Number(e.target.value) || 0 })}
+                              className="theme-input w-full px-4 py-3 text-sm"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-[var(--theme-text)] opacity-80 uppercase tracking-wider block">Maximum Deposit ({currency})</label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={siteConfig.maximumDeposit ?? 0}
+                              onChange={(e) => setSiteConfig({ ...siteConfig, maximumDeposit: Number(e.target.value) || 0 })}
+                              className="theme-input w-full px-4 py-3 text-sm"
+                              placeholder="0 = no maximum"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-[var(--theme-text)] opacity-80 uppercase tracking-wider block">Minimum Withdrawal ({currency})</label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={siteConfig.minimumWithdrawal ?? 10000}
+                              onChange={(e) => setSiteConfig({ ...siteConfig, minimumWithdrawal: Number(e.target.value) || 0 })}
+                              className="theme-input w-full px-4 py-3 text-sm"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-[var(--theme-text)] opacity-80 uppercase tracking-wider block">Maximum Withdrawal ({currency})</label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={siteConfig.maximumWithdrawal ?? 5000000}
+                              onChange={(e) => setSiteConfig({ ...siteConfig, maximumWithdrawal: Number(e.target.value) || 0 })}
+                              className="theme-input w-full px-4 py-3 text-sm"
+                              placeholder="0 = no maximum"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
                       {/* Fees */}
                       <div className="flex flex-col md:flex-row md:gap-12 py-4">
                         <div className="md:w-1/3 mb-6 md:mb-0 shrink-0">
@@ -3410,7 +3926,8 @@ export default function AdminView() {
                           <div className="space-y-2">
                             <label className="text-xs font-bold text-[var(--theme-text)] opacity-80 uppercase tracking-wider block">Global Withdrawal Fee (%)</label>
                             <input
-                              type="number"
+                              type="text"
+                              inputMode="decimal"
                               step="0.1"
                               min="0"
                               max="100"
@@ -3458,11 +3975,11 @@ export default function AdminView() {
                           </div>
                           {/* Auto Withdraw Toggle */}
                           <div className="theme-card p-4 transition-all flex items-center justify-between cursor-pointer hover:border-[var(--theme-primary)]" onClick={() => {
-                            const nextAuto = siteConfig.allowAutoWithdraw === false;
+                            const nextAuto = currentWithdrawMode !== "automatic";
                             setSiteConfig({
                               ...siteConfig,
                               allowAutoWithdraw: nextAuto,
-                              allowManualWithdraw: nextAuto ? false : siteConfig.allowManualWithdraw
+                              allowManualWithdraw: nextAuto ? false : true
                             });
                           }}>
                             <div>
@@ -3471,18 +3988,18 @@ export default function AdminView() {
                             </div>
                             <input
                               type="checkbox"
-                              checked={siteConfig.allowAutoWithdraw !== false}
+                              checked={currentWithdrawMode === "automatic"}
                               readOnly
                               className="w-4 h-4 rounded text-[var(--theme-primary)] border-[var(--theme-card-border)] focus:ring-[var(--theme-primary)] cursor-pointer pointer-events-none"
                             />
                           </div>
                           {/* Manual Withdraw Toggle */}
                           <div className="theme-card p-4 transition-all flex items-center justify-between cursor-pointer hover:border-[var(--theme-primary)]" onClick={() => {
-                            const nextManual = siteConfig.allowManualWithdraw !== true;
+                            const nextManual = currentWithdrawMode !== "manual";
                             setSiteConfig({
                               ...siteConfig,
                               allowManualWithdraw: nextManual,
-                              allowAutoWithdraw: nextManual ? false : siteConfig.allowAutoWithdraw
+                              allowAutoWithdraw: nextManual ? false : true
                             });
                           }}>
                             <div>
@@ -3491,7 +4008,7 @@ export default function AdminView() {
                             </div>
                             <input
                               type="checkbox"
-                              checked={siteConfig.allowManualWithdraw === true}
+                              checked={currentWithdrawMode === "manual"}
                               readOnly
                               className="w-4 h-4 rounded text-[var(--theme-primary)] border-[var(--theme-card-border)] focus:ring-[var(--theme-primary)] cursor-pointer pointer-events-none"
                             />
@@ -3607,7 +4124,8 @@ export default function AdminView() {
                               <div className="space-y-2">
                                 <label className="text-xs font-bold text-[var(--theme-text)] opacity-80 uppercase tracking-wider block">USDT to {currency} Rate</label>
                                 <input
-                                  type="number"
+                                  type="text"
+                                  inputMode="numeric"
                                   value={siteConfig.usdtRate || 3700}
                                   onChange={(e) => setSiteConfig({ ...siteConfig, usdtRate: Number(e.target.value) })}
                                   className="theme-input w-full px-4 py-3 text-sm focus:border-teal-500"
@@ -3835,7 +4353,10 @@ export default function AdminView() {
               className="relative w-full max-w-xl bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] text-[var(--theme-text)] rounded-[var(--theme-radius)] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
             >
               <div className="px-6 py-4 border-b border-[var(--theme-card-border)] flex justify-between items-center bg-[var(--theme-bg)]">
-                <h3 className="text-lg font-extrabold text-[var(--theme-text)]">{isCreatingNode ? "Create Product" : "Edit Product"}</h3>
+                <div>
+                  <h3 className="text-lg font-extrabold text-[var(--theme-text)]">{isCreatingNode ? "Create Product" : "Edit Product"}</h3>
+                  {!isCreatingNode && <p className="text-[11px] text-[var(--theme-text)] opacity-60 mt-1">Changes apply to future rentals; current rentals keep their saved terms.</p>}
+                </div>
                 <button onClick={() => { setIsEditingNode(null); setIsCreatingNode(false); }} className="text-[var(--theme-text)] opacity-60 hover:opacity-100 transition-colors cursor-pointer">
                   <X className="w-5 h-5" />
                 </button>
@@ -3899,17 +4420,17 @@ export default function AdminView() {
                         </div>
                         <div className="space-y-1.5">
                           <label className="text-xs text-[var(--theme-text)] font-bold opacity-80 uppercase tracking-wider block">Cost</label>
-                          <input type="number" required value={nodeAmount} onChange={(e) => setNodeAmount(parseInt(e.target.value))} className="w-full px-3 py-2 bg-[var(--theme-bg)] border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm focus:border-[var(--theme-primary)] outline-none" />
+                          <input type="text" inputMode="numeric" required value={nodeAmount} onChange={(e) => setNodeAmount(parseInt(e.target.value, 10) || 0)} className="w-full px-3 py-2 bg-[var(--theme-bg)] border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm focus:border-[var(--theme-primary)] outline-none" />
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1.5">
                           <label className="text-xs text-[var(--theme-text)] font-bold opacity-80 uppercase tracking-wider block">Daily Profits (%)</label>
-                          <input type="number" step="0.1" required value={nodeDailyProfitPct} onChange={(e) => setNodeDailyProfitPct(parseFloat(e.target.value) || 0)} className="w-full px-3 py-2 bg-[var(--theme-bg)] border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm focus:border-[var(--theme-primary)] outline-none" />
+                          <input type="text" inputMode="decimal" required value={nodeDailyProfitPct} onChange={(e) => setNodeDailyProfitPct(parseFloat(e.target.value) || 0)} className="w-full px-3 py-2 bg-[var(--theme-bg)] border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm focus:border-[var(--theme-primary)] outline-none" />
                         </div>
                         <div className="space-y-1.5">
                           <label className="text-xs text-[var(--theme-text)] font-bold opacity-80 uppercase tracking-wider block">Duration (Days)</label>
-                          <input type="number" required value={nodeDuration} onChange={(e) => setNodeDuration(parseInt(e.target.value))} className="w-full px-3 py-2 bg-[var(--theme-bg)] border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm focus:border-[var(--theme-primary)] outline-none" />
+                          <input type="text" inputMode="numeric" required value={nodeDuration} onChange={(e) => setNodeDuration(parseInt(e.target.value, 10) || 0)} className="w-full px-3 py-2 bg-[var(--theme-bg)] border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm focus:border-[var(--theme-primary)] outline-none" />
                         </div>
                       </div>
                       
@@ -4141,7 +4662,7 @@ export default function AdminView() {
                   </div>
                   <div>
                     <h3 className="text-base font-semibold text-[var(--theme-text)] font-display">Excel Bulk Server Upload</h3>
-                    <p className="text-[11px] text-[var(--theme-text)] opacity-70 mt-0.5">Import server node catalogs directly from Excel (.xlsx)</p>
+                    <p className="text-[11px] text-[var(--theme-text)] opacity-70 mt-0.5">Import product catalogs directly from Excel (.xlsx)</p>
                   </div>
                 </div>
                 <button

@@ -16,12 +16,12 @@ import {
   Lock,
   DollarSign,
   ShoppingCart,
-  Loader2,
-  CheckCircle2
+  Loader2
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import ParticleBg from "./ParticleBg";
 import { useCurrency } from "../currency";
+import VisaMetricCard from "./VisaMetricCard";
 import { toast } from "sonner";
 
 interface CatalogViewProps {
@@ -47,22 +47,13 @@ export default function CatalogView({
   const [activeCategory, setActiveCategory] = useState<string>("All");
   const [selectedItem, setSelectedItem] = useState<SubscriptionItem | null>(null);
   const [submittingItemId, setSubmittingItemId] = useState<string | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
   const handleSubscribe = async (item: SubscriptionItem) => {
     if (item.outOfStock || item.disabled) {
       toast.error("This product is currently out of stock.");
-      return;
-    }
-
-    // Check if ALREADY SUBSCRIBED to avoid duplicate locks
-    const isAlreadySubscribed = activeSubscriptions.some(
-      (sub) => sub.itemId === item.id && sub.status === "active"
-    );
-
-    if (isAlreadySubscribed) {
-      toast.error(`You already have an active subscription for "${item.name}".`);
       return;
     }
 
@@ -134,32 +125,18 @@ export default function CatalogView({
           transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
           className="space-y-4 px-1"
         >
-            {/* Top Metrics Card (My products & Recharge balance split in middle) */}
-            <div className="theme-card card-playful-3d border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] p-4 shadow-sm">
-              <div className="grid grid-cols-2 divide-x divide-[var(--theme-card-border)] text-center">
-                <div className="px-2">
-                  <p className="text-xl md:text-2xl font-display font-black text-[var(--theme-text)]">
-                    {activeSubscriptions.filter((s) => s.status === "active").length}
-                  </p>
-                  <p className="text-[11px] font-sans font-extrabold uppercase tracking-wider text-[var(--theme-text)] opacity-60 mt-0.5">
-                    My products
-                  </p>
-                </div>
-                <div className="px-2">
-                  <p className="text-xl md:text-2xl font-display font-black text-[var(--theme-primary)]">
-                    {formatCurrency(userProfile.rechargeBalance || 0)}
-                  </p>
-                  <p className="text-[11px] font-sans font-extrabold uppercase tracking-wider text-[var(--theme-text)] opacity-60 mt-0.5">
-                    Recharge balance
-                  </p>
-                </div>
-              </div>
-            </div>
+            {/* Top Metrics — Visa prototype (split stays inside one card) */}
+            <VisaMetricCard
+              leftValue={String(activeSubscriptions.filter((s) => s.status === "active").length)}
+              leftLabel="My products"
+              rightValue={formatCurrency(userProfile.rechargeBalance || 0)}
+              rightLabel="Recharge balance"
+            />
 
-            {/* Category selection Tabs bar with theme background container */}
-            <div className="relative theme-card card-playful-3d border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] p-1.5 mb-4 shadow-sm">
+            {/* Category selection Tabs — no container bg (transparent) */}
+            <div className="relative p-1.5 -mx-1 mb-2">
               <div className="overflow-x-auto scrollbar-none">
-                <div className="flex gap-2 min-w-max">
+                <div className="flex gap-2 min-w-max px-1">
                   {categoryList.map((cat) => {
                     const isSelected = activeCategory === cat;
                     return (
@@ -186,15 +163,10 @@ export default function CatalogView({
             {/* Horizontal elegant cards column container */}
             <div className="space-y-3 pt-1">
               {filteredItems.map((item, idx) => {
-                const isLocking = activeSubscriptions.some(
-                  (sub) => (sub.itemId === item.id || sub.itemName === item.name) && sub.status === "active"
-                );
-
-                const isExpired = activeSubscriptions.some(
-                  (sub) => (sub.itemId === item.id || sub.itemName === item.name) && sub.status === "expired"
-                ) && !isLocking;
-
                 const isOutOfStock = item.outOfStock || item.disabled;
+                const ownedQuantity = activeSubscriptions.filter(
+                  (sub) => (sub.itemId === item.id || sub.itemName === item.name) && sub.status === "active"
+                ).length;
 
                 // Cumulative calculated total income
                 const totalIncome = item.dailyYield * item.duration;
@@ -208,7 +180,7 @@ export default function CatalogView({
                     className="relative flex flex-row theme-card card-playful-3d border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] p-3 overflow-hidden transition-all duration-150 group select-none shadow-sm hover:border-[var(--theme-primary)]/70"
                   >
                     {/* Left portion: Hardware Image square with rounded sub-borders */}
-                    <div className="w-28 h-28 md:w-36 md:h-36 relative overflow-hidden rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border border-[var(--theme-card-border)] shrink-0">
+                    <div onClick={() => item.imageUrl && setPreviewImage(item.imageUrl)} className="w-36 h-36 md:w-44 md:h-44 relative overflow-hidden rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border-2 border-[var(--theme-card-border)] shrink-0 cursor-zoom-in group-hover:border-[var(--theme-primary)]/30 transition-colors">
                       {item.imageUrl ? (
                         <img
                           src={item.imageUrl}
@@ -222,6 +194,7 @@ export default function CatalogView({
                           No Image
                         </div>
                       )}
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors pointer-events-none" />
                     </div>
 
                     {/* Right portion: Custom specifications text parameters */}
@@ -229,29 +202,29 @@ export default function CatalogView({
                       <div>
                         {/* Title Row with Rent Buy Pill Button */}
                         <div className="flex items-center justify-between gap-2 pb-2 border-b border-[var(--theme-card-border)]/40 mb-1.5">
-                          <h3 className="font-display font-extrabold text-sm text-[var(--theme-primary)] uppercase tracking-tight leading-none truncate">
-                            {item.name}
-                          </h3>
+                          <div className="min-w-0 flex items-center gap-2">
+                            <h3 className="font-display font-extrabold text-sm text-[var(--theme-primary)] uppercase tracking-tight leading-none truncate">
+                              {item.name}
+                            </h3>
+                            {ownedQuantity > 0 && (
+                              <span className="shrink-0 rounded-full border border-[var(--theme-primary)]/30 bg-[var(--theme-primary)]/10 px-2 py-0.5 text-[10px] font-black normal-case tracking-normal text-[var(--theme-primary)]">
+                                ×{ownedQuantity} owned
+                              </span>
+                            )}
+                          </div>
                           <button
                             onClick={() => handleSubscribe(item)}
-                            disabled={submittingItemId === item.id || isOutOfStock || isExpired || isLocking}
+                            disabled={submittingItemId === item.id || isOutOfStock}
                             className="btn-3d-primary text-white text-[11px] font-sans font-black py-1 px-3 rounded-full flex items-center gap-1 shrink-0 active:scale-95 transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {submittingItemId === item.id ? (
                               <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            ) : isLocking ? (
-                              <>
-                                <CheckCircle2 className="w-3 h-3 text-emerald-300" />
-                                <span>RENTED</span>
-                              </>
                             ) : isOutOfStock ? (
                               <span>SOLD OUT</span>
-                            ) : isExpired ? (
-                              <span>EXPIRED</span>
                             ) : (
                               <>
                                 <ShoppingCart className="w-3 h-3" />
-                                <span>RENT BUY</span>
+                                <span>RENT</span>
                               </>
                             )}
                           </button>
@@ -280,13 +253,7 @@ export default function CatalogView({
                     </div>
 
                     {/* Full card status banner overlay */}
-                    {isExpired ? (
-                      <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center z-10 pointer-events-none">
-                        <span className="text-2xl md:text-3xl font-sans font-black tracking-wide text-white drop-shadow-md select-none">
-                          EXPIRED
-                        </span>
-                      </div>
-                    ) : isOutOfStock ? (
+                    {isOutOfStock ? (
                       <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center z-10 pointer-events-none">
                         <span className="text-2xl md:text-3xl font-sans font-black tracking-wide text-white drop-shadow-md select-none">
                           SOLD OUT
@@ -304,6 +271,14 @@ export default function CatalogView({
               )}
             </div>
           </motion.div>
+      </AnimatePresence>
+      {/* Full preview */}
+      <AnimatePresence>
+        {previewImage && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[80] bg-black/85 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setPreviewImage(null)}>
+            <motion.img initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }} src={previewImage} alt="Preview" className="max-w-full max-h-[85vh] rounded-[var(--theme-radius)] shadow-2xl object-contain" />
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );

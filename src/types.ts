@@ -40,11 +40,18 @@ export interface SiteConfig {
   inviteBonus?: number;
   level1InviteIncomePct?: number;
   level2InviteIncomePct?: number;
+  level3InviteIncomePct?: number;
+  level4InviteIncomePct?: number;
+  vipTasks?: VipTaskConfig[];
+  vipTaskCategories?: string[];
   checkinBaseBonus?: number;
   checkinIncrement?: number;
   exchangeRateUSD?: number;
   hasBeenActivatedSeeded?: boolean;
+  minimumDeposit?: number;
+  maximumDeposit?: number;
   minimumWithdrawal?: number;
+  maximumWithdrawal?: number;
   withdrawalFeePercent?: number;
   telegramSupport?: string;
   whatsappSupport?: string;
@@ -52,7 +59,6 @@ export interface SiteConfig {
   paymentGateways?: any;
   categories?: any;
   withdrawFee?: number;
-  withdrawMode?: "automatic" | "manual";
   depositMode?: "automatic" | "manual";
   welcomeBonus?: number;
   usdtQrUrl?: string;
@@ -73,6 +79,16 @@ export interface SiteConfig {
   fontFamily?: string;
   fontSizeScale?: "sm" | "md" | "lg" | "xl";
   textColor?: string;
+}
+
+export interface VipTaskConfig {
+  id: string;
+  title: string;
+  description?: string;
+  category: string;
+  requiredBonus: number;
+  reward: number;
+  active?: boolean;
 }
 
 export interface UserProfile {

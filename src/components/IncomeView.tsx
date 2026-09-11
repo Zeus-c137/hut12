@@ -6,9 +6,12 @@ import {
   Plus,
   Cpu,
   Loader,
-  ShoppingCartIcon
+  ShoppingCartIcon,
+  Zap,
+  Coins
 } from "lucide-react";
 import MetricCard from "./MetricCard";
+import VisaMetricCard from "./VisaMetricCard";
 import { useCurrency } from "../currency";
 import confetti from "canvas-confetti";
 import { toast } from "sonner";
@@ -32,6 +35,7 @@ export default function IncomeView({
 }: IncomeViewProps) {
   const { formatCurrency } = useCurrency();
   const [claimingId, setClaimingId] = useState<string | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   // Calculate Cumulative total earnings
   const sumCollected = activeNodes.reduce((acc, node) => acc + (node.totalEarned || 0), 0);
@@ -84,23 +88,14 @@ export default function IncomeView({
   return (
     <div className="space-y-5 select-none bg-transparent text-[var(--theme-text)] p-1 rounded-[var(--theme-radius)] relative">
       
-      {/* Aggregate Stats Section with custom titleColors */}
-      <div className="grid grid-cols-2 gap-3">
-        {/* Card 1: Combined Daily Income */}
-        <MetricCard
-          title="Total Daily"
-          value={formatCurrency(totalDailyYield)}
-          subtitle="/ day"
-          titleColor="primary"
-        />
-
-        {/* Card 2: Total Income Collected */}
-        <MetricCard
-          title="Income Collected"
-          value={formatCurrency(sumCollected)}
-          titleColor="accent"
-        />
-      </div>
+      {/* Aggregate Stats — Visa prototype (unified with Products) */}
+      <VisaMetricCard
+        leftValue={formatCurrency(totalDailyYield)}
+        leftLabel="Total Daily"
+        leftSub="/ day"
+        rightValue={formatCurrency(sumCollected)}
+        rightLabel="Income Collected"
+      />
 
       {/* Active Subscriptions Miner Nodes list section */}
       <div className="space-y-4">
@@ -112,7 +107,7 @@ export default function IncomeView({
         </div>
 
         {activeNodes.length === 0 ? (
-          <div className="text-center py-12 px-4 theme-card border border-dashed border-[var(--theme-card-border)] rounded-[var(--theme-radius)] max-w-xl mx-auto space-y-4">
+          <div className="text-center py-12 px-4 max-w-xl mx-auto space-y-4">
             <Clock className="w-10 h-10 text-[var(--theme-text)] opacity-40 mx-auto animate-pulse" />
             <div className="space-y-1">
               <h4 className="font-bold text-[var(--theme-text)] opacity-60 text-xs uppercase font-sans">No Active Products </h4>
@@ -122,7 +117,7 @@ export default function IncomeView({
               className="px-4.5 py-2.5 btn-3d-primary text-white rounded-[var(--theme-radius)] text-xs font-sans font-bold flex items-center gap-1.5 mx-auto outline-none transition-colors cursor-pointer active:scale-95 shadow-md"
             >
               <Plus className="w-4 h-4" />
-              Rent a product
+              Rent
             </button>
           </div>
         ) : (
@@ -146,17 +141,17 @@ export default function IncomeView({
               return (
                 <div
                   key={node.id}
-                  className="flex flex-row theme-card card-playful-3d border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] p-3 overflow-hidden relative min-h-[110px] shadow-sm"
+                  className="group flex flex-row theme-card card-playful-3d border-2 border-[var(--theme-card-border)] rounded-[var(--theme-radius)] p-3 overflow-hidden relative shadow-sm hover:border-[var(--theme-primary)]/30"
                 >
                   {/* Left portion: Hardware Image full height */}
-                  <div className="w-28 min-h-[110px] relative overflow-hidden rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border border-[var(--theme-card-border)] shrink-0">
+                  <div onClick={() => imageUrl && setPreviewImage(imageUrl)} className="w-36 h-36 md:w-44 md:h-44 relative overflow-hidden rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border-2 border-[var(--theme-card-border)] shrink-0 cursor-zoom-in group-hover:border-[var(--theme-primary)]/30 transition-colors">
                     {imageUrl ? (
                       <img
                         src={imageUrl}
                         alt=""
                         loading="lazy"
                         referrerPolicy="no-referrer"
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-[var(--theme-bg)] text-[var(--theme-text)] opacity-40">
@@ -221,6 +216,11 @@ export default function IncomeView({
           </div>
         )}
       </div>
+      {previewImage && (
+        <div className="fixed inset-0 z-[80] bg-black/85 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setPreviewImage(null)}>
+          <img src={previewImage} alt="Preview" className="max-w-full max-h-[85vh] rounded-[var(--theme-radius)] shadow-2xl object-contain" />
+        </div>
+      )}
     </div>
   );
 }

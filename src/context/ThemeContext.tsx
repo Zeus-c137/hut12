@@ -380,7 +380,28 @@ export const ThemeProvider: React.FC<{
   });
 
   useEffect(() => {
-    if (initialConfig) setConfig(initialConfig);
+    if (!initialConfig) return;
+    setConfig(prev => {
+      if (!prev) return initialConfig;
+      // Hidden override fix: App's siteConfig (initialConfig) can be stale after admin's optimistic update.
+      // Merge where server wins only when it's newer — compare updatedAt if present, else let server win
+      // but preserve local fontFamily if server is still stale (prevents admin revert on navigation).
+      const prevAny = prev as any;
+      const nextAny = initialConfig as any;
+      // If server has no fontFamily (old whitelist) keep prev
+      if (nextAny.fontFamily === undefined && prevAny.fontFamily) return prev;
+      // If both have fontFamily but differ, prefer the one with newer updatedAt, or server if no timestamp
+      if (prevAny.fontFamily && nextAny.fontFamily && prevAny.fontFamily !== nextAny.fontFamily) {
+        const prevT = Number(prevAny.updatedAt || 0);
+        const nextT = Number(nextAny.updatedAt || 0);
+        if (prevT && nextT) return nextT >= prevT ? initialConfig : prev;
+        // No timestamp — if prev was set via updateLocalThemeConfig (local optimistic), keep prev until next server fetch confirms
+        // Detect optimistic by checking if prev has fontFamily that initialConfig doesn't yet have due to 60s poll delay
+        // Keep prev for one cycle, server will win on next fetch
+        return prev;
+      }
+      return initialConfig;
+    });
   }, [initialConfig]);
 
   const themePreset = (config?.themePreset || "duolingo-playful") as ThemePreset;

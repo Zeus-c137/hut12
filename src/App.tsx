@@ -13,6 +13,7 @@ import DepositView from "./components/DepositView";
 import ReferralView from "./components/ReferralView";
 import ProfileView from "./components/ProfileView";
 import ChatView from "./components/ChatView";
+import TransactionHistoryView from "./components/TransactionHistoryView";
 import ParticleBg from "./components/ParticleBg";
 import AlertsView from "./components/AlertsView";
 import AdminView from "./components/AdminView";
@@ -39,38 +40,21 @@ import {
   Computer,
   Database,
   BadgeDollarSign,
-  Flame,
   Bell,
   Home,
+  History,
   Cpu,
   Wallet,
   Gift,
-  ShoppingCartIcon
+  ShoppingCartIcon,
+  DollarSignIcon
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 import { ThemeProvider } from "./context/ThemeContext";
+import { readApiJson } from "./utils/api";
 
-function getVipBadgeConfig(count: number = 0, claimedTasks: string[] = []) {
-  const claimedMax = (claimedTasks || []).reduce((max, id) => {
-    const num = parseInt(id.replace("vip-", ""), 10);
-    return isNaN(num) ? max : Math.max(max, num);
-  }, 0);
-
-  let calculatedLevel = 0;
-  if (count >= 1000) calculatedLevel = 10;
-  else if (count >= 600) calculatedLevel = 9;
-  else if (count >= 300) calculatedLevel = 8;
-  else if (count >= 150) calculatedLevel = 7;
-  else if (count >= 100) calculatedLevel = 6;
-  else if (count >= 60) calculatedLevel = 5;
-  else if (count >= 30) calculatedLevel = 4;
-  else if (count >= 15) calculatedLevel = 3;
-  else if (count >= 6) calculatedLevel = 2;
-  else if (count >= 2) calculatedLevel = 1;
-
-  const level = Math.max(calculatedLevel, claimedMax);
-
+function getVipBadgeConfig(level: number = 0) {
   const configs: Record<number, { label: string; badgeColor: string }> = {
     0: { label: "VIP 0", badgeColor: "text-slate-400 bg-slate-500/15 border-slate-500/25" },
     1: { label: "VIP 1", badgeColor: "text-amber-500 bg-amber-500/15 border-amber-500/25" },
@@ -85,7 +69,12 @@ function getVipBadgeConfig(count: number = 0, claimedTasks: string[] = []) {
     10: { label: "VIP 10", badgeColor: "text-red-500 bg-red-500/15 border-red-500/25" },
   };
 
-  return configs[level] || configs[0];
+  if (level <= 0) return configs[0];
+  if (configs[level]) return configs[level];
+  return {
+    label: `VIP ${level}`,
+    badgeColor: "text-[var(--theme-primary)] bg-[var(--theme-primary)]/15 border-[var(--theme-primary)]/25"
+  };
 }
 
 export default function App() {
@@ -101,10 +90,8 @@ export default function App() {
       
       // Enforce session isolation
       if (isAdm) {
-        // If entering admin space, clear user session
-        localStorage.removeItem("session_phone");
-        localStorage.removeItem("referral_miner_session");
-        
+        // User sessions are HttpOnly cookies and are deliberately not copied
+        // into localStorage. AdminView validates its own separate cookie.
       } else {
         // If entering user space, clear admin session
         localStorage.removeItem("hut8_admin_active");
@@ -122,36 +109,86 @@ export default function App() {
     };
   }, []);
 
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(() => {
-    let ref = null;
-    try {
-      const searchParams = new URLSearchParams(window.location.search);
-      ref = searchParams.get("ref");
-      if (!ref) {
-        const hashIndex = window.location.hash.indexOf("?");
-        if (hashIndex !== -1) {
-          const hashParams = new URLSearchParams(window.location.hash.substring(hashIndex));
-          ref = hashParams.get("ref");
-        }
-      }
-    } catch (e) {}
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [isRestoringSession, setIsRestoringSession] = useState(true);
 
-    if (ref) {
-      localStorage.removeItem("referral_miner_session");
-      return null;
+  // The server owns the signed HttpOnly cookie. Restore the profile from it
+  // before rendering the login screen, so a refresh is not treated as logout.
+  useEffect(() => {
+    if (isAdminRoute) {
+      setIsRestoringSession(false);
+      return;
     }
 
-    localStorage.removeItem("referral_miner_session");
-    return null;
-  });
-  const [activeTab, setActiveTab] = useState<"dashboard" | "catalog" | "income" | "ai" | "referral" | "chat" | "profile" | "deposit" | "alerts">("dashboard");
+    let cancelled = false;
+    setIsRestoringSession(true);
+    fetch("/api/auth/session", {
+      credentials: "same-origin",
+      cache: "no-store"
+    })
+      .then(async (response) => {
+        if (!response.ok) return null;
+        return response.json();
+      })
+      .then((data) => {
+        if (!cancelled && data?.authenticated && data.profile) {
+          setUserProfile(data.profile);
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) console.warn("Unable to restore the user session:", error);
+      })
+      .finally(() => {
+        if (!cancelled) setIsRestoringSession(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdminRoute]);
+  const [activeTab, setActiveTab] = useState<"dashboard" | "catalog" | "income" | "history" | "ai" | "referral" | "chat" | "profile" | "deposit" | "alerts">("dashboard");
   const [siteConfig, setSiteConfig] = useState<any>(null);
+  const [vipBadgeLevel, setVipBadgeLevel] = useState(0);
   const [userNotifications, setUserNotifications] = useState<NotificationItem[]>([]);
-  const [showWelcomeModal, setShowWelcomeModal] = useState<boolean>(() => {
-    if (!userProfile?.phone) return false;
-    const shown = localStorage.getItem(`welcome_bonus_shown_${userProfile.phone}`);
-    return !shown;
-  });
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [welcomeBonusAmount, setWelcomeBonusAmount] = useState(0);
+
+  // Only a successful registration creates this handoff. A normal login has
+  // no pending key, so returning users never see the welcome modal.
+  useEffect(() => {
+    if (!userProfile?.phone) {
+      setShowWelcomeModal(false);
+      setWelcomeBonusAmount(0);
+      return;
+    }
+
+    const welcomeKey = `pending_welcome_bonus_${userProfile.phone}`;
+    let pendingBonus: { amount?: number; issuedAt?: number } | null = null;
+    try {
+      const rawPendingBonus = sessionStorage.getItem(welcomeKey);
+      pendingBonus = rawPendingBonus ? JSON.parse(rawPendingBonus) : null;
+    } catch {
+      pendingBonus = null;
+    }
+
+    const amount = Number(pendingBonus?.amount || 0);
+    const issuedAt = Number(pendingBonus?.issuedAt || 0);
+    const isFreshHandoff = issuedAt > 0 && Date.now() - issuedAt <= 15 * 60 * 1000;
+    if (amount <= 0 || !isFreshHandoff) {
+      sessionStorage.removeItem(welcomeKey);
+      setShowWelcomeModal(false);
+      setWelcomeBonusAmount(0);
+      return;
+    }
+
+    setWelcomeBonusAmount(amount);
+    setShowWelcomeModal(false);
+    const timer = window.setTimeout(() => {
+      setShowWelcomeModal(true);
+    }, 30_000);
+
+    return () => window.clearTimeout(timer);
+  }, [userProfile?.phone]);
 
   useEffect(() => {
     if (showWelcomeModal) {
@@ -165,7 +202,7 @@ export default function App() {
 
   const handleCloseWelcomeModal = () => {
     if (userProfile?.phone) {
-      localStorage.setItem(`welcome_bonus_shown_${userProfile.phone}`, "true");
+      sessionStorage.removeItem(`pending_welcome_bonus_${userProfile.phone}`);
     }
     setShowWelcomeModal(false);
   };
@@ -194,6 +231,26 @@ export default function App() {
       .catch(err => console.error("Failed to fetch site config", err));
   }, []);
 
+  // Hidden override fix: refetch siteConfig when admin saves (same tab via custom event + other tabs via storage)
+  useEffect(() => {
+    const refresh = () => {
+      fetch("/api/config/site")
+        .then(r => r.json())
+        .then(data => { if (!data.error) setSiteConfig(data); })
+        .catch(() => {});
+    };
+    const onStorage = (e: StorageEvent) => { if (e.key === "siteConfigUpdatedAt") refresh(); };
+    const onCustom = () => refresh();
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("siteConfigUpdated", onCustom as any);
+    window.addEventListener("focus", refresh);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("siteConfigUpdated", onCustom as any);
+      window.removeEventListener("focus", refresh);
+    };
+  }, []);
+
   useEffect(() => {
     if (siteConfig?.brandName) {
       document.title = siteConfig.brandName;
@@ -216,7 +273,7 @@ export default function App() {
     }
   }, [siteConfig]);
 
-  const [previousTab, setPreviousTab] = useState<"dashboard" | "catalog" | "income" | "referral" | "chat" | "profile" | "deposit">("dashboard");
+  const [previousTab, setPreviousTab] = useState<"dashboard" | "catalog" | "income" | "history" | "referral" | "chat" | "profile" | "deposit">("dashboard");
 
   useEffect(() => {
     if (activeTab !== "alerts") {
@@ -226,9 +283,6 @@ export default function App() {
   const [chatRoomDefault, setChatRoomDefault] = useState<"shared" | "admin">("shared");
   const [autoOpenWithdraw, setAutoOpenWithdraw] = useState(false);
   const [preselectedGpuRent, setPreselectedGpuRent] = useState<SubscriptionItem | null>(null);
-  
-  // Pending system award alerts
-  const [pendingAwardAlerts, setPendingAwardAlerts] = useState<any[]>([]);
   
   // Data lists
   const [items, setItems] = useState<SubscriptionItem[]>([]);
@@ -254,6 +308,14 @@ export default function App() {
   }, [siteConfig]);
 
   // 5-minute inactivity auto sign out for users
+  const revokeUserSession = () => {
+    void fetch("/api/auth/logout", {
+      method: "POST",
+      credentials: "same-origin",
+      cache: "no-store"
+    }).catch(() => undefined);
+  };
+
   useEffect(() => {
     if (!userProfile || isAdminRoute) return;
 
@@ -262,8 +324,8 @@ export default function App() {
     const resetTimer = () => {
       clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
+        revokeUserSession();
         setUserProfile(null);
-        localStorage.removeItem("referral_miner_session");
         setActiveTab("dashboard");
         toast.info("You have been signed out due to inactivity.");
       }, 5 * 60 * 1000); // 5 minutes
@@ -287,13 +349,14 @@ export default function App() {
   // Fetch lists and stats once user is active
   const fetchUserDataAndCatalog = async (phone: string) => {
     try {
-      const [itemsRes, subsRes, statsRes, notifRes, profileRes, siteRes] = await Promise.all([
+      const [itemsRes, subsRes, statsRes, notifRes, profileRes, siteRes, vipRes] = await Promise.all([
         fetch("/api/items"),
         fetch(`/api/subscriptions/${phone}`),
         fetch("/api/system/stats"),
         fetch(`/api/profile/notifications/${phone}`),
         fetch(`/api/profile/${phone}`),
-        fetch("/api/config/site")
+        fetch("/api/config/site"),
+        fetch(`/api/profile/vip-tasks/${encodeURIComponent(phone)}`)
       ]);
 
       if (itemsRes.ok && itemsRes.headers.get("content-type")?.includes("application/json")) {
@@ -308,7 +371,7 @@ export default function App() {
       
       if (profileRes.ok && profileRes.headers.get("content-type")?.includes("application/json")) {
         const upProf = await profileRes.json();
-        setUserProfile(upProf);
+        if (upProf) setUserProfile(upProf);
       }
 
       if (siteRes.ok && siteRes.headers.get("content-type")?.includes("application/json")) {
@@ -316,26 +379,16 @@ export default function App() {
         if (!siteData.error) setSiteConfig(siteData);
       }
 
+      if (vipRes.ok && vipRes.headers.get("content-type")?.includes("application/json")) {
+        const vipData = await vipRes.json();
+        setVipBadgeLevel(Number(vipData?.vipLevel || 0));
+      } else if (!vipRes.ok) {
+        setVipBadgeLevel(0);
+      }
+
       if (notifRes.ok && notifRes.headers.get("content-type")?.includes("application/json")) {
         const notifs = await notifRes.json();
         setUserNotifications(notifs);
-        // Check if any "daily accumulation" notifications are fresh and not yet on-screen alerts dismissed
-        const dismissedStr = sessionStorage.getItem("referral_miner_dismissed_alerts") || "[]";
-        const dismissedIds = JSON.parse(dismissedStr) as string[];
-
-        const freshAwards = notifs.filter((n: any) =>
-          n.type === "daily accumulation" &&
-          !dismissedIds.includes(n.id)
-        );
-
-        if (freshAwards.length > 0) {
-          setPendingAwardAlerts((prev) => {
-            // Uniquify
-            const existingIds = prev.map((item) => item.id);
-            const filteredNew = freshAwards.filter((item: any) => !existingIds.includes(item.id));
-            return [...prev, ...filteredNew];
-          });
-        }
       }
     } catch (e) {
       console.error("Failed to sync backend endpoints:", e);
@@ -362,8 +415,12 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    if (userProfile?.phone) {
+      sessionStorage.removeItem(`pending_welcome_bonus_${userProfile.phone}`);
+    }
     setUserProfile(null);
-    localStorage.removeItem("referral_miner_session");
+    setVipBadgeLevel(0);
+    revokeUserSession();
     setActiveTab("dashboard");
     setAdvisorMessages([
       {
@@ -375,6 +432,10 @@ export default function App() {
 
   const handleProfileChange = (newProfile: UserProfile) => {
     setUserProfile(newProfile);
+    fetch(`/api/profile/vip-tasks/${encodeURIComponent(newProfile.phone)}`)
+      .then((response) => readApiJson<{ vipLevel?: number }>(response))
+      .then((board) => setVipBadgeLevel(Number(board.vipLevel || 0)))
+      .catch(() => undefined);
   };
 
   // Callback on successful active subscription activation
@@ -498,30 +559,37 @@ export default function App() {
     }
   };
 
-  // Render Admin consoles if URL is admin
-  if (isAdminRoute) {
-    return (
-      <ThemeProvider siteConfig={siteConfig}>
-        <AdminView />
-      </ThemeProvider>
-    );
-  }
+  const renderContent = () => {
+    if (!isAdminRoute && isRestoringSession) {
+      return (
+        <div className="min-h-screen bg-[var(--theme-bg)] text-[var(--theme-text)] font-[var(--theme-font-family)] flex items-center justify-center">
+          <div className="theme-card border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] px-5 py-4 text-sm opacity-75">
+            Restoring your session…
+          </div>
+        </div>
+      );
+    }
 
-  // Render Auth screens if logged out
-  if (!userProfile) {
-    return (
-      <ThemeProvider siteConfig={siteConfig}>
-        <AuthView onAuthSuccess={handleAuthSuccess} siteConfig={siteConfig} />
-      </ThemeProvider>
-    );
-  }
+    if (isAdminRoute) {
+      return <AdminView />;
+    }
+
+    if (!userProfile) {
+      return <AuthView onAuthSuccess={handleAuthSuccess} siteConfig={siteConfig} />;
+    }
+
+    return null; // main content rendered below
+  };
+
+  const isMainApp = !isAdminRoute && !isRestoringSession && !!userProfile;
 
   return (
     <ThemeProvider siteConfig={siteConfig}>
+      {!isMainApp ? renderContent() : (
       <div className="relative h-[100dvh] w-full bg-[var(--theme-bg)] text-[var(--theme-text)] font-sans selection:bg-blue-600/35 selection:text-white overflow-hidden flex items-center justify-center p-0 md:p-4">
       
 
-      {/* Welcome Bonus Modal (Theme-preset aware, fires once with confetti) */}
+      {/* Welcome Bonus Modal: the registration bonus is already credited server-side. */}
       <AnimatePresence>
         {showWelcomeModal && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center px-4">
@@ -529,7 +597,7 @@ export default function App() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/80 backdrop-blur-xs"
+              className="absolute inset-0 bg-[var(--theme-text)]/45 backdrop-blur-sm"
               onClick={handleCloseWelcomeModal}
             />
             <motion.div
@@ -537,89 +605,35 @@ export default function App() {
               animate={{ scale: 1, y: 0, opacity: 1 }}
               exit={{ scale: 0.9, y: -15, opacity: 0 }}
               transition={{ type: "spring", damping: 20, stiffness: 225 }}
-              className="relative w-full max-w-sm bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] text-[var(--theme-text)] rounded-[var(--theme-radius)] p-6 text-center space-y-4 shadow-2xl z-[210] overflow-hidden"
+              className="relative w-full max-w-sm theme-card border-2 border-[var(--theme-card-border)] text-[var(--theme-text)] rounded-[var(--theme-radius)] p-6 pt-7 text-center space-y-4 shadow-2xl z-[210] overflow-hidden font-[var(--theme-font-family)]"
             >
-              <div className="absolute top-0 inset-x-0 h-36 bg-gradient-to-b from-[var(--theme-primary)]/15 to-transparent pointer-events-none" />
+              <div className="absolute top-0 inset-x-0 h-36 bg-gradient-to-b from-[var(--theme-primary)]/20 to-transparent pointer-events-none" />
 
-              <div className="w-16 h-16 rounded-2xl bg-[var(--theme-primary)]/20 border border-[var(--theme-primary)]/30 mx-auto flex items-center justify-center text-[var(--theme-primary)] relative z-10 shadow-lg animate-bounce">
+              <button
+                type="button"
+                onClick={handleCloseWelcomeModal}
+                aria-label="Close welcome message"
+                className="absolute right-3 top-3 z-20 w-8 h-8 flex items-center justify-center rounded-full bg-[var(--theme-bg)]/80 border border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70 hover:opacity-100 active:scale-95 transition-all cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="w-16 h-16 rounded-2xl bg-[var(--theme-primary)]/15 border border-[var(--theme-primary)]/30 mx-auto flex items-center justify-center text-[var(--theme-primary)] relative z-10 shadow-lg">
                 <Gift className="w-8 h-8 text-[var(--theme-primary)]" />
               </div>
 
               <div className="space-y-2 relative z-10">
-                <span className="text-[11px] font-sans text-[var(--theme-primary)] font-extrabold uppercase tracking-widest block">WELCOME BONUS UNLOCKED</span>
-                <h3 className="font-display font-black text-lg text-[var(--theme-text)] uppercase tracking-tight">Welcome Aboard!</h3>
-                <p className="text-xs text-[var(--theme-text)] opacity-80 leading-relaxed font-sans px-1">
-                  Your registration is complete! You have received a welcome bonus of <span className="font-black text-[var(--theme-primary)]">UGX {(siteConfig?.welcomeBonus || 10000).toLocaleString()}</span> credited directly to your account.
+                {/* <span className="text-[11px] font-[var(--theme-font-family)] text-[var(--theme-primary)] font-extrabold uppercase tracking-widest block">WELCOME BONUS CREDITED</span> */}
+                <h3 className="font-display font-black text-lg text-[var(--theme-text)] uppercase tracking-tight">Welcome!</h3>
+                <p className="text-xs text-[var(--theme-text)] opacity-80 leading-relaxed font-[var(--theme-font-family)] px-1">
+                  Your registration is complete! You have received a welcome bonus of <span className="font-black text-[var(--theme-primary)]">UGX {welcomeBonusAmount.toLocaleString()}</span> credited directly to your account.
                 </p>
               </div>
 
-              <button
-                onClick={handleCloseWelcomeModal}
-                className="w-full py-3 bg-[var(--theme-primary)] hover:brightness-110 text-white font-sans font-black text-xs uppercase tracking-wider rounded-[var(--theme-radius)] shadow-lg active:scale-95 transition-all cursor-pointer relative z-10"
-              >
-                Claim Bonus & Start
-              </button>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Dynamic Popups for Fresh Daily Yield Claims (On-Screen Alerts) */}
-      <AnimatePresence>
-        {pendingAwardAlerts.length > 0 && (
-          <div className="fixed inset-0 z-[150] flex items-center justify-center px-4">
-            {/* Dark Overlay */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/80 backdrop-blur-xs"
-              onClick={() => {
-                const first = pendingAwardAlerts[0];
-                const dismissedStr = sessionStorage.getItem("referral_miner_dismissed_alerts") || "[]";
-                const dismissedIds = JSON.parse(dismissedStr) as string[];
-                dismissedIds.push(first.id);
-                sessionStorage.setItem("referral_miner_dismissed_alerts", JSON.stringify(dismissedIds));
-                setPendingAwardAlerts((prev) => prev.slice(1));
-              }}
-            />
-            {/* Card Modal with bouncing reward animation */}
-            <motion.div
-              initial={{ scale: 0.9, y: 15, opacity: 0 }}
-              animate={{ scale: 1, y: 0, opacity: 1 }}
-              exit={{ scale: 0.9, y: -15, opacity: 0 }}
-              transition={{ type: "spring", damping: 20, stiffness: 225 }}
-              className="relative w-full max-w-sm bg-slate-900 border border-slate-800 rounded-3xl p-5 text-center space-y-4 shadow-2xl shadow-blue-500/10 z-[160] overflow-hidden"
-            >
-              {/* Glowing decorative radial background */}
-              <div className="absolute top-0 inset-x-0 h-40 bg-gradient-to-b from-blue-500/10 to-transparent pointer-events-none" />
-
-              {/* Floating Award Trophy Icon styling */}
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-400 to-blue-600 mx-auto flex items-center justify-center text-slate-950 shadow-md shadow-blue-500/15 relative animate-pulse">
-                <Flame className="w-7 h-7 text-white fill-white stroke-[2.5]" />
+              <div className="relative z-10 flex items-center justify-center gap-2 rounded-[var(--theme-radius)] border border-[var(--theme-card-border)] bg-[var(--theme-bg)] px-3 py-2.5 text-[11px] font-[var(--theme-font-family)] font-bold text-[var(--theme-text)] opacity-80">
+                <DollarSignIcon className="w-4 h-4 text-[var(--theme-primary)]" />
+                <span>Automatically added to your withdrawable balance</span>
               </div>
-
-              <div className="space-y-1.5 relative z-10">
-                <span className="text-[12px] font-sans text-blue-400 font-extrabold uppercase tracking-wider block">SYSTEM DIVIDEND</span>
-                <h3 className="font-display font-black text-md text-slate-100 uppercase tracking-tight">Daily Income Credited!</h3>
-                <p className="text-[11.5px] text-slate-300 leading-relaxed font-sans px-2 break-words">
-                  {pendingAwardAlerts[0]?.message || pendingAwardAlerts[0]?.payload?.message || "Your daily yield reward has been calculated and transferred to your pocket ledger."}
-                </p>
-              </div>
-
-              <button
-                onClick={() => {
-                  const first = pendingAwardAlerts[0];
-                  const dismissedStr = sessionStorage.getItem("referral_miner_dismissed_alerts") || "[]";
-                  const dismissedIds = JSON.parse(dismissedStr) as string[];
-                  dismissedIds.push(first.id);
-                  sessionStorage.setItem("referral_miner_dismissed_alerts", JSON.stringify(dismissedIds));
-                  setPendingAwardAlerts((prev) => prev.slice(1));
-                }}
-                className="w-full py-2.5 btn-3d-accent text-white font-sans font-bold text-[11px] select-none cursor-pointer relative z-10"
-              >
-                Harvest Dividend
-              </button>
             </motion.div>
           </div>
         )}
@@ -649,7 +663,7 @@ export default function App() {
                 Hi, {userProfile.username || "Miner"}
               </span>
               {(() => {
-                const vipBadge = getVipBadgeConfig(userProfile.invitesCount || 0, userProfile.claimedVipTasks || []);
+                const vipBadge = getVipBadgeConfig(vipBadgeLevel);
                 return (
                   <span className={`inline-block text-[9px] font-black px-2 py-0.5 rounded-full uppercase border ${vipBadge.badgeColor}`}>
                     {vipBadge.label}
@@ -660,25 +674,31 @@ export default function App() {
           </div>
 
           {/* Action controllers */}
-          <div className="flex items-center gap-2">
-            {/* Quick Balance indicator widget */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* AI Copilot — header, next to bell */}
             <button
-              onClick={() => setActiveTab("profile")}
-              className="bg-[var(--theme-bg)]/80 hover:bg-[var(--theme-bg)] border border-[var(--theme-card-border)] px-3 h-8.5 rounded-full flex items-center gap-1.5 text-xs font-sans font-medium transition-all cursor-pointer outline-none text-[var(--theme-text)] shadow-xs"
-              title="View account balance and profile settings"
+              onClick={() => {
+                if (activeTab !== "ai") setPreviousTab(activeTab as any);
+                setActiveTab("ai");
+              }}
+              className={`relative p-2 rounded-xl text-xs font-sans font-bold flex items-center justify-center border-2 transition-all cursor-pointer outline-none h-9 w-9 shrink-0 shadow-sm active:scale-95 ${activeTab==="ai" ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white shadow-[0_4px_0_0_var(--theme-primary-shadow)]" : "bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-primary)] hover:brightness-105"}`}
+              title="AI Assistant"
             >
-              <Coins className="w-3.5 h-3.5 text-[var(--theme-primary)] fill-[var(--theme-primary)] shrink-0" />
-              <span className="text-[var(--theme-primary)] font-sans font-black">{formatCurrency(userProfile.points)}</span>
+              <Bot className={`w-4.5 h-4.5 ${activeTab==="ai" ? "text-white" : "text-[var(--theme-primary)]"}`} />
+              <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 border-2 border-[var(--theme-card-bg)]"></span>
+              </span>
             </button>
 
             {/* Notification Bell trigger button */}
             <button
               onClick={() => {
                 localStorage.setItem("lastViewedAlertsTime", Date.now().toString());
-                setPreviousTab(activeTab);
+                setPreviousTab(activeTab as any);
                 setActiveTab("alerts");
               }}
-              className="relative p-2 rounded-full text-xs font-sans font-bold flex items-center justify-center border transition-all cursor-pointer outline-none h-8.5 w-8.5 shrink-0 bg-[var(--theme-bg)]/80 border-[var(--theme-card-border)] text-[var(--theme-text)] hover:brightness-110 active:scale-95"
+              className="relative p-2 rounded-xl text-xs font-sans font-bold flex items-center justify-center border-2 transition-all cursor-pointer outline-none h-9 w-9 shrink-0 bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] hover:brightness-105 active:scale-95 shadow-sm"
               title="View Alerts & Notifications"
             >
               <Bell className="w-4 h-4 text-[var(--theme-primary)]" />
@@ -720,8 +740,10 @@ export default function App() {
                   }}
                   onNavigateToProfile={() => setActiveTab("profile")}
                   onNavigateToAlerts={() => setActiveTab("alerts")}
+                  items={items}
                   systemStats={systemStats}
                   siteConfig={siteConfig}
+                  notifications={userNotifications}
                   onRefreshDashboard={handleManualStatsRefresh}
                 />
               </motion.div>
@@ -766,6 +788,17 @@ export default function App() {
                     setActiveTab("deposit");
                   }}
                 />
+              </motion.div>
+            )}
+
+            {(activeTab === "history" || (activeTab === "alerts" && previousTab === "history")) && (
+              <motion.div
+                key="hist"
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+              >
+                <TransactionHistoryView phone={userProfile.phone} siteConfig={siteConfig} onBack={() => setActiveTab("profile")} />
               </motion.div>
             )}
 
@@ -825,6 +858,7 @@ export default function App() {
                   userProfile={userProfile!}
                   siteConfig={siteConfig}
                   activeNodes={activeNodes}
+                  notifications={userNotifications}
                   onProfileUpdate={handleProfileChange}
                   onNavigateToDeposit={() => setActiveTab("deposit")}
                   autoOpenWithdraw={autoOpenWithdraw}
@@ -869,7 +903,9 @@ export default function App() {
                 <div className="flex-1 overflow-y-auto scrollbar-none pb-6">
                   <AlertsView
                     profile={userProfile!}
+                    initialNotifications={userNotifications}
                     onBack={() => setActiveTab(previousTab)}
+                    onNotificationsChange={setUserNotifications}
                   />
                 </div>
               </motion.div>
@@ -986,132 +1022,61 @@ export default function App() {
           )}
         </AnimatePresence>
 
-        {/* Floating AI Action Button - Extreme Right Edge Middle Screen */}
-        <div className="fixed right-2 top-1/2 -translate-y-1/2 z-40">
-          <button
-            onClick={() => {
-              if (activeTab !== "ai") {
-                setPreviousTab(activeTab);
-              }
-              setActiveTab("ai");
-            }}
-            className={`btn-3d-secondary text-[var(--theme-text)] w-11 h-11 rounded-full flex items-center justify-center shadow-xl active:scale-90 transition-all cursor-pointer group border border-[var(--theme-card-border)] relative ${activeTab === "ai" ? "ring-2 ring-[var(--theme-primary)] scale-105" : ""}`}
-            title="AI Assistant"
-          >
-            <Bot className="w-5 h-5 fill-current text-[var(--theme-primary)] group-hover:rotate-12 transition-transform" />
-            <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-            </span>
-          </button>
-        </div>
-
-        {/* Bottom Tab Bar Navigation - Interactive solid icons with X-axis padding and rounded edges */}
-        <div className="w-full px-4 pb-3 pt-1 bg-transparent shrink-0 z-40 select-none">
-          <nav className="max-w-md mx-auto theme-card border-2 border-[var(--theme-card-border)] bg-[var(--theme-card-bg)]/95 backdrop-blur-xl rounded-full p-1.5 flex items-center justify-between shadow-xl gap-1">
+        {/* Bottom Tab Bar — First stab: angular, chunky, Duolingo-playful, not a pill */}
+        <div className="w-full px-0 pb-0 pt-0 bg-transparent shrink-0 z-40 select-none">
+          <nav className="w-full max-w-xl mx-auto bg-[var(--theme-card-bg)] border-t-[3px] border-[var(--theme-card-border)] rounded-t-[28px] shadow-[0_-10px_40px_rgba(0,0,0,0.08)] px-1.5 sm:px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] flex items-center justify-between gap-1">
             {/* Home */}
             <button
               onClick={() => setActiveTab("dashboard")}
-              className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-full cursor-pointer transition-all outline-none group ${
-                activeTab === "dashboard" ? "scale-105" : ""
-              }`}
+              className={`flex-1 flex flex-col items-center gap-1 py-2.5 px-1 rounded-2xl border-2 transition-all active:scale-95 ${activeTab === "dashboard" ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white shadow-[0_4px_0_0_var(--theme-primary-shadow)] -translate-y-1" : "bg-[var(--theme-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
             >
-              <div className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
-                activeTab === "dashboard" 
-                  ? "btn-3d-primary text-white shadow-md" 
-                  : "bg-[var(--theme-bg)]/80 text-[var(--theme-text)] opacity-70 group-hover:opacity-100 border border-[var(--theme-card-border)]/50"
-              }`}>
-                <Home className="w-4.5 h-4.5 shrink-0 fill-current" />
-              </div>
-              <span className={`text-[10px] font-sans font-extrabold mt-0.5 tracking-tight ${
-                activeTab === "dashboard" ? "text-[var(--theme-primary)]" : "text-[var(--theme-text)] opacity-70"
-              }`}>
-                Home
-              </span>
+              <Home className="w-5 h-5 shrink-0" />
+              <span className="text-[9px] sm:text-[10px] font-display font-black uppercase tracking-wide leading-none">Home</span>
             </button>
 
-            {/* Machines */}
+            {/* Products */}
             <button
               onClick={() => setActiveTab("catalog")}
-              className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-full cursor-pointer transition-all outline-none group ${
-                activeTab === "catalog" ? "scale-105" : ""
-              }`}
+              className={`flex-1 flex flex-col items-center gap-1 py-2.5 px-1 rounded-2xl border-2 transition-all active:scale-95 ${activeTab === "catalog" ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white shadow-[0_4px_0_0_var(--theme-primary-shadow)] -translate-y-1" : "bg-[var(--theme-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
             >
-              <div className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
-                activeTab === "catalog" 
-                  ? "btn-3d-primary text-white shadow-md" 
-                  : "bg-[var(--theme-bg)]/80 text-[var(--theme-text)] opacity-70 group-hover:opacity-100 border border-[var(--theme-card-border)]/50"
-              }`}>
-                <ShoppingCartIcon className="w-4.5 h-4.5 shrink-0 fill-current" />
-              </div>
-              <span className={`text-[10px] font-sans font-extrabold mt-0.5 tracking-tight ${
-                activeTab === "catalog" ? "text-[var(--theme-primary)]" : "text-[var(--theme-text)] opacity-70"
-              }`}>
-                Products
-              </span>
+              <ShoppingCartIcon className="w-5 h-5 shrink-0" />
+              <span className="text-[9px] sm:text-[10px] font-display font-black uppercase tracking-wide leading-none">Products</span>
             </button>
 
             {/* Income */}
             <button
               onClick={() => setActiveTab("income")}
-              className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-full cursor-pointer transition-all outline-none group ${
-                activeTab === "income" ? "scale-105" : ""
-              }`}
+              className={`flex-1 flex flex-col items-center gap-1 py-2.5 px-1 rounded-2xl border-2 transition-all active:scale-95 ${activeTab === "income" ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white shadow-[0_4px_0_0_var(--theme-primary-shadow)] -translate-y-1" : "bg-[var(--theme-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
             >
-              <div className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
-                activeTab === "income" 
-                  ? "btn-3d-primary text-white shadow-md" 
-                  : "bg-[var(--theme-bg)]/80 text-[var(--theme-text)] opacity-70 group-hover:opacity-100 border border-[var(--theme-card-border)]/50"
-              }`}>
-                <Wallet className="w-4.5 h-4.5 shrink-0 fill-current" />
-              </div>
-              <span className={`text-[10px] font-sans font-extrabold mt-0.5 tracking-tight ${
-                activeTab === "income" ? "text-[var(--theme-primary)]" : "text-[var(--theme-text)] opacity-70"
-              }`}>
-                Income
-              </span>
+              <Wallet className="w-5 h-5 shrink-0" />
+              <span className="text-[9px] sm:text-[10px] font-display font-black uppercase tracking-wide leading-none">Income</span>
+            </button>
+
+            {/* History — NEW */}
+            <button
+              onClick={() => setActiveTab("history")}
+              className={`flex-1 flex flex-col items-center gap-1 py-2.5 px-1 rounded-2xl border-2 transition-all active:scale-95 ${activeTab === "history" ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white shadow-[0_4px_0_0_var(--theme-primary-shadow)] -translate-y-1" : "bg-[var(--theme-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
+            >
+              <History className="w-5 h-5 shrink-0" />
+              <span className="text-[9px] sm:text-[10px] font-display font-black uppercase tracking-wide leading-none">History</span>
             </button>
 
             {/* Chat */}
             <button
               onClick={() => setActiveTab("chat")}
-              className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-full cursor-pointer transition-all outline-none group ${
-                activeTab === "chat" ? "scale-105" : ""
-              }`}
+              className={`flex-1 flex flex-col items-center gap-1 py-2.5 px-1 rounded-2xl border-2 transition-all active:scale-95 ${activeTab === "chat" ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white shadow-[0_4px_0_0_var(--theme-primary-shadow)] -translate-y-1" : "bg-[var(--theme-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
             >
-              <div className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
-                activeTab === "chat" 
-                  ? "btn-3d-primary text-white shadow-md" 
-                  : "bg-[var(--theme-bg)]/80 text-[var(--theme-text)] opacity-70 group-hover:opacity-100 border border-[var(--theme-card-border)]/50"
-              }`}>
-                <MessageCircleMore className="w-4.5 h-4.5 shrink-0 fill-current" />
-              </div>
-              <span className={`text-[10px] font-sans font-extrabold mt-0.5 tracking-tight ${
-                activeTab === "chat" ? "text-[var(--theme-primary)]" : "text-[var(--theme-text)] opacity-70"
-              }`}>
-                Chat
-              </span>
+              <MessageCircleMore className="w-5 h-5 shrink-0" />
+              <span className="text-[9px] sm:text-[10px] font-display font-black uppercase tracking-wide leading-none">Chat</span>
             </button>
 
             {/* Profile */}
             <button
               onClick={() => setActiveTab("profile")}
-              className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-full cursor-pointer transition-all outline-none group ${
-                activeTab === "profile" ? "scale-105" : ""
-              }`}
+              className={`flex-1 flex flex-col items-center gap-1 py-2.5 px-1 rounded-2xl border-2 transition-all active:scale-95 ${activeTab === "profile" ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white shadow-[0_4px_0_0_var(--theme-primary-shadow)] -translate-y-1" : "bg-[var(--theme-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
             >
-              <div className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
-                activeTab === "profile" 
-                  ? "btn-3d-primary text-white shadow-md" 
-                  : "bg-[var(--theme-bg)]/80 text-[var(--theme-text)] opacity-70 group-hover:opacity-100 border border-[var(--theme-card-border)]/50"
-              }`}>
-                <User className="w-4.5 h-4.5 shrink-0 fill-current" />
-              </div>
-              <span className={`text-[10px] font-sans font-extrabold mt-0.5 tracking-tight ${
-                activeTab === "profile" ? "text-[var(--theme-primary)]" : "text-[var(--theme-text)] opacity-70"
-              }`}>
-                Profile
-              </span>
+              <User className="w-5 h-5 shrink-0" />
+              <span className="text-[9px] sm:text-[10px] font-display font-black uppercase tracking-wide leading-none">Profile</span>
             </button>
           </nav>
         </div>
@@ -1120,6 +1085,7 @@ export default function App() {
 
       </div>
     </div>
+      )}
     </ThemeProvider>
   );
 }

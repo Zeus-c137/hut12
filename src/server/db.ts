@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import path from "path";
 import { ensureDatabaseSchema, getDb, schema } from "../db/index";
-import { and, eq, desc, asc, isNull, sql } from "drizzle-orm";
+import { and, eq, desc, asc, isNull, inArray, sql } from "drizzle-orm";
 import { UserProfile, SubscriptionItem, SubscribedNode, ChatMessage, ReferralStat, NotificationItem, SiteConfig } from "../types";
 
 
@@ -22,6 +22,10 @@ class DepositSettlementError extends Error {
   readonly statusCode = 409;
 }
 
+class SiteConfigValidationError extends Error {
+  readonly statusCode = 400;
+}
+
 function databaseFailure(operation: string, error: unknown): DatabaseOperationError {
   const details = error as any;
   console.error(`[Database] ${operation} failed`, {
@@ -39,12 +43,134 @@ function requireDatabase(operation: string) {
   return drizzleDb;
 }
 
+const NUMERIC_INVITE_CODE_PATTERN = /^\d{5}$/;
+const PLATFORM_TIME_ZONE = "Africa/Nairobi";
+
+export function getPlatformDateKey(date = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: PLATFORM_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+export type TransactionIdPrefix = "DEP" | "WDR" | "RNT";
+
+// Human-readable internal IDs shared by deposits, withdrawals, and rentals.
+// The date uses the platform timezone; the random suffix keeps IDs unique
+// without exposing user/account data.
+export function createTransactionId(prefix: TransactionIdPrefix, date = new Date()): string {
+  const dateKey = getPlatformDateKey(date).replace(/-/g, "");
+  const suffix = crypto.randomBytes(4).toString("hex").toUpperCase();
+  return `${prefix}-${dateKey}-${suffix}`;
+}
+
+function addPlatformDays(dateKey: string, days: number): string {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day + days));
+  return date.toISOString().slice(0, 10);
+}
+
+const dailyYieldCatchupDates = new Map<string, string>();
+const dailyYieldCatchupInFlight = new Map<string, Promise<number>>();
+
+export async function ensureUserDailyYields(phone: string): Promise<number> {
+  const normalizedPhone = String(phone || "").trim();
+  if (!normalizedPhone) return 0;
+
+  const today = getPlatformDateKey();
+  if (dailyYieldCatchupDates.get(normalizedPhone) === today) return 0;
+
+  const existingRun = dailyYieldCatchupInFlight.get(normalizedPhone);
+  if (existingRun) return existingRun;
+
+  const run = autoCollectUserYields(normalizedPhone)
+    .then((total) => {
+      dailyYieldCatchupDates.set(normalizedPhone, today);
+      return total;
+    })
+    .finally(() => {
+      dailyYieldCatchupInFlight.delete(normalizedPhone);
+    });
+  dailyYieldCatchupInFlight.set(normalizedPhone, run);
+  return run;
+}
+
+async function generateUniqueInviteCode(drizzleDb: any): Promise<string> {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const candidate = String(crypto.randomInt(10000, 100000));
+    const existing = await drizzleDb.select({ phone: schema.users.phone })
+      .from(schema.users)
+      .where(eq(schema.users.inviteCode, candidate))
+      .limit(1);
+    if (existing.length === 0) return candidate;
+  }
+  throw new Error("Could not generate a unique five-digit invite code. The code space may be full.");
+}
+
+async function migrateLegacyInviteCodes(drizzleDb: any): Promise<void> {
+  const users = await drizzleDb.select({
+    phone: schema.users.phone,
+    inviteCode: schema.users.inviteCode,
+    referredByCode: schema.users.referredByCode
+  }).from(schema.users);
+
+  const occupiedCodes = new Set(
+    users
+      .map((user: any) => String(user.inviteCode || "").trim())
+      .filter((code: string) => NUMERIC_INVITE_CODE_PATTERN.test(code))
+  );
+  const migrations = new Map<string, string>();
+  const usersToUpdate: Array<{ phone: string; oldCode: string; newCode: string }> = [];
+
+  for (const user of users) {
+    const oldCode = String(user.inviteCode || "").trim();
+    if (NUMERIC_INVITE_CODE_PATTERN.test(oldCode)) continue;
+
+    let newCode = "";
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      const candidate = String(crypto.randomInt(10000, 100000));
+      if (!occupiedCodes.has(candidate)) {
+        newCode = candidate;
+        break;
+      }
+    }
+    if (!newCode) throw new Error("Could not migrate invite codes because the five-digit code space is full.");
+    occupiedCodes.add(newCode);
+    if (oldCode) migrations.set(oldCode.toUpperCase(), newCode);
+    usersToUpdate.push({ phone: user.phone, oldCode, newCode });
+  }
+
+  if (usersToUpdate.length === 0) return;
+
+  for (const user of users) {
+    const referredByCode = String(user.referredByCode || "").trim();
+    const replacement = migrations.get(referredByCode.toUpperCase());
+    if (!replacement) continue;
+    await drizzleDb.update(schema.users)
+      .set({ referredByCode: replacement })
+      .where(eq(schema.users.phone, user.phone));
+  }
+
+  for (const user of usersToUpdate) {
+    await drizzleDb.update(schema.users)
+      .set({ inviteCode: user.newCode })
+      .where(eq(schema.users.phone, user.phone));
+  }
+
+  console.info(`[Database] Migrated ${usersToUpdate.length} legacy invite code(s) to five-digit numeric codes.`);
+}
+
 // --- DATABASE FUNCTIONS ---
 
 export async function seedDatabaseIfEmpty() {
   await ensureDatabaseSchema();
 
   const drizzleDb = requireDatabase("initialize the account database");
+  await migrateLegacyInviteCodes(drizzleDb);
   await drizzleDb.insert(schema.siteConfig).values({
     id: "main",
     configJson: {}
@@ -81,6 +207,28 @@ export async function seedDatabaseIfEmpty() {
 
   const affected = Number(reconciliation?.[0]?.affectedRows || 0);
   if (affected > 0) console.warn(`[Database] Reconciled successful deposits for ${affected} account(s).`);
+
+  // Older completed withdrawals were recorded in the ledger but did not
+  // update users.withdrawn_cash. Rebuild that summary from settled ledger
+  // rows, using the net payout when the transaction metadata contains it.
+  const withdrawalReconciliation = await drizzleDb.execute(sql`
+    UPDATE users u
+    JOIN (
+      SELECT user_id,
+        SUM(COALESCE(
+          CAST(JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.payoutAmount')) AS DECIMAL(30, 2)),
+          amount
+        )) AS settled_withdrawals
+      FROM transactions
+      WHERE type IN ('withdrawal', 'withdraw')
+        AND UPPER(status) IN ('SUCCESSFUL', 'COMPLETED')
+      GROUP BY user_id
+    ) w ON w.user_id = u.phone
+    SET u.withdrawn_cash = GREATEST(w.settled_withdrawals, u.withdrawn_cash)
+    WHERE w.settled_withdrawals > u.withdrawn_cash
+  `) as any;
+  const withdrawalAffected = Number(withdrawalReconciliation?.[0]?.affectedRows || 0);
+  if (withdrawalAffected > 0) console.warn(`[Database] Reconciled settled withdrawals for ${withdrawalAffected} account(s).`);
 }
 
 export async function getUserProfile(phone: string): Promise<UserProfile | null> {
@@ -121,14 +269,17 @@ export async function getUserProfile(phone: string): Promise<UserProfile | null>
 
 export async function registerUserProfile(data: any): Promise<any> {
   const phone = data.phone || "";
-  // Always generate a unique personal invite code for every newly registered user
-  const personalInviteCode = "INV-" + Math.floor(100000 + Math.random() * 900000);
+  const drizzleDb = requireDatabase("create your account");
+  // Personal invite codes are deliberately short, numeric, and easy to share.
+  const personalInviteCode = await generateUniqueInviteCode(drizzleDb);
   const password = data.password || data.passwordHash || "";
   const referredByCode = (data.referredByCode || (data.inviteCode && data.inviteCode !== personalInviteCode ? data.inviteCode : "")).trim();
 
   const config = await getSiteConfig();
   const grantRegistrationBonus = data.grantRegistrationBonus !== false;
-  const regBonus = grantRegistrationBonus && (config.registrationBonus !== undefined && config.registrationBonus !== null) ? Number(config.registrationBonus) : 0;
+  const regBonus = grantRegistrationBonus
+    ? Number(config.registrationBonus ?? 1000)
+    : 0;
   const inviteBonusAmt = (config.inviteBonus !== undefined && config.inviteBonus !== null) ? Number(config.inviteBonus) : 0;
 
   const newUser: UserProfile = {
@@ -158,7 +309,6 @@ export async function registerUserProfile(data: any): Promise<any> {
   // The old order could return a successful registration while the user
   // insert had failed, leaving orphaned transactions and an account that
   // could never log in.
-  const drizzleDb = requireDatabase("create your account");
   try {
     await drizzleDb.insert(schema.users).values({
       phone: newUser.phone,
@@ -418,7 +568,7 @@ export async function subscribeToItem(phone: string, itemId: string): Promise<Su
     dailyYield: item.dailyYield,
     startDate: now.toISOString(),
     endDate: endDate.toISOString(),
-    lastClaimedDate: now.toISOString().split("T")[0],
+    lastClaimedDate: getPlatformDateKey(now),
     totalEarned: immediateYield,
     status: "active"
   };
@@ -426,7 +576,7 @@ export async function subscribeToItem(phone: string, itemId: string): Promise<Su
 
   // Record node activation rental transaction
   await saveTransaction({
-    id: "gpu_" + crypto.randomBytes(8).toString("hex"),
+    id: createTransactionId("RNT", now),
     userId: phone,
     type: "gpu",
     amount: item.amount,
@@ -487,44 +637,89 @@ export async function subscribeToItem(phone: string, itemId: string): Promise<Su
     }
   }
 
-  if (user.referredByCode && item.inviteBonusPercent > 0) {
-    await distributeReferralBonus(user.referredByCode, item.amount, item.inviteBonusPercent);
+  if (user.referredByCode) {
+    // Referral earnings use the four commission levels configured in Site
+    // Config. Keeping this calculation in the same path as the VIP board
+    // prevents product-level defaults from making progress disagree with the
+    // bonus a user actually earns.
+    await distributeReferralBonus(user.referredByCode, item.amount, undefined, {
+      sourceUserPhone: user.phone,
+      sourceItemId: item.id,
+      sourceItemName: item.name
+    });
   }
 
   return node;
 }
 
-export async function distributeReferralBonus(referrerCodeOrPhone: string, amountOrItemId?: any, percent?: number) {
+export async function distributeReferralBonus(
+  referrerCodeOrPhone: string,
+  amountOrItemId?: any,
+  percent?: number,
+  context?: { sourceUserPhone?: string; sourceItemId?: string; sourceItemName?: string }
+) {
   const siteConfig = await getSiteConfig();
-  const lvl1Pct = percent !== undefined ? percent : (siteConfig.level1InviteIncomePct !== undefined ? siteConfig.level1InviteIncomePct : 15);
-  const lvl2Pct = siteConfig.level2InviteIncomePct !== undefined ? siteConfig.level2InviteIncomePct : 5;
+  const commissionPcts = [
+    percent !== undefined ? Number(percent) : Number(siteConfig.level1InviteIncomePct ?? 15),
+    Number(siteConfig.level2InviteIncomePct ?? 5),
+    Number(siteConfig.level3InviteIncomePct ?? 0),
+    Number(siteConfig.level4InviteIncomePct ?? 0)
+  ];
 
   if (typeof amountOrItemId !== "number") return;
 
   const drizzleDb = getDb();
   if (!drizzleDb) return;
   const allUsers = await drizzleDb.select().from(schema.users);
-  const matches = (u: typeof allUsers[number], ref: string) =>
-    u.phone === ref || (u.inviteCode || "").toUpperCase() === ref.toUpperCase();
+  const byReference = new Map<string, typeof allUsers[number]>();
+  for (const candidate of allUsers) {
+    byReference.set(candidate.phone.trim().toUpperCase(), candidate);
+    if (candidate.inviteCode) byReference.set(candidate.inviteCode.trim().toUpperCase(), candidate);
+  }
 
-  const level1Row = allUsers.find(u => matches(u, referrerCodeOrPhone));
-  if (!level1Row) return;
-
-  const level1Bonus = (amountOrItemId * lvl1Pct) / 100;
-  await drizzleDb.update(schema.users).set({
-    points: level1Row.points + level1Bonus,
-    referralRewardsEarned: level1Row.referralRewardsEarned + level1Bonus
-  }).where(eq(schema.users.phone, level1Row.phone));
-
-  if (level1Row.referredByCode) {
-    const level2Row = allUsers.find(u => matches(u, level1Row.referredByCode || ""));
-    if (level2Row) {
-      const level2Bonus = (amountOrItemId * lvl2Pct) / 100;
+  let current = byReference.get(String(referrerCodeOrPhone).trim().toUpperCase());
+  for (let level = 0; level < 4 && current; level += 1) {
+    const commissionPct = commissionPcts[level];
+    if (commissionPct > 0) {
+      const bonus = (Number(amountOrItemId) * commissionPct) / 100;
       await drizzleDb.update(schema.users).set({
-        points: level2Row.points + level2Bonus,
-        referralRewardsEarned: level2Row.referralRewardsEarned + level2Bonus
-      }).where(eq(schema.users.phone, level2Row.phone));
+        points: sql`${schema.users.points} + ${bonus}`,
+        referralRewardsEarned: sql`${schema.users.referralRewardsEarned} + ${bonus}`
+      }).where(eq(schema.users.phone, current.phone));
+
+      const referralLevel = level + 1;
+      const sourceUserPhone = context?.sourceUserPhone || "";
+      await saveTransaction({
+        id: "ref_income_" + crypto.randomBytes(8).toString("hex"),
+        userId: current.phone,
+        type: "referral",
+        amount: bonus,
+        currency: "UGX",
+        status: "SUCCESSFUL",
+        paymentMethod: `LEVEL_${referralLevel}_REFERRAL_BONUS`,
+        phone: current.phone,
+        itemId: context?.sourceItemId || sourceUserPhone,
+        mode: "auto",
+        metadata: {
+          kind: "product_purchase",
+          level: referralLevel,
+          commissionPct,
+          sourceUserPhone,
+          sourceItemId: context?.sourceItemId || "",
+          sourceItemName: context?.sourceItemName || "",
+          sourceAmount: Number(amountOrItemId)
+        },
+        timestamp: new Date().toISOString()
+      });
+
+      await createNotification(
+        current.phone,
+        `Level ${level} Referral Bonus`,
+        `🎉 User ${sourceUserPhone || "your referral"} activated "${context?.sourceItemName || "a server machine"}". You earned UGX ${bonus.toLocaleString()} (${commissionPct}% Level ${referralLevel} referral income).`,
+        "rewards"
+      );
     }
+    current = current.referredByCode ? byReference.get(current.referredByCode.trim().toUpperCase()) : undefined;
   }
 }
 
@@ -582,126 +777,235 @@ export async function claimDailyReward(arg1: string, arg2: string): Promise<{ su
     subId = arg2;
   }
 
-  const subs = await getUserSubscriptions(phone);
-  const sub = subs.find(s => s.id === subId);
-  if (!sub) throw new Error("Subscription node not found");
+  const drizzleDb = requireDatabase("credit the daily product yield");
+  const today = getPlatformDateKey();
+  let reward = 0;
+  let userId = phone;
+  let itemName = "your product";
 
-  const today = new Date().toISOString().split("T")[0];
-  if (sub.lastClaimedDate === today) {
-    throw new Error("Daily yield already collected today.");
-  }
-
-  sub.lastClaimedDate = today;
-  sub.totalEarned += sub.dailyYield;
-
-  const user = await getUserProfile(phone);
-  if (user) {
-    user.points += sub.dailyYield;
-    user.aiIncome = (user.aiIncome || 0) + sub.dailyYield;
-    await updateUserProfile(phone, { points: user.points, aiIncome: user.aiIncome });
-  }
-
-  const drizzleDb = getDb();
-  if (drizzleDb) {
-    try {
-      await drizzleDb.update(schema.subscribedNodes).set({
-        lastClaimedDate: sub.lastClaimedDate,
-        totalEarned: sub.totalEarned
-      }).where(eq(schema.subscribedNodes.id, sub.id));
-    } catch (err) {
-      console.warn("[Database] claimDailyReward update error:", err);
+  await drizzleDb.transaction(async (tx) => {
+    // Lock the node before checking its date. This makes a cron run and a
+    // user-triggered retry mutually exclusive, so the same node cannot pay
+    // twice for one platform day.
+    const nodeRows = await tx.select().from(schema.subscribedNodes)
+      .where(and(
+        eq(schema.subscribedNodes.id, subId),
+        eq(schema.subscribedNodes.userId, phone)
+      ))
+      .limit(1)
+      .for("update");
+    const sub = nodeRows[0];
+    if (!sub) throw new Error("Subscription node not found");
+    if (String(sub.status).toLowerCase() !== "active") {
+      throw new Error("This product is no longer active.");
     }
+    // Duration is counted in platform calendar days, including the immediate
+    // Day 1 yield paid at activation. This prevents a product activated late
+    // at night from receiving an extra yield after its stated duration.
+    const activationDate = getPlatformDateKey(new Date(sub.startDate));
+    const finalEarnDate = addPlatformDays(activationDate, Math.max(0, Number(sub.duration || 1) - 1));
+    if (today > finalEarnDate) {
+      await tx.update(schema.subscribedNodes)
+        .set({ status: "expired" })
+        .where(eq(schema.subscribedNodes.id, sub.id));
+      throw new Error("This product subscription has expired.");
+    }
+    if (sub.lastClaimedDate === today) {
+      throw new Error("Daily yield already collected today.");
+    }
+
+    const userRows = await tx.select().from(schema.users)
+      .where(eq(schema.users.phone, phone))
+      .limit(1)
+      .for("update");
+    const user = userRows[0];
+    if (!user) throw new Error("User not found");
+
+    reward = Number(sub.dailyYield || 0);
+    userId = user.phone;
+    itemName = sub.itemName || itemName;
+    const transactionId = `yield_${crypto.createHash("sha256").update(`${sub.id}:${today}`).digest("hex").slice(0, 56)}`;
+    const creditedAt = new Date().toISOString();
+
+    await tx.update(schema.users).set({
+      points: sql`${schema.users.points} + ${reward}`,
+      aiIncome: sql`${schema.users.aiIncome} + ${reward}`
+    }).where(eq(schema.users.phone, user.phone));
+
+    await tx.update(schema.subscribedNodes).set({
+      lastClaimedDate: today,
+      totalEarned: sql`${schema.subscribedNodes.totalEarned} + ${reward}`
+    }).where(eq(schema.subscribedNodes.id, sub.id));
+
+    await tx.insert(schema.transactions).values({
+      id: transactionId,
+      userId: user.phone,
+      type: "yield",
+      amount: reward,
+      currency: "UGX",
+      status: "SUCCESSFUL",
+      paymentMethod: "DAILY_PRODUCT_YIELD",
+      phone: user.phone,
+      itemId: sub.itemId,
+      mode: "auto",
+      metadata: { platformDate: today, subscriptionId: sub.id },
+      timestamp: creditedAt
+    });
+  });
+
+  if (reward > 0) {
+    await createNotification(
+      userId,
+      "Daily Income Credited",
+      `Your daily yield of UGX ${reward.toLocaleString()} from ${itemName} was credited to your withdrawable balance for ${today}.`,
+      "daily accumulation",
+      reward
+    );
   }
 
-  return { success: true, reward: sub.dailyYield };
+  return { success: true, reward };
 }
 
-// Withdrawal Request (Puts status in PENDING so admin can review)
-export async function requestCashout(phone: string, amount: number, paymentMethodOrTransId?: string, mode?: string, withdrawPhone?: string, operator?: string): Promise<any> {
-  const user = await getUserProfile(phone);
-  if (!user) throw new Error("User not found");
+export function getConfiguredWithdrawMode(config: SiteConfig): "automatic" | "manual" {
+  // The existing auto-payout switch is the selector. The admin UI keeps the
+  // manual switch mutually exclusive with it, so no extra mode field is
+  // required.
+  return config.allowAutoWithdraw === false ? "manual" : "automatic";
+}
 
-  if (user.points < amount) {
-    throw new Error("Insufficient withdrawable balance (points).");
-  }
+export function getMinimumDepositAmount(config: SiteConfig): number {
+  const configured = Number(config.minimumDeposit);
+  return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : 20_000;
+}
 
+function getConfiguredMaximum(value: unknown, fallback: number): number {
+  if (value === undefined || value === null || value === "") return fallback;
+  const configured = Number(value);
+  if (!Number.isFinite(configured) || configured <= 0) return 0;
+  return Math.floor(configured);
+}
+
+export function getMaximumDepositAmount(config: SiteConfig): number {
+  // A zero value means no maximum. Deposits had no upper bound before this
+  // setting existed, so the backwards-compatible default is unlimited.
+  return getConfiguredMaximum(config.maximumDeposit, 0);
+}
+
+export function getMinimumWithdrawalAmount(config: SiteConfig): number {
+  const configured = Number(config.minimumWithdrawal);
+  return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : 10_000;
+}
+
+export function getMaximumWithdrawalAmount(config: SiteConfig): number {
+  // Preserve the existing five-million-UGX UI ceiling unless an administrator
+  // explicitly changes it. Setting zero clears the ceiling.
+  return getConfiguredMaximum(config.maximumWithdrawal, 5_000_000);
+}
+
+export async function requestCashout(phone: string, amount: number, paymentMethodOrTransId?: string, mode?: string, withdrawPhone?: string, operator?: string, extraMetadata?: any): Promise<any> {
   const siteConfig = await getSiteConfig();
-  const currentWithdrawMode = mode || siteConfig.withdrawMode || "manual";
-  const isAuto = currentWithdrawMode === "automatic";
-
-  user.points -= amount;
-  if (isAuto) {
-    user.withdrawnCash = (user.withdrawnCash || 0) + amount;
+  const minimumWithdrawal = getMinimumWithdrawalAmount(siteConfig);
+  const maximumWithdrawal = getMaximumWithdrawalAmount(siteConfig);
+  if (!Number.isFinite(amount) || amount < minimumWithdrawal) {
+    throw new Error(`Minimum withdrawal is UGX ${minimumWithdrawal.toLocaleString()}.`);
   }
-  const updatedProfile = await updateUserProfile(phone, { points: user.points, withdrawnCash: user.withdrawnCash });
+  if (maximumWithdrawal > 0 && amount > maximumWithdrawal) {
+    throw new Error(`Maximum withdrawal is UGX ${maximumWithdrawal.toLocaleString()}.`);
+  }
+  const currentWithdrawMode = mode === "automatic" || mode === "manual"
+    ? mode
+    : getConfiguredWithdrawMode(siteConfig);
+  const withdrawFeePercent = Number(siteConfig.withdrawFee ?? 0);
+  const feeAmount = extraMetadata?.feeAmount !== undefined
+    ? Number(extraMetadata.feeAmount)
+    : Math.max(0, Math.floor(amount * (withdrawFeePercent / 100)));
+  const payoutAmount = extraMetadata?.payoutAmount !== undefined
+    ? Number(extraMetadata.payoutAmount)
+    : Math.max(0, amount - feeAmount);
+  const txId = paymentMethodOrTransId || createTransactionId("WDR");
+  const timestamp = new Date().toISOString();
+  const paymentMethod = operator || "MTN";
+  const metadata = {
+    requestedAmount: amount,
+    feePercent: withdrawFeePercent,
+    feeAmount,
+    payoutAmount,
+    ...extraMetadata
+  };
+  const drizzleDb = requireDatabase("record the withdrawal request");
 
-  const txId = paymentMethodOrTransId || "tx_" + crypto.randomBytes(8).toString("hex");
-  const tx = {
+  // Reserve points and create the pending transaction atomically. This keeps
+  // the wallet and transaction ledger consistent under retries/concurrency.
+  await drizzleDb.transaction(async (tx) => {
+    const rows = await tx.select().from(schema.users)
+      .where(eq(schema.users.phone, phone))
+      .limit(1)
+      .for("update");
+    const user = rows[0];
+    if (!user) throw new Error("User not found");
+    if (Number(user.points || 0) < amount) {
+      throw new Error(`Insufficient withdrawable balance. Available: UGX ${Number(user.points || 0).toLocaleString()}.`);
+    }
+
+    await tx.update(schema.users)
+      .set({ points: sql`${schema.users.points} - ${amount}` })
+      .where(eq(schema.users.phone, phone));
+
+    await tx.insert(schema.transactions).values({
+      id: txId,
+      userId: phone,
+      type: "withdrawal",
+      amount,
+      currency: "UGX",
+      status: "PENDING",
+      paymentMethod,
+      phone: withdrawPhone || phone,
+      usdtAddress: operator === "USDT" ? (withdrawPhone || "") : "",
+      operator: operator || "",
+      mode: currentWithdrawMode,
+      metadata,
+      timestamp
+    });
+  });
+
+  const updatedProfile = await getUserProfile(phone);
+  if (!updatedProfile) throw new Error("Withdrawal was recorded, but the account could not be reloaded.");
+
+  const isAutomatic = currentWithdrawMode === "automatic";
+  await createNotification(
+    phone,
+    "Withdrawal Submitted",
+    isAutomatic
+      ? `Your withdrawal request of UGX ${amount.toLocaleString()} (${paymentMethod}) was sent for automatic processing and is pending payment-provider confirmation.`
+      : `Your withdrawal request of UGX ${amount.toLocaleString()} (${paymentMethod}) was submitted and is currently pending admin approval.`,
+    "withdraw"
+  );
+  await sendChatMessage({
+    roomId: "shared",
+    sender: "system",
+    senderName: "SYSTEM BROADCAST",
+    text: isAutomatic
+      ? `User ${phone.slice(0, 4)}*** submitted an automatic withdrawal of UGX ${amount.toLocaleString()} (${paymentMethod})!`
+      : `User ${phone.slice(0, 4)}*** submitted a manual withdrawal of UGX ${amount.toLocaleString()} (${paymentMethod})!`
+  });
+
+  return {
     id: txId,
     userId: phone,
     type: "withdrawal",
     amount,
     currency: "UGX",
-    status: isAuto ? "COMPLETED" : "PENDING",
-    paymentMethod: operator || paymentMethodOrTransId || "MTN",
+    status: "PENDING",
+    paymentMethod,
     phone: withdrawPhone || phone,
     usdtAddress: operator === "USDT" ? (withdrawPhone || "") : "",
-    timestamp: new Date().toISOString(),
+    operator: operator || "",
+    mode: currentWithdrawMode,
+    metadata,
+    timestamp,
     profile: updatedProfile
   };
-
-
-  if (isAuto) {
-    await createNotification(
-      phone,
-      "Withdrawal Approved",
-      `Your withdrawal request of UGX ${amount.toLocaleString()} (${tx.paymentMethod}) was automatically processed and completed!`,
-      "withdraw"
-    );
-    await sendChatMessage({
-      roomId: "shared",
-      sender: "system",
-      senderName: "SYSTEM BROADCAST",
-      text: `💸 User ${phone.slice(0, 4)}*** automatically withdrew UGX ${amount.toLocaleString()} (${tx.paymentMethod})!`
-    });
-  } else {
-    await createNotification(
-      phone,
-      "Withdrawal Request Submitted",
-      `Your withdrawal request of UGX ${amount.toLocaleString()} (${tx.paymentMethod}) was submitted and is currently pending admin review.`,
-      "withdraw"
-    );
-    await sendChatMessage({
-      roomId: "shared",
-      sender: "system",
-      senderName: "SYSTEM BROADCAST",
-      text: `💸 User ${phone.slice(0, 4)}*** submitted a withdrawal request of UGX ${amount.toLocaleString()} (${tx.paymentMethod})!`
-    });
-  }
-
-  const drizzleDb = getDb();
-  if (drizzleDb) {
-    try {
-      await drizzleDb.insert(schema.transactions).values({
-        id: tx.id,
-        userId: tx.userId,
-        type: tx.type,
-        amount: tx.amount,
-        currency: tx.currency,
-        status: tx.status,
-        paymentMethod: tx.paymentMethod,
-        phone: tx.phone,
-        usdtAddress: tx.usdtAddress,
-        timestamp: tx.timestamp
-      });
-    } catch (err) {
-      console.warn("[Database] requestCashout error:", err);
-    }
-  }
-
-  return tx;
 }
-
 
 export async function getReferreeStatsList(phoneOrCode: string): Promise<ReferralStat[]> {
   const drizzleDb = getDb();
@@ -715,54 +1019,85 @@ export async function getReferreeStatsList(phoneOrCode: string): Promise<Referra
   }
   
   const user = (await drizzleDb.select().from(schema.users).where(eq(schema.users.phone, phoneOrCode)))[0];
-  const userInviteCode = user.inviteCode;
-  const userPhone = user.phone;
+  const descendants: Array<{ user: typeof user; level: number }> = [];
+  let frontier = [user];
+  const visited = new Set<string>([user.phone]);
+  for (let level = 1; level <= 4; level += 1) {
+    const parentReferences = Array.from(new Set(frontier.flatMap((parent) => [parent.phone, parent.inviteCode].filter(Boolean) as string[])));
+    if (parentReferences.length === 0) break;
+    const normalizedReferences = parentReferences.map((reference) => reference.toUpperCase());
+    const referenceList = sql.join(normalizedReferences.map((reference) => sql`${reference}`), sql`, `);
+    const nextLevelRows = await drizzleDb.select().from(schema.users)
+      .where(sql`upper(trim(${schema.users.referredByCode})) in (${referenceList})`);
+    const nextLevel = nextLevelRows.filter((candidate) => !visited.has(candidate.phone));
+    for (const candidate of nextLevel) {
+      visited.add(candidate.phone);
+      descendants.push({ user: candidate, level });
+    }
+    frontier = nextLevel;
+    if (frontier.length === 0) break;
+  }
 
-  const siteConfig = await getSiteConfig();
-  const lvl1Pct = siteConfig?.level1InviteIncomePct !== undefined ? siteConfig.level1InviteIncomePct : 10;
-  const lvl2Pct = siteConfig?.level2InviteIncomePct !== undefined ? siteConfig.level2InviteIncomePct : 5;
+  const descendantPhones = descendants.map((entry) => entry.user.phone);
+  const allSubs = descendantPhones.length > 0
+    ? await drizzleDb.select().from(schema.subscriptions).where(inArray(schema.subscriptions.userId, descendantPhones))
+    : [];
+  const subsByUser = new Map<string, typeof allSubs>();
+  for (const sub of allSubs) {
+    const current = subsByUser.get(sub.userId) || [];
+    current.push(sub);
+    subsByUser.set(sub.userId, current);
+  }
 
-  const allUsers = await drizzleDb.select().from(schema.users);
-  const allSubs = await drizzleDb.select().from(schema.subscriptions);
-  
-  const stats: ReferralStat[] = [];
-  const level1Users = [];
+  // Referral reporting must show income that was actually credited, not the
+  // referred user's product spend multiplied by today's Site Config rates.
+  // Purchase referral payouts are ledgered with their source user and level;
+  // the signup bonus uses the referred user's phone as the legacy itemId.
+  const incomeByUser = new Map<string, number>();
+  let ledgerTotal = 0;
+  const descendantByPhone = new Map(descendants.map((entry) => [entry.user.phone.toUpperCase(), entry]));
+  const referralTransactions = await drizzleDb.select().from(schema.transactions)
+    .where(eq(schema.transactions.userId, user.phone));
+  for (const transaction of referralTransactions) {
+    if (transaction.type !== "referral" || !["SUCCESSFUL", "COMPLETED"].includes(String(transaction.status).toUpperCase())) continue;
+    const metadata = transaction.metadata && typeof transaction.metadata === "object"
+      ? transaction.metadata as Record<string, any>
+      : {};
+    const sourceUserPhone = String(metadata.sourceUserPhone || transaction.itemId || "").trim();
+    const source = descendantByPhone.get(sourceUserPhone.toUpperCase());
+    if (!source) continue;
+    const amount = Number(transaction.amount || 0);
+    if (!Number.isFinite(amount) || amount <= 0) continue;
+    incomeByUser.set(source.user.phone, (incomeByUser.get(source.user.phone) || 0) + amount);
+    ledgerTotal += amount;
+  }
 
-  for (const u of allUsers) {
-    const refCode = (u.referredByCode || "").trim().toUpperCase();
-    if (refCode && (refCode === userInviteCode.toUpperCase() || refCode === userPhone.toUpperCase())) {
-      level1Users.push(u);
-      const userSubs = allSubs.filter(s => s.userId === u.phone && s.status === "active");
-      const totalSpent = userSubs.reduce((sum, s) => sum + s.amount, 0);
-      const rewardAmount = (totalSpent * lvl1Pct) / 100;
-      stats.push({
-        phone: u.phone,
-        level: 1,
-        joinedDate: u.createdAt || "",
-        rewardAmount,
-        activeProductsCount: userSubs.length
-      });
+  // Older purchase payouts updated referralRewardsEarned but were not written
+  // to the transaction ledger. Keep those already-collected funds visible and
+  // avoid replacing them with the referred user's full purchase amount.
+  const actualReferralIncome = Math.max(0, Number(user.referralRewardsEarned || 0));
+  const legacyUnallocated = Math.max(0, actualReferralIncome - ledgerTotal);
+  if (legacyUnallocated > 0) {
+    const fallbackRecipient = descendants.find((entry) => entry.level === 1) || descendants[0];
+    if (fallbackRecipient) {
+      incomeByUser.set(
+        fallbackRecipient.user.phone,
+        (incomeByUser.get(fallbackRecipient.user.phone) || 0) + legacyUnallocated
+      );
     }
   }
 
-  for (const l1User of level1Users) {
-    const l1Code = (l1User.inviteCode || "").trim().toUpperCase();
-    const l1Phone = (l1User.phone || "").trim().toUpperCase();
-    for (const u of allUsers) {
-      const refCode = (u.referredByCode || "").trim().toUpperCase();
-      if (refCode && (refCode === l1Code || refCode === l1Phone)) {
-        const userSubs = allSubs.filter(s => s.userId === u.phone && s.status === "active");
-        const totalSpent = userSubs.reduce((sum, s) => sum + s.amount, 0);
-        const rewardAmount = (totalSpent * lvl2Pct) / 100;
-        stats.push({
-          phone: u.phone,
-          level: 2,
-          joinedDate: u.createdAt || "",
-          rewardAmount,
-          activeProductsCount: userSubs.length
-        });
-      }
-    }
+  const stats: ReferralStat[] = [];
+  for (const { user: candidate, level } of descendants) {
+    const userSubs = subsByUser.get(candidate.phone) || [];
+    const activeProducts = userSubs.filter((sub) => sub.status === "active");
+    stats.push({
+      phone: candidate.phone,
+      level,
+      joinedDate: candidate.createdAt || "",
+      rewardAmount: incomeByUser.get(candidate.phone) || 0,
+      activeProductsCount: activeProducts.length
+    });
   }
   return stats;
 }
@@ -862,7 +1197,13 @@ export async function fetchSystemDashboardStats() {
 }
 
 
-export async function createNotification(phone: string, title: string, message: string, category: string = "system") {
+export async function createNotification(
+  phone: string,
+  title: string,
+  message: string,
+  category: string = "system",
+  amount?: number
+) {
   const notif: NotificationItem = {
     id: "notif_" + crypto.randomBytes(8).toString("hex"),
     userId: phone,
@@ -871,6 +1212,7 @@ export async function createNotification(phone: string, title: string, message: 
     category,
     timestamp: new Date().toISOString()
   };
+  if (amount !== undefined) notif.amount = amount;
 
   const drizzleDb = getDb();
   if (drizzleDb) {
@@ -881,6 +1223,7 @@ export async function createNotification(phone: string, title: string, message: 
         title: notif.title,
         message: notif.message,
         category: notif.category,
+        amount: notif.amount ?? 0,
         timestamp: notif.timestamp
       });
     } catch (err) {
@@ -902,6 +1245,7 @@ export async function getUserNotifications(phone: string): Promise<NotificationI
       title: n.title,
       message: n.message,
       category: n.category,
+      amount: n.amount || undefined,
       timestamp: n.timestamp,
       read: false
     }));
@@ -930,9 +1274,18 @@ export async function getUserNotifications(phone: string): Promise<NotificationI
 
 export async function processDeposit(phone: string, amount: number, operator?: string, depositPhone?: string): Promise<UserProfile> {
   if (!Number.isFinite(amount) || amount <= 0) throw new Error("Deposit amount must be greater than zero.");
+  const siteConfig = await getSiteConfig();
+  const minimumDeposit = getMinimumDepositAmount(siteConfig);
+  const maximumDeposit = getMaximumDepositAmount(siteConfig);
+  if (amount < minimumDeposit) {
+    throw new Error(`Minimum deposit is UGX ${minimumDeposit.toLocaleString()}.`);
+  }
+  if (maximumDeposit > 0 && amount > maximumDeposit) {
+    throw new Error(`Maximum deposit is UGX ${maximumDeposit.toLocaleString()}.`);
+  }
   const user = await getUserProfile(phone);
   if (!user) throw new Error("The account for this deposit could not be found.");
-  const transactionId = "tx_" + crypto.randomBytes(16).toString("hex");
+  const transactionId = createTransactionId("DEP");
 
   // Direct/legacy deposits still go through the same ledger-first settlement
   // path as gateway webhooks. There is deliberately no read-modify-write of
@@ -1018,6 +1371,20 @@ export async function getTransaction(txId: string) {
   }
 }
 
+export async function getTransactionByExternalReference(reference: string) {
+  const normalizedReference = String(reference || "").trim();
+  if (!normalizedReference) return null;
+  const drizzleDb = requireDatabase("find the external transaction reference");
+  try {
+    const rows = await drizzleDb.select().from(schema.transactions)
+      .where(sql`JSON_UNQUOTE(JSON_EXTRACT(${schema.transactions.metadata}, '$.externalReference')) = ${normalizedReference}`)
+      .limit(1);
+    return rows[0] || null;
+  } catch (err) {
+    throw databaseFailure("find the external transaction reference", err);
+  }
+}
+
 export async function completeSuccessfulDeposit(
   userIdOrTxId: string,
   amount?: number,
@@ -1027,6 +1394,7 @@ export async function completeSuccessfulDeposit(
 ): Promise<UserProfile> {
   const transactionId = transId || userIdOrTxId;
   const drizzleDb = requireDatabase("settle the deposit");
+  let settled = false;
 
   try {
     await drizzleDb.transaction(async (tx) => {
@@ -1061,9 +1429,11 @@ export async function completeSuccessfulDeposit(
           eq(schema.transactions.id, transaction.id),
           isNull(schema.transactions.balanceAppliedAt)
         ));
+        settled = true;
       } else if (String(transaction.status).toUpperCase() !== "SUCCESSFUL") {
         await tx.update(schema.transactions).set({ status: "SUCCESSFUL" })
           .where(eq(schema.transactions.id, transaction.id));
+        settled = true;
       }
     });
   } catch (err: any) {
@@ -1074,20 +1444,73 @@ export async function completeSuccessfulDeposit(
   const settledTransaction = await getTransaction(transactionId);
   const settledUser = await getUserProfile(settledTransaction?.userId || userIdOrTxId);
   if (!settledUser) throw new Error("Deposit was settled, but the account could not be reloaded.");
+  if (settled && settledTransaction) {
+    await createNotification(
+      settledTransaction.userId,
+      "Deposit Successful",
+      `Your deposit of UGX ${Number(settledTransaction.amount).toLocaleString()} has been confirmed and credited to your recharge balance. Reference: ${transactionId}.`,
+      "deposit",
+      Number(settledTransaction.amount)
+    );
+  }
   return settledUser;
 }
 
 
 export async function completeSuccessfulWithdrawal(txId: string): Promise<any> {
-  const drizzleDb = getDb();
-  if (drizzleDb) {
-    const rows = await drizzleDb.select().from(schema.transactions).where(eq(schema.transactions.id, txId));
-    if (rows.length > 0) {
-      await drizzleDb.update(schema.transactions).set({ status: "completed" }).where(eq(schema.transactions.id, txId));
-      return { status: "completed" };
+  const drizzleDb = requireDatabase("settle the withdrawal");
+  let settled = false;
+  let userId = "";
+  let settledPayoutAmount = 0;
+
+  await drizzleDb.transaction(async (tx) => {
+    const rows = await tx.select().from(schema.transactions)
+      .where(eq(schema.transactions.id, txId))
+      .limit(1)
+      .for("update");
+    const transaction = rows[0];
+    if (!transaction) throw new Error("Transaction not found.");
+
+    const currentStatus = String(transaction.status || "").toUpperCase();
+    userId = transaction.userId;
+    if (currentStatus === "SUCCESSFUL" || currentStatus === "COMPLETED") return;
+    if (currentStatus === "FAILED" || currentStatus === "REJECTED") {
+      throw new Error("This withdrawal was already rejected.");
     }
+    if (transaction.type !== "withdrawal" && transaction.type !== "withdraw") {
+      throw new Error("The transaction is not a withdrawal.");
+    }
+
+    const metadata = transaction.metadata && typeof transaction.metadata === "object"
+      ? transaction.metadata as Record<string, any>
+      : {};
+    const payoutAmount = Math.max(0, Number(metadata.payoutAmount ?? transaction.amount));
+    settledPayoutAmount = payoutAmount;
+    const userRows = await tx.select().from(schema.users)
+      .where(eq(schema.users.phone, transaction.userId))
+      .limit(1)
+      .for("update");
+    if (!userRows[0]) throw new Error("The account for this withdrawal no longer exists.");
+    await tx.update(schema.users)
+      .set({ withdrawnCash: sql`${schema.users.withdrawnCash} + ${payoutAmount}` })
+      .where(eq(schema.users.phone, transaction.userId));
+    await tx.update(schema.transactions)
+      .set({ status: "SUCCESSFUL" })
+      .where(eq(schema.transactions.id, txId));
+    settled = true;
+  });
+
+  const profile = await getUserProfile(userId);
+  if (settled && profile) {
+    await createNotification(
+      userId,
+      "Withdrawal Approved",
+      `Your withdrawal request has been approved and UGX ${settledPayoutAmount.toLocaleString()} is marked as settled. Reference: ${txId}.`,
+      "withdraw",
+      settledPayoutAmount
+    );
   }
-  throw new Error("Transaction not found or DB not connected");
+  return { status: "SUCCESSFUL", profile };
 }
 
 
@@ -1106,24 +1529,67 @@ export async function completeSuccessfulGpuActivation(
 
 
 export async function completeFailedTransaction(txId: string) {
-  const drizzleDb = getDb();
-  if (drizzleDb) {
-    const rows = await drizzleDb.select().from(schema.transactions).where(eq(schema.transactions.id, txId));
-    if (rows.length > 0) {
-      const tx = rows[0];
-      await drizzleDb.update(schema.transactions).set({ status: "failed" }).where(eq(schema.transactions.id, txId));
-      // Refund balance
-      if (tx.type === "withdrawal" || tx.type === "withdraw") {
-        const userRows = await drizzleDb.select().from(schema.users).where(eq(schema.users.phone, tx.userId));
-        if (userRows.length > 0) {
-          const user = userRows[0];
-          await drizzleDb.update(schema.users).set({ points: (user.points || 0) + tx.amount }).where(eq(schema.users.phone, user.phone));
-        }
-      }
-      return { status: "failed" };
+  const drizzleDb = requireDatabase("reject the transaction");
+  let refunded = false;
+  let userId = "";
+  let transactionAmount = 0;
+  let transactionType = "";
+
+  await drizzleDb.transaction(async (dbTx) => {
+    const rows = await dbTx.select().from(schema.transactions)
+      .where(eq(schema.transactions.id, txId))
+      .limit(1)
+      .for("update");
+    const transaction = rows[0];
+    if (!transaction) throw new Error("Transaction not found.");
+
+    const currentStatus = String(transaction.status || "").toUpperCase();
+    userId = transaction.userId;
+    transactionAmount = Number(transaction.amount || 0);
+    transactionType = String(transaction.type || "").toLowerCase();
+    if (currentStatus === "FAILED" || currentStatus === "REJECTED") return;
+    if (currentStatus === "SUCCESSFUL" || currentStatus === "COMPLETED") {
+      throw new Error("This transaction was already completed.");
     }
+
+    if (transaction.type === "withdrawal" || transaction.type === "withdraw") {
+      const metadata = transaction.metadata && typeof transaction.metadata === "object"
+        ? transaction.metadata as Record<string, any>
+        : {};
+      const refundAmount = Number(metadata.requestedAmount ?? transaction.amount);
+      const userRows = await dbTx.select().from(schema.users)
+        .where(eq(schema.users.phone, transaction.userId))
+        .limit(1)
+        .for("update");
+      if (!userRows[0]) throw new Error("The account for this withdrawal no longer exists.");
+      await dbTx.update(schema.users)
+        .set({ points: sql`${schema.users.points} + ${refundAmount}` })
+        .where(eq(schema.users.phone, transaction.userId));
+      refunded = true;
+    }
+    await dbTx.update(schema.transactions)
+      .set({ status: "FAILED" })
+      .where(eq(schema.transactions.id, txId));
+  });
+
+  if (refunded) {
+    await createNotification(
+      userId,
+      "Withdrawal Failed",
+      `Your withdrawal of UGX ${transactionAmount.toLocaleString()} could not be completed. The requested amount has been returned to your withdrawable balance. Reference: ${txId}.`,
+      "withdraw",
+      transactionAmount
+    );
+  } else if (transactionType === "deposit") {
+    await createNotification(
+      userId,
+      "Deposit Failed",
+      `Your deposit of UGX ${transactionAmount.toLocaleString()} could not be confirmed. Reference: ${txId}.`,
+      "deposit",
+      transactionAmount
+    );
   }
-  throw new Error("Transaction not found or DB not connected");
+  return { status: "FAILED" };
 }
 
 
@@ -1250,23 +1716,31 @@ export async function adminUpdateTransactionStatus(txId: string, status: string)
   const transaction = await getTransaction(txId);
   if (!transaction) throw new Error("Transaction was not found.");
 
+  const isWithdrawal = transaction.type === "withdrawal" || transaction.type === "withdraw";
+  const isAutomaticWithdrawal = isWithdrawal && String(transaction.mode || "").toLowerCase() === "automatic";
+  if (isAutomaticWithdrawal && normalizedStatus !== "PENDING") {
+    throw new Error("Automatic withdrawals are settled only by the payment-provider webhook.");
+  }
+
   if (normalizedStatus === "SUCCESSFUL" || normalizedStatus === "COMPLETED") {
     if (transaction.type === "deposit") {
       await completeSuccessfulDeposit(transaction.userId, transaction.amount, transaction.phone || undefined, transaction.operator || undefined, transaction.id);
       return { status: "SUCCESSFUL" };
     }
-    return await completeSuccessfulWithdrawal(txId);
+    if (isWithdrawal) return await completeSuccessfulWithdrawal(txId);
+    throw new Error("Only deposits and withdrawals can be settled from the transaction table.");
+  }
+
+  if (normalizedStatus === "FAILED") {
+    return await completeFailedTransaction(txId);
   }
 
   const drizzleDb = requireDatabase("update the transaction status");
   try {
-    await drizzleDb.update(schema.transactions).set({ status: normalizedStatus }).where(eq(schema.transactions.id, txId));
-    if (normalizedStatus === "FAILED" && (transaction.type === "withdrawal" || transaction.type === "withdraw")) {
-      await drizzleDb.update(schema.users).set({
-        points: sql`${schema.users.points} + ${transaction.amount}`
-      }).where(eq(schema.users.phone, transaction.userId));
-    }
-    return { status: normalizedStatus };
+    await drizzleDb.update(schema.transactions)
+      .set({ status: "PENDING" })
+      .where(eq(schema.transactions.id, txId));
+    return { status: "PENDING" };
   } catch (err) {
     throw databaseFailure("update the transaction status", err);
   }
@@ -1289,25 +1763,34 @@ export async function adminGetCatalogItems() {
 }
 
 export async function adminSaveCatalogItem(item: SubscriptionItem) {
-  const drizzleDb = getDb();
-  if (drizzleDb) {
-    try {
-      await drizzleDb.insert(schema.catalogProducts).values({
-        id: item.id,
-        name: item.name,
-        image: item.image,
-        imageUrl: item.imageUrl || item.image,
-        amount: item.amount,
-        duration: item.duration,
-        dailyYield: item.dailyYield,
-        category: item.category || "DS",
-        inviteBonusPercent: item.inviteBonusPercent || 0,
-        outOfStock: item.outOfStock || false,
-        disabled: item.disabled || false
-      }).onDuplicateKeyUpdate({ set: { name: item.name, amount: item.amount, dailyYield: item.dailyYield } });
-    } catch (err) {
-      console.warn("[Database] adminSaveCatalogItem error:", err);
-    }
+  const drizzleDb = requireDatabase("save the catalog product");
+  try {
+    await drizzleDb.insert(schema.catalogProducts).values({
+      id: item.id,
+      name: item.name,
+      image: item.image || item.imageUrl || "",
+      imageUrl: item.imageUrl || item.image || "",
+      amount: item.amount,
+      duration: item.duration,
+      dailyYield: item.dailyYield,
+      category: item.category || "DS",
+      inviteBonusPercent: Number(item.inviteBonusPercent || 0),
+      outOfStock: item.outOfStock === true,
+      disabled: item.disabled === true
+    }).onDuplicateKeyUpdate({ set: {
+      name: item.name,
+      image: item.image || item.imageUrl || "",
+      imageUrl: item.imageUrl || item.image || "",
+      amount: item.amount,
+      duration: item.duration,
+      dailyYield: item.dailyYield,
+      category: item.category || "DS",
+      inviteBonusPercent: Number(item.inviteBonusPercent || 0),
+      outOfStock: item.outOfStock === true,
+      disabled: item.disabled === true
+    } });
+  } catch (err) {
+    throw databaseFailure("save the catalog product", err);
   }
 }
 
@@ -1460,26 +1943,103 @@ export async function dailyCheckin(phone: string) {
   return { amount: bonus, bonus, streak: user.checkinStreak };
 }
 
-export async function claimVipTask(phone: string, taskId: string, bonus: number = 5000) {
+export async function getVipTaskboard(phone: string) {
   const user = await getUserProfile(phone);
   if (!user) throw new Error("User not found");
 
-  user.claimedVipTasks = user.claimedVipTasks || [];
-  if (user.claimedVipTasks.includes(taskId)) {
-    throw new Error("VIP task reward already claimed.");
-  }
+  const config = await getSiteConfig();
+  const configuredTasks = Array.isArray(config.vipTasks) ? config.vipTasks : [];
+  const referrals = await getReferreeStatsList(phone);
+  const rawLevel1Bonus = referrals.filter((ref) => Number(ref.level) === 1).reduce((sum, ref) => sum + Number(ref.rewardAmount || 0), 0);
+  const level2Bonus = referrals.filter((ref) => Number(ref.level) === 2).reduce((sum, ref) => sum + Number(ref.rewardAmount || 0), 0);
+  const level3Bonus = referrals.filter((ref) => Number(ref.level) === 3).reduce((sum, ref) => sum + Number(ref.rewardAmount || 0), 0);
+  const level4Bonus = referrals.filter((ref) => Number(ref.level) === 4).reduce((sum, ref) => sum + Number(ref.rewardAmount || 0), 0);
+  const reportedReferralIncome = Math.max(0, Number(user.referralRewardsEarned || 0));
+  const reportedByLevel = rawLevel1Bonus + level2Bonus + level3Bonus + level4Bonus;
+  const legacyUnallocated = Math.max(0, reportedReferralIncome - reportedByLevel);
+  const level1Bonus = rawLevel1Bonus + legacyUnallocated;
+  const totalReferralBonus = Math.max(reportedReferralIncome, rawLevel1Bonus + level2Bonus + level3Bonus + level4Bonus);
+  // VIP tasks use the user's complete credited referral income across all
+  // four levels. Keep accumulatedBonus as the API field name for compatibility.
+  const accumulatedBonus = totalReferralBonus;
+  const claimed = user.claimedVipTasks || [];
 
-  // Credit directly to withdrawable balance (points)!
-  user.points = (user.points || 0) + bonus;
-  user.claimedVipTasks.push(taskId);
-  await updateUserProfile(phone, { points: user.points, claimedVipTasks: user.claimedVipTasks });
+  const tasks = configuredTasks
+    .filter((task: any) => task && task.active !== false)
+    .map((task: any) => ({
+      id: String(task.id),
+      title: String(task.title || "VIP Referral Task"),
+      description: String(task.description || "Unlock this reward with referral earnings."),
+      category: String(task.category || "VIP"),
+      requiredBonus: Math.max(0, Number(task.requiredBonus || 0)),
+      reward: Math.max(0, Number(task.reward || 0)),
+      progress: accumulatedBonus,
+      unlocked: accumulatedBonus >= Math.max(0, Number(task.requiredBonus || 0)),
+      claimed: claimed.includes(String(task.id))
+    }))
+    .sort((a, b) => a.requiredBonus - b.requiredBonus);
+
+  // VIP rank follows the published task ladder, not referral-count guesses or
+  // task-id parsing. A user reaches the highest task that their server-side
+  // Combined Level 1–4 bonus has unlocked or that they have already claimed.
+  const vipLevel = tasks.reduce((highest, task, index) => (
+    task.unlocked || task.claimed ? index + 1 : highest
+  ), 0);
+
+  return {
+    tasks,
+    vipLevel,
+    referralRates: {
+      level1: Number(config.level1InviteIncomePct ?? 15),
+      level2: Number(config.level2InviteIncomePct ?? 5),
+      level3: Number(config.level3InviteIncomePct ?? 0),
+      level4: Number(config.level4InviteIncomePct ?? 0)
+    },
+    progress: {
+      level1Bonus,
+      level2Bonus,
+      level3Bonus,
+      level4Bonus,
+      accumulatedBonus,
+      totalReferralBonus
+    }
+  };
+}
+
+export async function claimVipTask(phone: string, taskId: string) {
+  const board = await getVipTaskboard(phone);
+  const task = board.tasks.find((candidate) => candidate.id === taskId);
+  if (!task) throw new Error("This VIP task is not currently available.");
+  if (!task.unlocked) throw new Error("Keep building your Level 1–4 referral bonus to unlock this task.");
+  if (task.claimed) throw new Error("VIP task reward already claimed.");
+
+  const drizzleDb = requireDatabase("claim the VIP task");
+  let claimedVipTasks: string[] = [];
+  await drizzleDb.transaction(async (tx) => {
+    const userRows = await tx.select().from(schema.users)
+      .where(eq(schema.users.phone, phone))
+      .limit(1)
+      .for("update");
+    const user = userRows[0];
+    if (!user) throw new Error("User not found");
+    claimedVipTasks = [...(user.claimedVipTasks || [])];
+    if (claimedVipTasks.includes(task.id)) throw new Error("VIP task reward already claimed.");
+    claimedVipTasks.push(task.id);
+
+    // Credit directly to withdrawable balance (points)! The reward and
+    // requirement come from server-side site configuration, never the client.
+    await tx.update(schema.users).set({
+      points: sql`${schema.users.points} + ${task.reward}`,
+      claimedVipTasks
+    }).where(eq(schema.users.phone, phone));
+  });
 
   // Record transaction in history
   await saveTransaction({
     id: "vip_" + crypto.randomBytes(8).toString("hex"),
     userId: phone,
     type: "vip_task",
-    amount: bonus,
+    amount: task.reward,
     currency: "UGX",
     status: "SUCCESSFUL",
     paymentMethod: "VIP_TASK",
@@ -1493,11 +2053,11 @@ export async function claimVipTask(phone: string, taskId: string, bonus: number 
   await createNotification(
     phone,
     "VIP Task Reward Claimed",
-    `Successfully claimed VIP task reward of UGX ${bonus.toLocaleString()} credited to your withdrawable balance!`,
+    `Successfully claimed VIP task reward of UGX ${task.reward.toLocaleString()} credited to your withdrawable balance!`,
     "rewards"
   );
 
-  return { bonus };
+  return { bonus: task.reward, claimedVipTasks };
 }
 
 export async function adminUpdateUserLockStatus(phone: string, locked: boolean) {
@@ -1585,10 +2145,46 @@ export async function updateSiteConfig(newConfig: Partial<SiteConfig>): Promise<
   const drizzleDb = requireDatabase("save site configuration");
   try {
     const current = await getSiteConfig().catch(() => ({}));
-    const updated = { ...current, ...newConfig };
+    const updated = { ...current, ...newConfig } as SiteConfig & Record<string, any>;
+
+    if (Array.isArray(updated.vipTaskCategories)) {
+      updated.vipTaskCategories = Array.from(new Set(
+        updated.vipTaskCategories
+          .map((category) => String(category || "").trim())
+          .filter(Boolean)
+      ));
+    }
+
+    if (Array.isArray(updated.vipTasks)) {
+      updated.vipTasks = updated.vipTasks
+        .filter((task: any) => task && String(task.id || "").trim() && String(task.title || "").trim())
+        .map((task: any) => ({
+          id: String(task.id).trim(),
+          title: String(task.title).trim(),
+          description: String(task.description || "").trim(),
+          category: String(task.category || "").trim(),
+          requiredBonus: Math.max(0, Number(task.requiredBonus || 0)),
+          reward: Math.max(0, Number(task.reward || 0)),
+          active: task.active !== false
+        }));
+    }
+
+    updated.minimumDeposit = getMinimumDepositAmount(updated);
+    updated.maximumDeposit = getMaximumDepositAmount(updated);
+    updated.minimumWithdrawal = getMinimumWithdrawalAmount(updated);
+    updated.maximumWithdrawal = getMaximumWithdrawalAmount(updated);
+
+    if (updated.maximumDeposit > 0 && updated.maximumDeposit < updated.minimumDeposit) {
+      throw new SiteConfigValidationError("Maximum deposit cannot be lower than minimum deposit.");
+    }
+    if (updated.maximumWithdrawal > 0 && updated.maximumWithdrawal < updated.minimumWithdrawal) {
+      throw new SiteConfigValidationError("Maximum withdrawal cannot be lower than minimum withdrawal.");
+    }
+
     await drizzleDb.insert(schema.siteConfig).values({ id: "main", configJson: updated }).onDuplicateKeyUpdate({ set: { configJson: updated } });
-    return updated as SiteConfig;
+    return updated;
   } catch (err) {
+    if (err instanceof SiteConfigValidationError) throw err;
     throw databaseFailure("save site configuration", err);
   }
 }

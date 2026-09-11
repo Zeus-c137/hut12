@@ -37,7 +37,7 @@ export default function DepositView({
 }: DepositViewProps) {
   const [payType, setPayType] = useState<"balance" | "gpu">(preselectedItem ? "gpu" : "balance");
   const [selectedGpu, setSelectedGpu] = useState<SubscriptionItem | null>(preselectedItem);
-  const [depositAmount, setDepositAmount] = useState<number>(30000);
+  const [depositAmount, setDepositAmount] = useState<number>(20000);
   const { formatCurrency, currency } = useCurrency();
   const [mobileNumber, setMobileNumber] = useState<string>(userProfile.phone || "");
 
@@ -55,6 +55,29 @@ export default function DepositView({
 
   const autoEnabled = config.allowAutoDeposit !== false;
   const manualEnabled = config.allowManualDeposit === true;
+  const minimumDeposit = Number(config.minimumDeposit) > 0 ? Math.floor(Number(config.minimumDeposit)) : 20_000;
+  const maximumDeposit = Number(config.maximumDeposit) > 0 ? Math.floor(Number(config.maximumDeposit)) : 0;
+
+  const getDepositLimitError = (amount: number) => {
+    if (!Number.isFinite(amount) || amount <= 0) return "Enter a valid deposit amount.";
+    if (amount < minimumDeposit) {
+      return `Minimum deposit is ${formatCurrency(minimumDeposit)}.`;
+    }
+    if (maximumDeposit > 0 && amount > maximumDeposit) {
+      return `Maximum deposit is ${formatCurrency(maximumDeposit)}.`;
+    }
+    return "";
+  };
+
+  useEffect(() => {
+    // Keep the initial form values aligned when the public site config arrives
+    // after this view has mounted.
+    if (depositAmount === 20_000) setDepositAmount(minimumDeposit);
+    if (manualAmount === 20_000) setManualAmount(minimumDeposit);
+    if (usdtAmountUSD === 5.5 && Number(config.usdtRate) > 0) {
+      setUsdtAmountUSD(Number((minimumDeposit / Number(config.usdtRate)).toFixed(2)));
+    }
+  }, [minimumDeposit, config.usdtRate]);
   
   // Active deposit mode (auto vs manual vs usdt)
   const [depositMode, setDepositMode] = useState<"auto" | "manual" | "usdt">(
@@ -64,7 +87,7 @@ export default function DepositView({
   // Manual States
   const [senderPhone, setSenderPhone] = useState(userProfile.phone || "");
   const [manualAmount, setManualAmount] = useState<number>(20000);
-  const [usdtAmountUSD, setUsdtAmountUSD] = useState<number>(10);
+  const [usdtAmountUSD, setUsdtAmountUSD] = useState<number>(5.5);
   const [manualOperator, setManualOperator] = useState<"MTN" | "Airtel">("MTN");
   const [manualRef, setManualRef] = useState("");
 
@@ -154,8 +177,10 @@ export default function DepositView({
     }
 
     const finalAmount = payType === "gpu" ? (selectedGpu?.amount || 0) : depositAmount;
-    if (finalAmount < 30000) {
-      toast.error("Minimum amount is 30,000 Shs.");
+    const limitError = getDepositLimitError(finalAmount);
+    if (limitError) {
+      setErrorMsg(limitError);
+      toast.error(limitError);
       return;
     }
 
@@ -220,8 +245,10 @@ export default function DepositView({
     const finalAmount = payType === "gpu"
       ? (selectedGpu?.amount || 0)
       : (depositMode === "usdt" ? (usdtAmountUSD * config.usdtRate) : manualAmount);
-    if (finalAmount < 30000) {
-      toast.error("Minimum amount is 30,000 Shs.");
+    const limitError = getDepositLimitError(finalAmount);
+    if (limitError) {
+      setErrorMsg(limitError);
+      toast.error(limitError);
       return;
     }
 
@@ -287,7 +314,7 @@ export default function DepositView({
           </button>
         </div>
 
-        {paymentStatus === "IDLE" ? (
+            {paymentStatus === "IDLE" ? (
           <div className="theme-card card-playful-3d rounded-[var(--theme-radius)] p-5 md:p-6 shadow-md border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-5">
             {/* Auto & Manual Selection Tabs */}
             <div className="relative border-b border-[var(--theme-card-border)] pb-1 mb-5">
@@ -340,9 +367,14 @@ export default function DepositView({
                   {config.usdtLogoUrl && (
                     <img src={config.usdtLogoUrl} alt="USDT" className="w-8 h-8 p-1 bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] rounded-full object-contain shadow-xs" />
                   )}
-                  <span>USD</span>
+                  <span>USDT</span>
                 </button>
               </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-[var(--theme-bg)]/50 border border-[var(--theme-card-border)] text-[11px] text-[var(--theme-text)] opacity-80 font-sans">
+              Deposit limits: minimum <span className="font-bold">{formatCurrency(minimumDeposit)}</span>
+              {maximumDeposit > 0 ? <> · maximum <span className="font-bold">{formatCurrency(maximumDeposit)}</span></> : <> · no maximum</>}
             </div>
 
             {depositMode === "auto" ? (
@@ -406,7 +438,8 @@ export default function DepositView({
                         UGX
                       </span>
                       <input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
                         min={500}
                         required
                         disabled={payType === "gpu"}
@@ -556,7 +589,8 @@ export default function DepositView({
                         UGX
                       </span>
                       <input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
                         min={500}
                         required
                         disabled={payType === "gpu"}
@@ -668,8 +702,8 @@ export default function DepositView({
                         USD
                       </span>
                       <input
-                        type="number"
-                        step="any"
+                        type="text"
+                        inputMode="decimal"
                         min={1}
                         required
                         disabled={payType === "gpu"}

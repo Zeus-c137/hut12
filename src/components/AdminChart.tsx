@@ -1,11 +1,13 @@
 import React, { useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { useCurrency } from "../currency";
 
 interface AdminChartProps {
   transactionsList: any[];
 }
 
 export default function AdminChart({ transactionsList }: AdminChartProps) {
+  const { formatCurrency } = useCurrency();
   const [activeChart, setActiveChart] = useState<"all" | "deposit" | "withdraw">("all");
   const [timeRange, setTimeRange] = useState<"7d" | "30d" | "90d" | "all">("90d");
 
@@ -47,7 +49,7 @@ export default function AdminChart({ transactionsList }: AdminChartProps) {
 
       const amount = Number(tx.amount) || 0;
       const isWithdraw = tx.type === "withdrawal" || tx.type === "withdraw";
-      const isDeposit = tx.type === "deposit" || tx.type === "gpu" || tx.type === "balance";
+      const isDeposit = tx.type === "deposit" || tx.type === "balance";
 
       if (isWithdraw) {
         dailyData[dateStr].withdraw += amount;
@@ -106,13 +108,13 @@ export default function AdminChart({ transactionsList }: AdminChartProps) {
         <div className="p-4 space-y-0.5">
           <span className="text-[10px] uppercase tracking-wider text-[var(--theme-text)] opacity-60 font-semibold block">Total Deposits</span>
           <span className="text-sm sm:text-base font-extrabold text-[var(--theme-primary)]">
-            UGX {totals.deposit.toLocaleString()}
+            {formatCurrency(totals.deposit)}
           </span>
         </div>
         <div className="p-4 space-y-0.5">
           <span className="text-[10px] uppercase tracking-wider text-[var(--theme-text)] opacity-60 font-semibold block">Total Cashout</span>
           <span className="text-sm sm:text-base font-extrabold text-[var(--theme-accent)]">
-            UGX {totals.withdraw.toLocaleString()}
+            {formatCurrency(totals.withdraw)}
           </span>
         </div>
       </div>
@@ -172,7 +174,7 @@ export default function AdminChart({ transactionsList }: AdminChartProps) {
                                 <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
                                 {entry.dataKey === "deposit" ? "Deposit" : "Withdrawal"}:
                               </span>
-                              <span>UGX {Number(entry.value).toLocaleString()}</span>
+                              <span>{formatCurrency(Number(entry.value))}</span>
                             </div>
                           ))}
                         </div>
