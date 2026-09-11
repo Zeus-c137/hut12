@@ -3,16 +3,17 @@ import { SubscriptionItem, UserProfile } from "../types";
 import {
   ArrowLeft,
   Smartphone,
-  PhoneCall,
-  Loader,
-  CheckCircle,
   XCircle,
+  CheckCircle,
   Cpu,
-  Copy
+  Copy,
+  ShieldCheck,
+  Clock,
+  BadgeInfo,
 } from "lucide-react";
-import { motion } from "motion/react";
 import { toast } from "sonner";
 import { useCurrency } from "../currency";
+import VisaMetricCard from "./VisaMetricCard";
 
 interface DepositViewProps {
   userProfile: UserProfile;
@@ -25,23 +26,20 @@ interface DepositViewProps {
 }
 
 export default function DepositView({
-  // hook
-
   userProfile,
   items,
   siteConfig,
   onDepositSuccess,
   onGpuSuccess,
   preselectedItem = null,
-  onBack
+  onBack,
 }: DepositViewProps) {
   const [payType, setPayType] = useState<"balance" | "gpu">(preselectedItem ? "gpu" : "balance");
   const [selectedGpu, setSelectedGpu] = useState<SubscriptionItem | null>(preselectedItem);
   const [depositAmount, setDepositAmount] = useState<number>(20000);
-  const { formatCurrency, currency } = useCurrency();
+  const { formatCurrency } = useCurrency();
   const [mobileNumber, setMobileNumber] = useState<string>(userProfile.phone || "");
 
-  // Fallback config
   const config = {
     allowAutoDeposit: true,
     allowManualDeposit: false,
@@ -50,7 +48,7 @@ export default function DepositView({
     airtelReceiverPhone: "",
     airtelReceiverName: "",
     usdtRate: 3700,
-    ...siteConfig
+    ...siteConfig,
   };
 
   const autoEnabled = config.allowAutoDeposit !== false;
@@ -60,44 +58,33 @@ export default function DepositView({
 
   const getDepositLimitError = (amount: number) => {
     if (!Number.isFinite(amount) || amount <= 0) return "Enter a valid deposit amount.";
-    if (amount < minimumDeposit) {
-      return `Minimum deposit is ${formatCurrency(minimumDeposit)}.`;
-    }
-    if (maximumDeposit > 0 && amount > maximumDeposit) {
-      return `Maximum deposit is ${formatCurrency(maximumDeposit)}.`;
-    }
+    if (amount < minimumDeposit) return `Minimum deposit is ${formatCurrency(minimumDeposit)}.`;
+    if (maximumDeposit > 0 && amount > maximumDeposit) return `Maximum deposit is ${formatCurrency(maximumDeposit)}.`;
     return "";
   };
 
   useEffect(() => {
-    // Keep the initial form values aligned when the public site config arrives
-    // after this view has mounted.
     if (depositAmount === 20_000) setDepositAmount(minimumDeposit);
     if (manualAmount === 20_000) setManualAmount(minimumDeposit);
     if (usdtAmountUSD === 5.5 && Number(config.usdtRate) > 0) {
       setUsdtAmountUSD(Number((minimumDeposit / Number(config.usdtRate)).toFixed(2)));
     }
   }, [minimumDeposit, config.usdtRate]);
-  
-  // Active deposit mode (auto vs manual vs usdt)
+
   const [depositMode, setDepositMode] = useState<"auto" | "manual" | "usdt">(
     autoEnabled ? "auto" : manualEnabled ? "manual" : "usdt"
   );
 
-  // Manual States
   const [senderPhone, setSenderPhone] = useState(userProfile.phone || "");
   const [manualAmount, setManualAmount] = useState<number>(20000);
   const [usdtAmountUSD, setUsdtAmountUSD] = useState<number>(5.5);
-  const [manualOperator, setManualOperator] = useState<"MTN" | "Airtel">("MTN");
   const [manualRef, setManualRef] = useState("");
 
-  // Flow State
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [currentTransId, setCurrentTransId] = useState<string | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<"IDLE" | "PENDING" | "SUCCESSFUL" | "FAILED">("IDLE");
 
-  // Hook to handle preselected change
   useEffect(() => {
     if (preselectedItem) {
       setSelectedGpu(preselectedItem);
@@ -107,7 +94,6 @@ export default function DepositView({
     }
   }, [preselectedItem]);
 
-  // Handle polling for transaction status
   useEffect(() => {
     let intervalId: any;
     if (paymentStatus === "PENDING" && currentTransId) {
@@ -116,35 +102,37 @@ export default function DepositView({
           const res = await fetch("/api/payment/status", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ trans_id: currentTransId })
+            body: JSON.stringify({ trans_id: currentTransId }),
           });
-
           if (res.ok) {
             const data = await res.json();
             if (data.status === "SUCCESSFUL") {
               setPaymentStatus("SUCCESSFUL");
               toast.success("Payment completed successfully!");
-              const finalAmt = depositMode === "usdt"
-                ? (payType === "gpu" ? (selectedGpu?.amount || 0) : (usdtAmountUSD * config.usdtRate))
-                : (depositMode === "manual"
-                  ? (payType === "gpu" ? (selectedGpu?.amount || 0) : manualAmount)
-                  : (payType === "gpu" ? (selectedGpu?.amount || 0) : depositAmount));
-
+              const finalAmt =
+                depositMode === "usdt"
+                  ? payType === "gpu"
+                    ? selectedGpu?.amount || 0
+                    : usdtAmountUSD * config.usdtRate
+                  : depositMode === "manual"
+                  ? payType === "gpu"
+                    ? selectedGpu?.amount || 0
+                    : manualAmount
+                  : payType === "gpu"
+                  ? selectedGpu?.amount || 0
+                  : depositAmount;
               if (payType === "balance") {
-                if (data.profile) {
-                  onDepositSuccess(data.profile);
-                } else {
+                if (data.profile) onDepositSuccess(data.profile);
+                else {
                   const fallbackProfile = {
                     ...userProfile,
                     rechargeBalance: (userProfile.rechargeBalance || 0) + finalAmt,
-                    totalDeposits: (userProfile.totalDeposits || 0) + finalAmt
+                    totalDeposits: (userProfile.totalDeposits || 0) + finalAmt,
                   };
                   onDepositSuccess(fallbackProfile);
                 }
-              } else {
-                if (data.subscription) {
-                  onGpuSuccess(data.subscription, selectedGpu?.amount || 0);
-                }
+              } else if (data.subscription) {
+                onGpuSuccess(data.subscription, selectedGpu?.amount || 0);
               }
             } else if (data.status === "FAILED") {
               setPaymentStatus("FAILED");
@@ -156,40 +144,31 @@ export default function DepositView({
           console.error("Error polling payment status:", err);
         }
       };
-
       intervalId = setInterval(checkStatus, 3000);
     }
-
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
   }, [paymentStatus, currentTransId, payType, depositAmount, manualAmount, usdtAmountUSD, selectedGpu, userProfile, depositMode]);
 
-  // Automatic ZuluPay deposit handler
   const handleStartPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
-
     const phoneTrim = mobileNumber.replace(/\s+/g, "");
     if (!phoneTrim || phoneTrim.length < 10) {
       toast.error("Please provide a valid 10-digit mobile money number.");
       return;
     }
-
-    const finalAmount = payType === "gpu" ? (selectedGpu?.amount || 0) : depositAmount;
+    const finalAmount = payType === "gpu" ? selectedGpu?.amount || 0 : depositAmount;
     const limitError = getDepositLimitError(finalAmount);
     if (limitError) {
       setErrorMsg(limitError);
       toast.error(limitError);
       return;
     }
-
     setIsSubmitting(true);
     setPaymentStatus("PENDING");
-
-    // Auto-routing operator detection
     const operator = "MTN";
-
     try {
       const response = await fetch("/api/payment/deposit", {
         method: "POST",
@@ -200,15 +179,11 @@ export default function DepositView({
           amount: finalAmount,
           operator,
           type: payType === "balance" ? "deposit" : payType,
-          itemId: payType === "gpu" ? selectedGpu?.id : undefined
-        })
+          itemId: payType === "gpu" ? selectedGpu?.id : undefined,
+        }),
       });
-
       const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || "Payment dispatch failed.");
-      }
-
+      if (!response.ok) throw new Error(data.error || "Payment dispatch failed.");
       setCurrentTransId(data.trans_id);
       toast.info("Payment dispatched. Please check your phone.");
     } catch (err: any) {
@@ -220,11 +195,9 @@ export default function DepositView({
     }
   };
 
-  // Manual payment submission handler
   const handleStartManualPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
-
     let phoneTrim = senderPhone.replace(/\s+/g, "");
     if (depositMode === "manual") {
       if (!phoneTrim || phoneTrim.length < 9) {
@@ -232,30 +205,27 @@ export default function DepositView({
         return;
       }
     } else {
-      // For USDT, we don't strictly need a sender phone, we can just pass 'USDT' or similar
       phoneTrim = "USDT_TRANSFER";
     }
-
     const refTrim = manualRef.trim();
     if (!refTrim) {
       toast.error("Please provide the transaction ID / Hash.");
       return;
     }
-
-    const finalAmount = payType === "gpu"
-      ? (selectedGpu?.amount || 0)
-      : (depositMode === "usdt" ? (usdtAmountUSD * config.usdtRate) : manualAmount);
+    const finalAmount =
+      payType === "gpu"
+        ? selectedGpu?.amount || 0
+        : depositMode === "usdt"
+        ? usdtAmountUSD * config.usdtRate
+        : manualAmount;
     const limitError = getDepositLimitError(finalAmount);
     if (limitError) {
       setErrorMsg(limitError);
       toast.error(limitError);
       return;
     }
-
     setIsSubmitting(true);
     setPaymentStatus("PENDING");
-
-    // Auto-detect MTN or Airtel from prefix for manual, for USDT use 'USDT'
     let detectedOperator = depositMode === "usdt" ? "USDT" : "MTN";
     if (depositMode === "manual") {
       const normalizedPhone = phoneTrim.startsWith("256") ? "0" + phoneTrim.substring(3) : phoneTrim;
@@ -263,7 +233,6 @@ export default function DepositView({
         detectedOperator = "Airtel";
       }
     }
-
     try {
       const response = await fetch("/api/manual/deposit", {
         method: "POST",
@@ -274,178 +243,258 @@ export default function DepositView({
           amount: finalAmount,
           operator: detectedOperator,
           transId: refTrim,
-          itemId: payType === "gpu" ? selectedGpu?.id : undefined
-        })
+          itemId: payType === "gpu" ? selectedGpu?.id : undefined,
+        }),
       });
-
       const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || "Proof submission failed.");
-      }
-
+      if (!response.ok) throw new Error(data.error || "Proof submission failed.");
       setCurrentTransId(data.trans_id);
-      toast.success("Manual proof submitted successfully! Pending admin approval.");
+      toast.success("Proof submitted — pending review.");
     } catch (err: any) {
       console.error(err);
       setPaymentStatus("IDLE");
-      toast.error(err.message || "Failed to submit manual proof.");
+      toast.error(err.message || "Failed to submit proof.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const finalAmount = depositMode === "usdt"
-    ? (payType === "gpu" ? (selectedGpu?.amount || 0) : (usdtAmountUSD * config.usdtRate))
-    : (depositMode === "manual"
-      ? (payType === "gpu" ? (selectedGpu?.amount || 0) : manualAmount)
-      : (payType === "gpu" ? (selectedGpu?.amount || 0) : depositAmount));
+  const finalAmount =
+    depositMode === "usdt"
+      ? payType === "gpu"
+        ? selectedGpu?.amount || 0
+        : usdtAmountUSD * config.usdtRate
+      : depositMode === "manual"
+      ? payType === "gpu"
+        ? selectedGpu?.amount || 0
+        : manualAmount
+      : payType === "gpu"
+      ? selectedGpu?.amount || 0
+      : depositAmount;
+
+  const PillBtn: React.FC<{
+    active: boolean;
+    onClick: () => void;
+    label: string;
+    sub: string;
+    icon?: React.ReactNode;
+  }> = ({ active, onClick, label, sub, icon }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex-1 flex items-center justify-center gap-2.5 py-3.5 relative text-[11px] font-black uppercase tracking-wider transition-colors cursor-pointer ${
+        active ? "text-[var(--theme-primary)]" : "text-[var(--theme-text)] opacity-60 hover:opacity-100"
+      }`}
+    >
+      {icon ? <span className="shrink-0 flex items-center justify-center gap-1.5">{icon}</span> : null}
+      <span className="flex flex-col items-start leading-none">
+        <span className="text-[11px] leading-none">{label}</span>
+        {sub ? <span className="text-[9px] font-bold normal-case opacity-60 leading-none mt-1">{sub}</span> : null}
+      </span>
+      {active && <span className="absolute bottom-0 left-2 right-2 h-[3px] bg-[var(--theme-primary)] rounded-full" />}
+    </button>
+  );
 
   return (
-    <div className="bg-transparent text-[var(--theme-text)] p-1 min-h-[60vh] flex flex-col justify-between select-none space-y-4">
-      <div>
-        {/* Header Ribbon */}
-        <div className="flex items-center justify-between pb-3 border-b border-[var(--theme-card-border)] mb-5">
-          <button
-            onClick={onBack}
-            className="p-2 px-4 rounded-[var(--theme-radius)] btn-3d-secondary text-[var(--theme-text)] flex items-center gap-2 text-xs font-sans font-bold cursor-pointer transition-all border border-[var(--theme-card-border)]"
-          >
-            <ArrowLeft className="w-4 h-4 text-[var(--theme-primary)]" />
-            <span>Back</span>
-          </button>
-        </div>
+    <div className="bg-transparent text-[var(--theme-text)] p-1 space-y-4 select-none">
+      {/* Top bar — back only (balance now in visa card) */}
+      <div className="flex items-center">
+        <button
+          onClick={onBack}
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] text-xs font-black uppercase tracking-wider text-[var(--theme-text)] hover:border-[var(--theme-primary)]/30 transition-colors cursor-pointer"
+        >
+          <ArrowLeft className="w-4 h-4 text-[var(--theme-primary)]" />
+          Back
+        </button>
+      </div>
 
-            {paymentStatus === "IDLE" ? (
-          <div className="theme-card card-playful-3d rounded-[var(--theme-radius)] p-5 md:p-6 shadow-md border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-5">
-            {/* Auto & Manual Selection Tabs */}
-            <div className="relative border-b border-[var(--theme-card-border)] pb-1 mb-5">
-              <div className="flex gap-2 border-b border-[var(--theme-card-border)]/40 pb-1">
-                {autoEnabled && (
-                  <button
-                    type="button"
-                    onClick={() => { setDepositMode("auto"); setErrorMsg(""); }}
-                    className={`relative py-3 px-3 flex-1 flex items-center justify-center gap-2 text-xs font-display font-black uppercase transition-all cursor-pointer outline-none select-none rounded-[var(--theme-radius)] ${
-                      depositMode === "auto" ? "btn-3d-primary text-white" : "btn-3d-secondary text-[var(--theme-text)] border border-[var(--theme-card-border)]"
-                    }`}
-                  >
-                    <div className="flex -space-x-1 items-center shrink-0">
-                      {config.mtnLogoUrl && (
-                        <img src={config.mtnLogoUrl} alt="MTN" className="w-8 h-8 p-1 bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] rounded-full object-contain shadow-xs" />
-                      )}
-                      {config.airtelLogoUrl && (
-                        <img src={config.airtelLogoUrl} alt="Airtel" className="w-8 h-8 p-1 bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] rounded-full object-contain shadow-xs" />
-                      )}
-                    </div>
-                    <span>Instant</span>
-                  </button>
-                )}
-                {manualEnabled && (
-                  <button
-                    type="button"
-                    onClick={() => { setDepositMode("manual"); setErrorMsg(""); }}
-                    className={`relative py-3 px-3 flex-1 flex items-center justify-center gap-2 text-xs font-display font-black uppercase transition-all cursor-pointer outline-none select-none rounded-[var(--theme-radius)] ${
-                      depositMode === "manual" ? "btn-3d-primary text-white" : "btn-3d-secondary text-[var(--theme-text)] border border-[var(--theme-card-border)]"
-                    }`}
-                  >
-                    <div className="flex -space-x-1 items-center shrink-0">
-                      {config.mtnLogoUrl && (
-                        <img src={config.mtnLogoUrl} alt="MTN" className="w-8 h-8 p-1 bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] rounded-full object-contain shadow-xs" />
-                      )}
-                      {config.airtelLogoUrl && (
-                        <img src={config.airtelLogoUrl} alt="Airtel" className="w-8 h-8 p-1 bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] rounded-full object-contain shadow-xs" />
-                      )}
-                    </div>
-                    <span>Transfer</span>
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => { setDepositMode("usdt"); setErrorMsg(""); }}
-                  className={`relative py-3 px-3 flex-1 flex items-center justify-center gap-2 text-xs font-display font-black uppercase transition-all cursor-pointer outline-none select-none rounded-[var(--theme-radius)] ${
-                    depositMode === "usdt" ? "btn-3d-primary text-white" : "btn-3d-secondary text-[var(--theme-text)] border border-[var(--theme-card-border)]"
-                  }`}
-                >
-                  {config.usdtLogoUrl && (
-                    <img src={config.usdtLogoUrl} alt="USDT" className="w-8 h-8 p-1 bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] rounded-full object-contain shadow-xs" />
-                  )}
-                  <span>USDT</span>
-                </button>
+      {/* Selected product strip — theme-aware */}
+      {payType === "gpu" && selectedGpu && (
+        <div className="flex items-center gap-3 p-3 rounded-[var(--theme-radius)] bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] shadow-sm">
+          <div className="w-12 h-12 rounded-xl overflow-hidden border border-[var(--theme-card-border)] bg-[var(--theme-bg)] shrink-0">
+            {selectedGpu.imageUrl ? (
+              <img src={selectedGpu.imageUrl} alt={selectedGpu.name} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-[var(--theme-primary)] opacity-60">
+                <Cpu className="w-6 h-6" />
               </div>
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] font-black uppercase tracking-wider opacity-50 leading-none">Paying for</p>
+            <p className="text-[13px] font-black leading-tight truncate mt-1">{selectedGpu.name}</p>
+            <p className="text-[11px] font-bold text-[var(--theme-primary)] leading-none mt-1">
+              Earns {formatCurrency(selectedGpu.dailyYield)}/day • {selectedGpu.duration} days
+            </p>
+          </div>
+          <div className="text-right shrink-0">
+            <p className="text-[10px] font-black uppercase tracking-wider opacity-50">Price</p>
+            <p className="text-sm font-black text-[var(--theme-primary)]">{formatCurrency(selectedGpu.amount)}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Visa balance card — recharge + withdrawable */}
+      <VisaMetricCard
+        leftLabel="Recharge balance"
+        leftValue={formatCurrency(userProfile.rechargeBalance || 0)}
+        rightLabel="Withdrawable"
+        rightValue={formatCurrency(userProfile.points || 0)}
+      />
+
+      {paymentStatus === "IDLE" ? (
+        <div className="rounded-[var(--theme-radius)] bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] shadow-sm overflow-hidden">
+          {/* Method picker — segmented pill */}
+          <div className="p-3 border-b border-[var(--theme-card-border)] space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-[11px] font-black uppercase tracking-[0.14em] opacity-60">Choose method</h2>
+              <span className="text-[10px] font-bold opacity-50 flex items-center gap-1">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" /> Encrypted
+              </span>
+            </div>
+            <div className="flex gap-1 border-b border-[var(--theme-card-border)]">
+              {autoEnabled && (
+                <PillBtn
+                  active={depositMode === "auto"}
+                  onClick={() => {
+                    setDepositMode("auto");
+                    setErrorMsg("");
+                  }}
+                  label="Instant"
+                  sub=""
+                  icon={
+                    <span className="flex items-center gap-1.5">
+                      {config.mtnLogoUrl ? <img src={config.mtnLogoUrl} alt="MTN" className="w-10 h-10 rounded-full bg-white object-contain" style={{ padding: 4 }} /> : <span className="w-10 h-10 rounded-full bg-[#FFCC00] text-black text-[11px] flex items-center justify-center font-black">MTN</span>}
+                      {config.airtelLogoUrl ? <img src={config.airtelLogoUrl} alt="Airtel" className="w-10 h-10 rounded-full bg-white object-contain" style={{ padding: 3 }} /> : <span className="w-10 h-10 rounded-full bg-[#FF0000] text-white text-[10px] flex items-center justify-center font-black">Air</span>}
+                    </span>
+                  }
+                />
+              )}
+              {manualEnabled && (
+                <PillBtn
+                  active={depositMode === "manual"}
+                  onClick={() => {
+                    setDepositMode("manual");
+                    setErrorMsg("");
+                  }}
+                  label="Transfer"
+                  sub="Manual • 5-15 min"
+                  icon={
+                    <span className="flex items-center gap-1.5">
+                      {config.mtnLogoUrl ? <img src={config.mtnLogoUrl} alt="MTN" className="w-10 h-10 rounded-full bg-white object-contain" style={{ padding: 4 }} /> : <span className="w-10 h-10 rounded-full bg-[#FFCC00] text-black text-[11px] flex items-center justify-center font-black">MTN</span>}
+                      {config.airtelLogoUrl ? <img src={config.airtelLogoUrl} alt="Airtel" className="w-10 h-10 rounded-full bg-white object-contain" style={{ padding: 3 }} /> : <span className="w-10 h-10 rounded-full bg-[#FF0000] text-white text-[10px] flex items-center justify-center font-black">Air</span>}
+                    </span>
+                  }
+                />
+              )}
+              <PillBtn
+                active={depositMode === "usdt"}
+                onClick={() => {
+                  setDepositMode("usdt");
+                  setErrorMsg("");
+                }}
+                label="USDT"
+                sub={config.usdtNetwork || "TRC20"}
+                icon={
+                  config.usdtLogoUrl ? (
+                    <img src={config.usdtLogoUrl} alt="USDT" className="w-10 h-10 rounded-full bg-white object-contain" style={{ padding: 2 }} />
+                  ) : (
+                    <span className="w-10 h-10 rounded-full bg-[#26A17B] text-white text-[15px] flex items-center justify-center font-black">₮</span>
+                  )
+                }
+              />
             </div>
 
-            <div className="p-3 rounded-xl bg-[var(--theme-bg)]/50 border border-[var(--theme-card-border)] text-[11px] text-[var(--theme-text)] opacity-80 font-sans">
-              Deposit limits: minimum <span className="font-bold">{formatCurrency(minimumDeposit)}</span>
-              {maximumDeposit > 0 ? <> · maximum <span className="font-bold">{formatCurrency(maximumDeposit)}</span></> : <> · no maximum</>}
+            {/* Step hint */}
+            <div className="flex items-center gap-2 text-[10px] font-bold leading-none px-1">
+              {depositMode === "auto" && (
+                <>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-full bg-[var(--theme-primary)] text-white flex items-center justify-center text-[10px] font-black">1</span> Phone
+                  </span>
+                  <span className="opacity-30">—</span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] flex items-center justify-center text-[10px] font-black">2</span> Amount
+                  </span>
+                  <span className="opacity-30">—</span>
+                  <span className="inline-flex items-center gap-1.5 opacity-70">
+                    <span className="w-5 h-5 rounded-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] flex items-center justify-center text-[10px] font-black">3</span> PIN on phone
+                  </span>
+                </>
+              )}
+              {depositMode === "manual" && (
+                <>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-full bg-[var(--theme-primary)] text-white flex items-center justify-center text-[10px] font-black">1</span> Send
+                  </span>
+                  <span className="opacity-30">—</span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] flex items-center justify-center text-[10px] font-black">2</span> Paste TxID
+                  </span>
+                  <span className="opacity-30">—</span>
+                  <span className="inline-flex items-center gap-1.5 opacity-70">
+                    <span className="w-5 h-5 rounded-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] flex items-center justify-center text-[10px] font-black">3</span> 5–15 min review
+                  </span>
+                </>
+              )}
+              {depositMode === "usdt" && (
+                <>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-full bg-[var(--theme-primary)] text-white flex items-center justify-center text-[10px] font-black">1</span> Send USDT
+                  </span>
+                  <span className="opacity-30">—</span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] flex items-center justify-center text-[10px] font-black">2</span> Paste hash
+                  </span>
+                  <span className="opacity-30">—</span>
+                  <span className="inline-flex items-center gap-1.5 opacity-70">
+                    <span className="w-5 h-5 rounded-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] flex items-center justify-center text-[10px] font-black">3</span> Confirm
+                  </span>
+                </>
+              )}
             </div>
+          </div>
 
-            {depositMode === "auto" ? (
-              /* AUTOMATIC DEPOSIT FORM */
+          {/* Forms */}
+          <div className="p-4 space-y-4">
+            {errorMsg && (
+              <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-600 text-xs font-bold flex items-center gap-2">
+                <XCircle className="w-4 h-4 shrink-0" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
+
+            {depositMode === "auto" && (
               <form onSubmit={handleStartPayment} className="space-y-4">
-                {errorMsg && (
-                  <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-xs font-sans flex items-center gap-2">
-                    <XCircle className="w-4 h-4 shrink-0" />
-                    <span>{errorMsg}</span>
-                  </div>
-                )}
-
-                {/* Render a minimal card of the GPU Rig if Paying for a Rig */}
-                {payType === "gpu" && selectedGpu && (
-                  <div className="p-2 flex items-center justify-between gap-3 relative overflow-hidden mb-2">
-                    <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/5 rounded-full blur-xl pointer-events-none" />
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl bg-blue-700/10 border border-blue-500/20 overflow-hidden shrink-0">
-                        {selectedGpu.imageUrl ? (
-                          <img src={selectedGpu.imageUrl} alt={selectedGpu.name} className="w-full h-full object-cover opacity-80" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-blue-500"><Cpu className="w-6 h-6" /></div>
-                        )}
-                      </div>
-                      <div>
-                        <h4 className="font-extrabold text-[13px] text-slate-100 uppercase">{selectedGpu.name}</h4>
-                        <p className="font-sans text-[12px] text-slate-500 uppercase tracking-wider font-semibold">Daily yield: +{formatCurrency(selectedGpu.dailyYield)}</p>
-                      </div>
-                    </div>
-                    <div className="text-right font-sans text-xs font-black text-blue-500">
-                      {formatCurrency(selectedGpu.amount)}
-                    </div>
-                  </div>
-                )}
-
-                {/* Unified Phone & Amount Card */}
-                <div className="p-4 rounded-2xl space-y-4 bg-[var(--theme-bg)]/40 border border-[var(--theme-card-border)]/60">
+                <div className="space-y-3">
                   <div className="space-y-1.5">
-                    <label className="font-sans text-[12px] text-[var(--theme-text)] opacity-70 uppercase tracking-wider font-extrabold block">
-                      Mobile Money Phone Number
-                    </label>
+                    <label className="text-[11px] font-black uppercase tracking-wider opacity-60">Mobile money number</label>
                     <div className="relative">
-                      <Smartphone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--theme-primary)]" />
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] px-2.5 py-1 text-[11px] font-black">+256</span>
                       <input
                         type="text"
                         required
-                        placeholder="e.g. 0781234567"
+                        placeholder="7XX XXX XXX"
                         value={mobileNumber}
                         onChange={(e) => setMobileNumber(e.target.value)}
-                        className="w-full bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] hover:border-[var(--theme-primary)]/50 focus:border-[var(--theme-primary)] rounded-[var(--theme-radius)] py-3 pl-10 pr-4 font-sans text-xs text-[var(--theme-text)] outline-none transition-colors"
+                        className="w-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] rounded-full py-3 pl-[72px] pr-4 text-sm font-bold outline-none transition-colors"
                       />
+                      <Smartphone className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 opacity-40" />
                     </div>
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="font-sans text-[12px] text-[var(--theme-text)] opacity-70 uppercase tracking-wider font-extrabold block">
-                      Amount (UGX)
-                    </label>
+                    <label className="text-[11px] font-black uppercase tracking-wider opacity-60">Amount (UGX)</label>
                     <div className="relative">
-                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[12px] font-sans text-[var(--theme-text)] opacity-70 uppercase tracking-wider font-extrabold">
-                        UGX
-                      </span>
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-black opacity-50">UGX</span>
                       <input
                         type="text"
                         inputMode="numeric"
-                        min={500}
                         required
                         disabled={payType === "gpu"}
-                        value={payType === "gpu" ? (selectedGpu?.amount || 0) : depositAmount}
-                        onChange={(e) => setDepositAmount(Number(e.target.value))}
-                        className="w-full bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] hover:border-[var(--theme-primary)]/50 focus:border-[var(--theme-primary)] rounded-[var(--theme-radius)] py-3 pl-12 pr-4 font-sans font-bold text-xs text-[var(--theme-text)] outline-none transition-colors disabled:opacity-75 disabled:cursor-not-allowed"
+                        value={payType === "gpu" ? selectedGpu?.amount || 0 : depositAmount}
+                        onChange={(e) => setDepositAmount(Number(e.target.value.replace(/[^0-9]/g, "")) || 0)}
+                        className="w-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] rounded-full py-3 pl-12 pr-4 text-sm font-black outline-none transition-colors disabled:opacity-60"
                       />
                     </div>
                   </div>
@@ -454,283 +503,228 @@ export default function DepositView({
                 <button
                   type="submit"
                   disabled={isSubmitting || (payType === "gpu" && !selectedGpu)}
-                  className="w-full py-3.5 px-4 btn-3d-primary text-white font-display font-black text-xs uppercase tracking-wider rounded-[var(--theme-radius)] flex items-center justify-center gap-2 transition-all cursor-pointer outline-none active:scale-[0.98] shadow-md"
+                  className="w-full py-3.5 rounded-full bg-[var(--theme-primary)] text-white font-black text-sm uppercase tracking-wider shadow-[0_3px_0_0_var(--theme-primary-shadow)] active:translate-y-[1px] active:shadow-none transition-all flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer"
                 >
-                  {isSubmitting ? (
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <span>Pay {formatCurrency(finalAmount)}</span>
-                  )}
+                  {isSubmitting ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <span>Pay {formatCurrency(finalAmount)}</span>}
                 </button>
+                <p className="text-center text-[11px] font-bold opacity-50">
+                  {formatCurrency(minimumDeposit)} min{maximumDeposit > 0 ? ` • ${formatCurrency(maximumDeposit)} max` : " • no max"}
+                </p>
               </form>
-            ) : depositMode === "manual" ? (
-              /* MANUAL DEPOSIT FORM */
+            )}
+
+            {depositMode === "manual" && (
               <form onSubmit={handleStartManualPayment} className="space-y-4">
-                {/* Render a minimal card of the GPU Rig if Paying for a Rig */}
-                {payType === "gpu" && selectedGpu && (
-                  <div className="p-2 flex items-center justify-between gap-3 relative overflow-hidden mb-2">
-                    <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/5 rounded-full blur-xl pointer-events-none" />
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl bg-blue-700/10 border border-blue-500/20 overflow-hidden shrink-0">
-                        {selectedGpu.imageUrl ? (
-                          <img src={selectedGpu.imageUrl} alt={selectedGpu.name} className="w-full h-full object-cover opacity-80" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-blue-500"><Cpu className="w-6 h-6" /></div>
-                        )}
-                      </div>
-                      <div>
-                        <h4 className="font-extrabold text-[13px] text-slate-100 uppercase">{selectedGpu.name}</h4>
-                        <p className="font-sans text-[12px] text-slate-500 uppercase tracking-wider font-semibold">Daily yield: +{formatCurrency(selectedGpu.dailyYield)}</p>
-                      </div>
-                    </div>
-                    <div className="text-right font-sans text-xs font-bold text-blue-500">
-                      {formatCurrency(selectedGpu.amount)}
-                    </div>
-                  </div>
-                )}
-
-                {/* Receiver Merchant numbers box */}
-                <div className="p-4 bg-[var(--theme-bg)]/40 rounded-[var(--theme-radius)] border border-[var(--theme-card-border)] space-y-3 relative overflow-hidden">
-                  <div>
-                    <span className="font-sans text-[12px] text-[var(--theme-primary)] uppercase tracking-wider font-extrabold block">Direct Cash Transfer</span>
-                    <p className="text-xs font-sans text-[var(--theme-text)] opacity-80 leading-relaxed mt-1">
-                      Send exactly <span className="font-bold text-[var(--theme-text)]">{formatCurrency(finalAmount)}</span> to one of our receiver lines below, then paste the transaction ID as proof.
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3.5 pt-2.5 border-t border-[var(--theme-card-border)]">
-                    {/* MTN */}
+                {/* Receiver cards */}
+                <div className="space-y-2">
+                  <p className="text-[11px] font-black uppercase tracking-wider opacity-60">1 — Send exact amount to</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {config.mtnReceiverPhone ? (
-                      <div className="space-y-0.5">
-                        <span className="text-[11px] font-sans font-extrabold text-amber-500 flex items-center gap-1 tracking-wider uppercase">
-                          {config.mtnLogoUrl && (
-                            <img src={config.mtnLogoUrl} alt="MTN" className="w-4 h-4 object-contain rounded bg-slate-950 p-0.5" />
+                      <div className="rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border border-[var(--theme-card-border)] p-3 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          {config.mtnLogoUrl ? (
+                            <img src={config.mtnLogoUrl} alt="MTN" className="w-8 h-8 rounded-full bg-white p-1 object-contain border border-[var(--theme-card-border)] shrink-0" />
+                          ) : (
+                            <span className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center text-[10px] font-black shrink-0">MTN</span>
                           )}
-                          MTN UGANDA
-                        </span>
-                        <div className="flex items-center justify-between gap-1 mt-0.5">
-                          <div className="font-sans text-xs font-bold text-[var(--theme-text)] select-all">{config.mtnReceiverPhone}</div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              navigator.clipboard.writeText(config.mtnReceiverPhone);
-                              toast.success("MTN number copied!");
-                            }}
-                            className="p-1 text-[var(--theme-text)] opacity-70 hover:opacity-100 transition-colors bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] rounded shrink-0 cursor-pointer"
-                            title="Copy MTN Phone Number"
-                          >
-                            <Copy className="w-3.5 h-3.5" />
-                          </button>
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-black uppercase tracking-wider text-amber-600 leading-none">MTN Uganda</p>
+                            <p className="text-sm font-black leading-none mt-1 select-all truncate">{config.mtnReceiverPhone}</p>
+                            <p className="text-[11px] font-bold opacity-60 truncate">{config.mtnReceiverName || "PJNATAL"}</p>
+                          </div>
                         </div>
-                        <div className="text-xs font-sans font-bold text-[var(--theme-text)] opacity-80 truncate mt-1">{config.mtnReceiverName || "ECOSYSTEM"}</div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(config.mtnReceiverPhone);
+                            toast.success("MTN number copied");
+                          }}
+                          className="shrink-0 w-8 h-8 rounded-full bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] flex items-center justify-center hover:border-[var(--theme-primary)]/30 transition-colors cursor-pointer"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </button>
                       </div>
                     ) : (
-                      <div className="font-sans text-[12px] text-slate-500 uppercase tracking-wider font-semibold block">MTN offline</div>
+                      <div className="rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border border-dashed border-[var(--theme-card-border)] p-3 text-xs font-bold opacity-50">MTN offline</div>
                     )}
-
-                    {/* Airtel */}
                     {config.airtelReceiverPhone ? (
-                      <div className="space-y-0.5">
-                        <span className="text-[11px] font-sans font-extrabold text-rose-500 flex items-center gap-1 tracking-wider uppercase">
-                          {config.airtelLogoUrl && (
-                            <img src={config.airtelLogoUrl} alt="Airtel" className="w-4 h-4 object-contain rounded bg-slate-950 p-0.5" />
+                      <div className="rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border border-[var(--theme-card-border)] p-3 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          {config.airtelLogoUrl ? (
+                            <img src={config.airtelLogoUrl} alt="Airtel" className="w-8 h-8 rounded-full bg-white p-1 object-contain border border-[var(--theme-card-border)] shrink-0" />
+                          ) : (
+                            <span className="w-8 h-8 rounded-full bg-rose-500 text-white flex items-center justify-center text-[10px] font-black shrink-0">AT</span>
                           )}
-                          AIRTEL MONEY
-                        </span>
-                        <div className="flex items-center justify-between gap-1 mt-0.5">
-                          <div className="font-sans text-xs font-bold text-[var(--theme-text)] select-all">{config.airtelReceiverPhone}</div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              navigator.clipboard.writeText(config.airtelReceiverPhone);
-                              toast.success("Airtel number copied!");
-                            }}
-                            className="p-1 text-[var(--theme-text)] opacity-70 hover:opacity-100 transition-colors bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] rounded shrink-0 cursor-pointer"
-                            title="Copy Airtel Phone Number"
-                          >
-                            <Copy className="w-3.5 h-3.5" />
-                          </button>
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-black uppercase tracking-wider text-rose-600 leading-none">Airtel Money</p>
+                            <p className="text-sm font-black leading-none mt-1 select-all truncate">{config.airtelReceiverPhone}</p>
+                            <p className="text-[11px] font-bold opacity-60 truncate">{config.airtelReceiverName || "PJNATAL"}</p>
+                          </div>
                         </div>
-                        <div className="text-xs font-sans font-bold text-[var(--theme-text)] opacity-80 truncate mt-1">{config.airtelReceiverName || "ECOSYSTEM"}</div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(config.airtelReceiverPhone);
+                            toast.success("Airtel number copied");
+                          }}
+                          className="shrink-0 w-8 h-8 rounded-full bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] flex items-center justify-center hover:border-[var(--theme-primary)]/30 transition-colors cursor-pointer"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </button>
                       </div>
                     ) : (
-                      <div className="font-sans text-[12px] text-slate-500 uppercase tracking-wider font-semibold block">Airtel offline</div>
+                      <div className="rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border border-dashed border-[var(--theme-card-border)] p-3 text-xs font-bold opacity-50">Airtel offline</div>
                     )}
+                  </div>
+                  <div className="rounded-full bg-[var(--theme-primary)]/10 border border-[var(--theme-primary)]/20 px-3 py-2 flex items-center justify-between gap-2 text-xs font-black">
+                    <span className="opacity-70">Send exactly</span>
+                    <span className="flex items-center gap-2">
+                      <span className="text-[var(--theme-primary)]">{formatCurrency(finalAmount)}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(String(finalAmount));
+                          toast.success("Amount copied");
+                        }}
+                        className="w-7 h-7 rounded-full bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] flex items-center justify-center cursor-pointer"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+                    </span>
                   </div>
                 </div>
 
-                {/* Form Fields */}
-                <div className="p-4 bg-[var(--theme-bg)]/40 border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] space-y-3">
-                  {/* Sender Phone */}
-                  <div className="space-y-1">
-                    <label className="font-sans text-[12px] text-[var(--theme-text)] opacity-70 uppercase tracking-wider font-extrabold block">
-                      Your Sender Phone Number
-                    </label>
-                    <div className="relative">
-                      <Smartphone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--theme-primary)]" />
+                <div className="space-y-3 pt-1">
+                  <p className="text-[11px] font-black uppercase tracking-wider opacity-60">2 — Paste proof after sending</p>
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-black uppercase tracking-wider opacity-60">Your sender number</label>
+                      <div className="relative">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] px-2.5 py-1 text-[11px] font-black">+256</span>
+                        <input
+                          type="text"
+                          required
+                          placeholder="7XX XXX XXX"
+                          value={senderPhone}
+                          onChange={(e) => setSenderPhone(e.target.value)}
+                          className="w-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] rounded-full py-3 pl-[72px] pr-4 text-sm font-bold outline-none"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-black uppercase tracking-wider opacity-60">Amount sent (UGX)</label>
+                      <div className="relative">
+                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-black opacity-50">UGX</span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          required
+                          disabled={payType === "gpu"}
+                          value={payType === "gpu" ? selectedGpu?.amount || 0 : manualAmount}
+                          onChange={(e) => setManualAmount(Number(e.target.value.replace(/[^0-9]/g, "")) || 0)}
+                          className="w-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] rounded-full py-3 pl-12 pr-4 text-sm font-black outline-none disabled:opacity-60"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-black uppercase tracking-wider opacity-60">Transaction ID</label>
                       <input
                         type="text"
                         required
-                        placeholder="e.g. 0771234567"
-                        value={senderPhone}
-                        onChange={(e) => setSenderPhone(e.target.value)}
-                        className="w-full bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] hover:border-[var(--theme-primary)]/50 focus:border-[var(--theme-primary)] rounded-[var(--theme-radius)] py-2.5 pl-10 pr-4 font-sans text-xs text-[var(--theme-text)] outline-none transition-colors"
+                        placeholder="Paste mobile money TxID"
+                        value={manualRef}
+                        onChange={(e) => setManualRef(e.target.value)}
+                        className="w-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] rounded-full py-3 px-4 text-sm font-bold outline-none"
                       />
                     </div>
-                  </div>
-
-                  {/* Amount input */}
-                  <div className="space-y-1">
-                    <label className="font-sans text-[12px] text-[var(--theme-text)] opacity-70 uppercase tracking-wider font-extrabold block">
-                      Amount Sent (UGX)
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[12px] font-sans text-[var(--theme-text)] opacity-70 uppercase tracking-wider font-extrabold">
-                        UGX
-                      </span>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        min={500}
-                        required
-                        disabled={payType === "gpu"}
-                        value={payType === "gpu" ? (selectedGpu?.amount || 0) : manualAmount}
-                        onChange={(e) => setManualAmount(Number(e.target.value))}
-                        className="w-full bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] hover:border-[var(--theme-primary)]/50 focus:border-[var(--theme-primary)] rounded-[var(--theme-radius)] py-2.5 pl-12 pr-4 font-sans font-bold text-xs text-[var(--theme-text)] outline-none transition-colors disabled:opacity-75 disabled:cursor-not-allowed"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Reference ID input */}
-                  <div className="space-y-1">
-                    <label className="font-sans text-[12px] text-[var(--theme-text)] opacity-70 uppercase tracking-wider font-extrabold block">
-                      Transaction Reference / TxID string
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Paste your mobile money TxID string"
-                      value={manualRef}
-                      onChange={(e) => setManualRef(e.target.value)}
-                      className="w-full bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] hover:border-[var(--theme-primary)]/50 focus:border-[var(--theme-primary)] rounded-[var(--theme-radius)] py-2.5 px-4 font-sans text-xs text-[var(--theme-text)] outline-none transition-colors"
-                    />
                   </div>
                 </div>
 
                 <button
                   type="submit"
                   disabled={isSubmitting || (payType === "gpu" && !selectedGpu)}
-                  className="w-full py-3.5 px-4 btn-3d-primary text-white font-display font-black text-xs uppercase tracking-wider rounded-[var(--theme-radius)] flex items-center justify-center gap-2 transition-all cursor-pointer outline-none active:scale-[0.98] shadow-md"
+                  className="w-full py-3.5 rounded-full bg-[var(--theme-primary)] text-white font-black text-sm uppercase tracking-wider shadow-[0_3px_0_0_var(--theme-primary-shadow)] active:translate-y-[1px] active:shadow-none transition-all flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer"
                 >
-                  {isSubmitting ? (
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <span>Confirm payment</span>
-                  )}
+                  {isSubmitting ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <span>Submit proof • {formatCurrency(finalAmount)}</span>}
                 </button>
+                <p className="text-center text-[11px] font-bold opacity-50">
+                  {formatCurrency(minimumDeposit)} min{maximumDeposit > 0 ? ` • ${formatCurrency(maximumDeposit)} max` : " • no max"}
+                </p>
               </form>
-            ) : depositMode === "usdt" ? (
-              /* USDT DEPOSIT FORM */
+            )}
+
+            {depositMode === "usdt" && (
               <form onSubmit={handleStartManualPayment} className="space-y-4">
-                {/* Render a minimal card of the GPU Rig if Paying for a Rig */}
-                {payType === "gpu" && selectedGpu && (
-                  <div className="p-2 flex items-center justify-between gap-3 relative overflow-hidden mb-2">
-                    <div className="absolute top-0 right-0 w-20 h-20 bg-teal-500/5 rounded-full blur-xl pointer-events-none" />
-                    <div className="flex items-center gap-3 relative z-10">
-                      <div className="w-12 h-12 rounded-xl bg-teal-700/10 border border-teal-500/20 overflow-hidden shrink-0">
-                        {selectedGpu.imageUrl ? (
-                          <img src={selectedGpu.imageUrl} alt={selectedGpu.name} className="w-full h-full object-cover opacity-80" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-teal-500"><Cpu className="w-6 h-6" /></div>
-                        )}
+                {/* Step 1 — QR + wallet */}
+                <div className="space-y-3">
+                  <p className="text-[11px] font-black uppercase tracking-wider opacity-60">1 — Send USDT</p>
+                  <div className="rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border border-[var(--theme-card-border)] p-4 space-y-3">
+                    {config.usdtQrUrl && (
+                      <div className="flex justify-center">
+                        <div className="w-48 h-48 sm:w-56 sm:h-56 rounded-2xl overflow-hidden bg-white p-2 border border-[var(--theme-card-border)] shadow-sm">
+                          <img src={config.usdtQrUrl} alt="USDT QR" className="w-full h-full object-contain" />
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="font-extrabold text-[13px] text-slate-100 uppercase">{selectedGpu.name}</h4>
-                        <p className="font-sans text-[12px] text-slate-500 uppercase tracking-wider font-semibold font-semibold">Daily yield: +{formatCurrency(selectedGpu.dailyYield)}</p>
+                    )}
+                    <div className="flex items-center justify-center gap-2">
+                      <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-[10px] font-black uppercase tracking-wider">{config.usdtNetwork || "USDT TRC20"}</span>
+                      <span className="text-[11px] font-bold opacity-50">Scan or copy address</span>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[11px] font-bold opacity-60">Send exactly</p>
+                      <p className="text-base font-black text-[var(--theme-primary)] mt-0.5">{formatCurrency(finalAmount)} <span className="text-xs font-bold opacity-60">{config.usdtRate ? `(≈ $${(finalAmount / config.usdtRate).toFixed(2)})` : ""}</span></p>
+                    </div>
+                    <div className="rounded-xl bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] p-3 flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-[#26A17B] text-white flex items-center justify-center shrink-0 text-sm font-black">₮</div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[9px] font-black uppercase tracking-widest opacity-50 leading-none">{config.usdtNetwork || "USDT TRC20"} address</p>
+                        <p className="text-xs font-bold select-all truncate mt-1 font-mono">{config.usdtAddress || "Wallet not configured"}</p>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (config.usdtAddress) {
+                            navigator.clipboard.writeText(config.usdtAddress);
+                            toast.success("Wallet copied");
+                          }
+                        }}
+                        className="shrink-0 w-9 h-9 rounded-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] flex items-center justify-center hover:border-[var(--theme-primary)]/30 transition-colors cursor-pointer"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
                     </div>
-                    <div className="text-right font-sans text-xs font-bold text-teal-500 relative z-10">
-                      {formatCurrency(selectedGpu.amount)}
-                    </div>
-                  </div>
-                )}
-
-                <div className="p-4 bg-[var(--theme-bg)]/40 border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] space-y-3 relative overflow-hidden">
-                  {config.usdtQrUrl && (
-                    <div className="flex justify-center py-2 relative z-10">
-                      <div className="w-32 h-32 rounded-[var(--theme-radius)] overflow-hidden border-2 border-[var(--theme-primary)]/40">
-                        <img src={config.usdtQrUrl} alt="USDT QR Code" className="w-full h-full object-cover" />
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="relative z-10">
-                    <span className="font-sans text-[12px] text-[var(--theme-primary)] uppercase tracking-wider font-extrabold block">USDT Transfer</span>
-                    <p className="text-xs font-sans text-[var(--theme-text)] opacity-80 leading-relaxed mt-1">
-                      Send exactly <span className="font-bold text-[var(--theme-text)]">{formatCurrency(finalAmount)}</span> {config.usdtRate ? `(≈ $${(finalAmount / config.usdtRate).toFixed(2)} USDT)` : "(or equivalent)"} to the wallet below, then paste the transaction Hash/TxID.
-                    </p>
-                  </div>
-
-                  <div className="space-y-0.5 pt-2.5 border-t border-[var(--theme-card-border)] relative z-10 flex items-center justify-between gap-2">
-                    <div className="flex-1 overflow-hidden">
-                      <span className="text-[11px] font-sans font-extrabold text-[var(--theme-primary)] block tracking-wider uppercase">{config.usdtNetwork || "USDT TRC20"}</span>
-                      <div className="font-sans text-xs font-bold text-[var(--theme-text)] select-all truncate">{config.usdtAddress || "Wallet address not configured"}</div>
-                    </div>
-                    <button 
-                      type="button"
-                      onClick={() => {
-                        if (config.usdtAddress) {
-                          navigator.clipboard.writeText(config.usdtAddress);
-                          toast.success("Wallet address copied!");
-                        }
-                      }}
-                      className="shrink-0 w-8 h-8 flex items-center justify-center bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] rounded-lg text-[var(--theme-text)] opacity-80 hover:opacity-100 transition-colors cursor-pointer"
-                    >
-                      <Copy className="w-4 h-4" />
-                    </button>
                   </div>
                 </div>
 
-                <div className="p-4 bg-[var(--theme-bg)]/40 border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] space-y-3">
-                  {/* Amount input */}
-                  <div className="space-y-1">
-                    <label className="font-sans text-[12px] text-[var(--theme-text)] opacity-70 uppercase tracking-wider font-extrabold block">
-                      Amount Sent (USD)
-                    </label>
+                <div className="space-y-3 pt-1">
+                  <p className="text-[11px] font-black uppercase tracking-wider opacity-60">2 — Paste proof</p>
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-black uppercase tracking-wider opacity-60">Amount sent (USD)</label>
                     <div className="relative">
-                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[12px] font-sans text-[var(--theme-text)] opacity-70 uppercase tracking-wider font-extrabold">
-                        USD
-                      </span>
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-black opacity-50">USD</span>
                       <input
                         type="text"
                         inputMode="decimal"
-                        min={1}
                         required
                         disabled={payType === "gpu"}
-                        value={payType === "gpu" ? ((selectedGpu?.amount || 0) / config.usdtRate).toFixed(2) : usdtAmountUSD}
-                        onChange={(e) => setUsdtAmountUSD(Number(e.target.value))}
-                        className="w-full bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] hover:border-[var(--theme-primary)]/50 focus:border-[var(--theme-primary)] rounded-[var(--theme-radius)] py-2.5 pl-12 pr-4 font-sans font-bold text-xs text-[var(--theme-text)] outline-none transition-colors disabled:opacity-75 disabled:cursor-not-allowed"
+                        value={payType === "gpu" ? ((selectedGpu?.amount || 0) / (config.usdtRate || 3700)).toFixed(2) : usdtAmountUSD}
+                        onChange={(e) => setUsdtAmountUSD(Number(e.target.value) || 0)}
+                        className="w-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] rounded-full py-3 pl-12 pr-4 text-sm font-black outline-none disabled:opacity-60"
                       />
                     </div>
                     {payType !== "gpu" && (
-                      <span className="text-[12px] text-[var(--theme-text)] opacity-60 font-mono block mt-1">
-                        Equivalent to: ~{(usdtAmountUSD * config.usdtRate).toLocaleString()} UGX
-                      </span>
+                      <p className="text-[11px] font-bold opacity-50 px-1">≈ {formatCurrency(usdtAmountUSD * config.usdtRate)} • rate {config.usdtRate} UGX/USDT</p>
                     )}
                   </div>
-
-                  {/* Reference ID input */}
-                  <div className="space-y-1">
-                    <label className="font-sans text-[12px] text-[var(--theme-text)] opacity-70 uppercase tracking-wider font-extrabold block">
-                      Transaction Hash / TxID
-                    </label>
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-black uppercase tracking-wider opacity-60">Transaction hash / TxID</label>
                     <input
                       type="text"
                       required
-                      placeholder="Paste your USDT TxID string"
+                      placeholder="Paste USDT hash"
                       value={manualRef}
                       onChange={(e) => setManualRef(e.target.value)}
-                      className="w-full bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] hover:border-[var(--theme-primary)]/50 focus:border-[var(--theme-primary)] rounded-[var(--theme-radius)] py-2.5 px-4 font-sans text-xs text-[var(--theme-text)] outline-none transition-colors"
+                      className="w-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] rounded-full py-3 px-4 text-sm font-bold outline-none"
                     />
                   </div>
                 </div>
@@ -738,151 +732,111 @@ export default function DepositView({
                 <button
                   type="submit"
                   disabled={isSubmitting || (payType === "gpu" && !selectedGpu)}
-                  className="w-full py-3.5 px-4 btn-3d-primary text-white font-display font-black text-xs uppercase tracking-wider rounded-[var(--theme-radius)] flex items-center justify-center gap-2 transition-all cursor-pointer outline-none active:scale-[0.98] shadow-md"
+                  className="w-full py-3.5 rounded-full bg-[var(--theme-primary)] text-white font-black text-sm uppercase tracking-wider shadow-[0_3px_0_0_var(--theme-primary-shadow)] active:translate-y-[1px] active:shadow-none transition-all flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer"
                 >
-                  {isSubmitting ? (
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <span>Confirm USDT Transfer</span>
-                  )}
+                  {isSubmitting ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <span>Submit USDT proof</span>}
                 </button>
+                <p className="text-center text-[11px] font-bold opacity-50">
+                  {formatCurrency(minimumDeposit)} min{maximumDeposit > 0 ? ` • ${formatCurrency(maximumDeposit)} max` : " • no max"}
+                </p>
               </form>
-            ) : null}
+            )}
           </div>
-        ) : paymentStatus === "PENDING" ? (
-          /* Polling screen */
-          depositMode === "manual" || depositMode === "usdt" ? (
-            <div className="py-10 text-center space-y-5">
-              <div className="relative w-14 h-14 mx-auto">
-                <div className="absolute inset-0 rounded-full border-2 border-blue-500/10 border-t-blue-500 animate-spin" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Smartphone className="w-5 h-5 text-blue-500" />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <h3 className="font-sans font-bold text-sm text-slate-100">
-                  Verification Pending
-                </h3>
-                <p className="text-xs font-sans text-slate-400 max-w-xs mx-auto leading-relaxed">
-                  Ref ID: <span className="text-blue-400 font-semibold">{currentTransId}</span> is being reviewed by our desk. Your balance will credit once confirmed.
-                </p>
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPaymentStatus("IDLE");
-                    setErrorMsg("Form reset. Check history tab for updates.");
-                  }}
-                  className="px-4 py-2 hover:bg-slate-900 border border-slate-850 hover:border-slate-800 rounded-xl text-xs font-sans text-slate-400 hover:text-slate-200 transition-all cursor-pointer outline-none font-medium"
-                >
-                  Submit another proof
-                </button>
-              </div>
+        </div>
+      ) : paymentStatus === "PENDING" ? (
+        <div className="rounded-[var(--theme-radius)] bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] p-8 text-center space-y-4 shadow-sm">
+          <div className="w-14 h-14 mx-auto rounded-full border-2 border-[var(--theme-primary)]/20 border-t-[var(--theme-primary)] animate-spin" />
+          <div className="space-y-1">
+            <h3 className="font-black text-sm">
+              {depositMode === "manual" || depositMode === "usdt" ? "Verification pending" : "Awaiting PIN confirmation"}
+            </h3>
+            <p className="text-xs font-bold opacity-60 leading-relaxed max-w-xs mx-auto">
+              {depositMode === "manual" || depositMode === "usdt" ? (
+                <>
+                  Ref <span className="text-[var(--theme-primary)]">{currentTransId}</span> is being reviewed. Your balance will credit once confirmed.
+                </>
+              ) : (
+                <>
+                  Sent to <span className="text-[var(--theme-primary)]">{mobileNumber}</span> — approve <span className="text-[var(--theme-text)]">{formatCurrency(finalAmount)}</span> on your phone.
+                </>
+              )}
+            </p>
+          </div>
+          {(depositMode === "manual" || depositMode === "usdt") && (
+            <button
+              type="button"
+              onClick={() => {
+                setPaymentStatus("IDLE");
+                setErrorMsg("Check History for updates.");
+              }}
+              className="px-4 py-2 rounded-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] text-xs font-black hover:border-[var(--theme-primary)]/30 transition-colors cursor-pointer"
+            >
+              Submit another proof
+            </button>
+          )}
+        </div>
+      ) : paymentStatus === "SUCCESSFUL" ? (
+        <div className="rounded-[var(--theme-radius)] bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] p-8 text-center space-y-5 shadow-sm">
+          <div className="w-16 h-16 rounded-full bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center mx-auto text-emerald-500">
+            <CheckCircle className="w-10 h-10" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="font-black text-sm uppercase tracking-wide">
+              {payType === "gpu" ? "Product secured!" : "Account credited!"}
+            </h3>
+            <p className="text-xs font-bold opacity-60 max-w-sm mx-auto leading-relaxed">
+              Settled <span className="text-[var(--theme-text)] opacity-100">{formatCurrency(finalAmount)}</span> {currentTransId ? `• Ref ${currentTransId}` : ""}
+            </p>
+          </div>
+          <div className="rounded-xl bg-[var(--theme-bg)] border border-[var(--theme-card-border)] p-4 max-w-xs mx-auto text-left space-y-2 text-xs font-bold">
+            <div className="flex justify-between">
+              <span className="opacity-60">Total</span>
+              <span>{formatCurrency(finalAmount)}</span>
             </div>
-          ) : (
-            <div className="py-10 text-center space-y-5">
-              <div className="relative w-14 h-14 mx-auto">
-                <div className="absolute inset-0 rounded-full border-2 border-blue-500/10 border-t-blue-500 animate-spin" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Smartphone className="w-5 h-5 text-blue-500" />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <h3 className="font-sans font-bold text-sm text-slate-100">
-                  Awaiting PIN Confirmation
-                </h3>
-                <p className="text-xs font-sans text-slate-400 max-w-xs mx-auto leading-relaxed">
-                  Sent secure prompt to <span className="text-blue-400 font-semibold">{mobileNumber}</span>. Please enter your PIN on your phone to approve UGX {finalAmount.toLocaleString()} Shs.
-                </p>
-              </div>
-
-
+            <div className="flex justify-between">
+              <span className="opacity-60">Status</span>
+              <span className="text-emerald-600">Approved</span>
             </div>
-          )
-        ) : paymentStatus === "SUCCESSFUL" ? (
-          /* Victory Completion Card */
-          <div className="py-12 text-center space-y-6">
-            <div className="w-16 h-16 bg-emerald-500/10 border border-emerald-500/30 rounded-full flex items-center justify-center mx-auto text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
-              <CheckCircle className="w-10 h-10" />
+            <div className="flex justify-between">
+              <span className="opacity-60">Type</span>
+              <span className="text-[var(--theme-primary)] truncate ml-2">{payType === "gpu" && selectedGpu ? selectedGpu.name : "Deposit"}</span>
             </div>
-
-            <div className="space-y-2">
-              <h3 className="font-display font-black text-sm text-slate-100 uppercase tracking-wide">
-                {payType === "gpu" ? "Server Node Secured!" : "Account Credited Successfully!"}
-              </h3>
-              <p className="text-xs font-sans text-slate-400 max-w-sm mx-auto">
-                {payType === "gpu" 
-                  ? `Your server node lease has been activated. Settled **UGX ${finalAmount.toLocaleString()} Shs** (Ref: ${currentTransId || "Completed"}).`
-                  : `Your account has been credited. Settled **UGX ${finalAmount.toLocaleString()} Shs** (Ref: ${currentTransId || "Completed"}).`}
-              </p>
-            </div>
-
-            <div className="bg-slate-900/40 border border-slate-900 rounded-2xl p-4 max-w-xs mx-auto">
-              <div className="space-y-1.5 text-left text-[11px] font-sans">
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Total Settled:</span>
-                  <span className="text-slate-100 font-semibold">{finalAmount.toLocaleString()} UGX</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Status:</span>
-                  <span className="text-emerald-400 font-semibold">Approved</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Category:</span>
-                  <span className="text-blue-400 font-semibold">
-                    {payType === "gpu" && selectedGpu ? `${selectedGpu.name} Node` : "Account Deposit"}
-                  </span>
-                </div>
-              </div>
-            </div>
-
+          </div>
+          <button
+            onClick={onBack}
+            className="w-full py-3.5 rounded-full bg-[var(--theme-primary)] text-white font-black text-xs uppercase tracking-wider shadow-[0_3px_0_0_var(--theme-primary-shadow)] cursor-pointer"
+          >
+            Continue
+          </button>
+        </div>
+      ) : (
+        <div className="rounded-[var(--theme-radius)] bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] p-8 text-center space-y-5 shadow-sm">
+          <div className="w-16 h-16 rounded-full bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mx-auto text-rose-500">
+            <XCircle className="w-10 h-10" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="font-black text-xs uppercase tracking-widest text-rose-500">Transaction failed</h3>
+            <p className="text-xs font-bold opacity-60 max-w-sm mx-auto">{errorMsg || "Declined. Try again."}</p>
+          </div>
+          <div className="flex gap-2 justify-center">
+            <button
+              onClick={() => {
+                setPaymentStatus("IDLE");
+                setErrorMsg("");
+              }}
+              className="px-5 py-2.5 rounded-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] text-xs font-black cursor-pointer"
+            >
+              Try again
+            </button>
             <button
               onClick={onBack}
-              className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-sans text-xs font-bold rounded-xl transition-all"
+              className="px-5 py-2.5 rounded-full bg-[var(--theme-primary)] text-white text-xs font-black cursor-pointer"
             >
-              Continue to Dashboard
+              Go back
             </button>
           </div>
-        ) : (
-          /* Failed screen */
-          <div className="py-12 text-center space-y-6">
-            <div className="w-16 h-16 bg-red-500/10 border border-red-500/30 rounded-full flex items-center justify-center mx-auto text-rose-400">
-              <XCircle className="w-10 h-10" />
-            </div>
-
-            <div className="space-y-2">
-              <h3 className="font-display font-extrabold text-xs text-rose-400 uppercase tracking-wide">
-                Transaction Terminated
-              </h3>
-              <p className="text-xs font-sans text-slate-400 max-w-sm mx-auto">
-                {errorMsg || "The transaction failed or was declined."}
-              </p>
-            </div>
-
-            <div className="flex gap-3 justify-center pt-2">
-              <button
-                onClick={() => {
-                  setPaymentStatus("IDLE");
-                  setErrorMsg("");
-                }}
-                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-850 rounded-xl font-sans text-xs text-slate-300 outline-none cursor-pointer font-semibold"
-              >
-                Try Again
-              </button>
-              <button
-                onClick={onBack}
-                className="px-5 py-2.5 bg-blue-600/10 border border-blue-500/25 text-blue-500 rounded-xl font-sans text-xs outline-none cursor-pointer font-semibold"
-              >
-                Go Back
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
