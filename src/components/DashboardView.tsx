@@ -191,60 +191,11 @@ export default function DashboardView({
     description: n.message,
     date: new Date(n.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }),
     tag: n.metadata?.tag || "NEWS",
-    imageUrl: n.metadata?.imageUrl || "https://images.unsplash.com/photo-1639762681485-074b7f4ec651?auto=format&fit=crop&q=80&w=600",
+    imageUrl: n.metadata?.imageUrl || "",
     link: n.metadata?.link || ""
   }));
 
-  const DEFAULT_NEWS_FEED = [
-    {
-      id: "news-1",
-      title: "Pilots Multi-MW Energy Infrastructure",
-      description: "Securing scalable thermal-neutral grid expansions across state targets to operate massive containerized miner operations yielding record uptime.",
-      date: "Today",
-      tag: "INFRASTRUCTURE",
-      imageUrl: "https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=600&auto=format&fit=crop&q=80"
-    },
-    {
-      id: "news-2",
-      title: "Consolidated Machine Hashrate Exceeds Goals",
-      description: "Propelled by next-gen processing hardware firmware optimization, active user machines show a substantial increase in daily margin return.",
-      date: "This Week",
-      tag: "HASHRATE",
-      imageUrl: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=600&auto=format&fit=crop&q=80"
-    },
-    {
-      id: "news-3",
-      title: "$150 Million Strategy Fuels Machine Procurement",
-      description: "Secured credit facilities to expand our GPU cloud systems, bringing high-yield compute options directly to our community ledger systems.",
-      date: "June 2026",
-      tag: "EXPANSION",
-      imageUrl: "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=600&auto=format&fit=crop&q=80"
-    },
-    {
-      id: "news-4",
-      title: "Deploys Next-Gen Compute Cluster",
-      description: "Launching 1,000+ NVIDIA H100 GPUs to feed enterprise artificial intelligence pipelines and scalable deep learning applications.",
-      date: "June 2026",
-      tag: "AI CLOUD",
-      imageUrl: "https://images.unsplash.com/photo-1518770660439-4636190af475?w=600&auto=format&fit=crop&q=80"
-    },
-    {
-      id: "news-5",
-      title: "Strategic Alliance for High Performance Computing",
-      description: "Signed multi-year co-location hosting services with a leading sovereign-AI enterprise group to deliver massive parallel execution.",
-      date: "June 2026",
-      tag: "CO-LOCATION",
-      imageUrl: "https://images.unsplash.com/photo-1639762681485-074b7f4ec651?auto=format&fit=crop&q=80&w=600"
-    },
-    {
-      id: "news-6",
-      title: "Completes Virtual Power Plant Upgrade",
-      description: "Implemented automated demand response algorithms allowing intelligent grid power shedding during peak system loads.",
-      date: "June 2026",
-      tag: "GRID OPTIMIZATION",
-      imageUrl: "https://images.unsplash.com/photo-1548345680-f5475ea5df84?w=600&auto=format&fit=crop&q=80"
-    }
-  ];
+  const DEFAULT_NEWS_FEED: any[] = [];
 
   const HUT8_NEWS_FEED = dynamicNews.length > 0 ? dynamicNews : DEFAULT_NEWS_FEED;
 

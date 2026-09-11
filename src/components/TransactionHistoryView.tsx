@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ArrowDownLeft, ArrowUpRight, Coins, Cpu, Flame, Users, Gift, CheckCircle2, Trophy, Loader2, AlertTriangle, Search } from "lucide-react";
+import { ArrowLeft, ArrowDownLeft, ArrowUpRight, Coins, Cpu, Flame, Users, Gift, CheckCircle2, Trophy, Loader2, AlertTriangle, Search } from "lucide-react";
 import { useCurrency } from "../currency";
 
 interface Props {
@@ -67,43 +67,35 @@ export default function TransactionHistoryView({ phone, siteConfig, onBack }: Pr
 
   return (
     <div className="space-y-4 select-none pb-8">
-      {/* Header */}
-      <div className="theme-card card-playful-3d bg-[var(--theme-card-bg)] border-2 border-[var(--theme-card-border)] rounded-[var(--theme-radius)] p-4 shadow-md">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="font-display font-black text-lg text-[var(--theme-text)] tracking-tight flex items-center gap-2">
-              <span className="w-8 h-8 rounded-xl bg-[var(--theme-primary)] text-white flex items-center justify-center shadow-md">
-                <Coins className="w-4 h-4" />
-              </span>
-              History
-            </h2>
-            <p className="text-[11px] font-sans font-bold text-[var(--theme-text)] opacity-60 mt-1">All your recharges, withdrawals & rewards</p>
-          </div>
-          <div className="text-right">
-            <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] text-[var(--theme-text)]">{filtered.length} items</span>
-          </div>
-        </div>
+      {/* Header like deposit/withdraw but no back */}
+      <div className="flex items-center justify-center py-2">
+        <h1 className="text-sm font-display font-black uppercase tracking-wider text-[var(--theme-text)]">Transaction History</h1>
+      </div>
 
-        {/* Search + Filter */}
-        <div className="mt-4 space-y-3">
-          <div className="relative">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--theme-text)] opacity-40" />
-            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search type, status or amount..." className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-[var(--theme-bg)] border-2 border-[var(--theme-card-border)] text-xs font-sans font-bold text-[var(--theme-text)] placeholder:text-[var(--theme-text)]/40 outline-none focus:border-[var(--theme-primary)] shadow-inner" />
-          </div>
-          <div className="flex gap-1.5 overflow-x-auto scrollbar-none pb-1 -mx-1 px-1">
-            {[
-              { id: "all", label: "All" },
-              { id: "deposit", label: "Recharge" },
-              { id: "withdraw", label: "Withdraw" },
-              { id: "referral", label: "Referral" },
-              { id: "checkin", label: "Check-in" },
-              { id: "voucher", label: "Voucher" },
-              { id: "vip_task", label: "VIP" },
-            ].map(tab => (
-              <button key={tab.id} onClick={() => setHistoryFilter(tab.id)} className={`px-3.5 py-2 rounded-xl text-[11px] font-display font-black uppercase tracking-wide shrink-0 border-2 transition-all cursor-pointer active:scale-95 ${historyFilter===tab.id ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white shadow-[0_4px_0_0_var(--theme-primary-shadow)]" : "bg-[var(--theme-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-80 hover:opacity-100"}`}>{tab.label}</button>
-            ))}
-          </div>
+      {/* Search + Filter — no card */}
+      <div className="space-y-3">
+        <div className="relative">
+          <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--theme-text)] opacity-40" />
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search type, status or amount..." className="w-full pl-9 pr-3 py-2.5 rounded-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] text-xs font-sans font-bold text-[var(--theme-text)] placeholder:text-[var(--theme-text)]/40 outline-none focus:border-[var(--theme-primary)]" />
         </div>
+        <div className="flex gap-1.5 overflow-x-auto scrollbar-none pb-1 -mx-1 px-1 border-b border-[var(--theme-card-border)]">
+          {[
+            { id: "all", label: "All" },
+            { id: "deposit", label: "Recharge" },
+            { id: "withdraw", label: "Withdraw" },
+            { id: "referral", label: "Referral" },
+            { id: "checkin", label: "Check-in" },
+            { id: "voucher", label: "Voucher" },
+            { id: "vip_task", label: "VIP" },
+          ].map(tab => (
+            <button key={tab.id} onClick={() => setHistoryFilter(tab.id)} className={`px-3.5 py-2.5 relative text-[11px] font-black uppercase tracking-wide shrink-0 transition-colors cursor-pointer ${historyFilter===tab.id ? "text-[var(--theme-primary)]" : "text-[var(--theme-text)] opacity-60 hover:opacity-100"}`}>{tab.label}{historyFilter===tab.id && <span className="absolute bottom-0 left-2 right-2 h-[3px] bg-[var(--theme-primary)] rounded-full" />}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* Count badge above list — like deposit min/max */}
+      <div className="flex justify-center">
+        <span className="text-[11px] font-bold opacity-50">{filtered.length} {filtered.length===1 ? "transaction" : "transactions"}</span>
       </div>
 
       {/* List */}
@@ -114,10 +106,8 @@ export default function TransactionHistoryView({ phone, siteConfig, onBack }: Pr
             <span className="text-xs font-bold text-[var(--theme-text)] opacity-60">Syncing ledger…</span>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="theme-card border-2 border-dashed border-[var(--theme-card-border)] rounded-[var(--theme-radius)] p-10 text-center bg-[var(--theme-card-bg)]/50">
-            <div className="w-12 h-12 mx-auto rounded-2xl bg-[var(--theme-bg)] border-2 border-[var(--theme-card-border)] flex items-center justify-center mb-3">
-              <AlertTriangle className="w-5 h-5 text-[var(--theme-text)] opacity-30" />
-            </div>
+          <div className="py-14 text-center">
+            <AlertTriangle className="w-8 h-8 text-[var(--theme-text)] opacity-20 mx-auto mb-3" />
             <p className="text-xs font-black uppercase tracking-widest text-[var(--theme-text)]">No transactions</p>
             <p className="text-[11px] font-sans font-medium text-[var(--theme-text)] opacity-60 mt-1">Try a different filter or check back later.</p>
           </div>

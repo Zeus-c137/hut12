@@ -2305,11 +2305,11 @@ export default function AdminView() {
                               setEditingAnnx(ann);
                               setAnnTitle(ann.title);
                               setAnnMessage(ann.message);
-                              setAnnLink(ann.metadata?.link || "");
+                              setAnnLink(ann.readMoreLink || ann.metadata?.link || "");
                               setAnnCategory(ann.category || "announcement");
-                              setAnnImageUrl(ann.metadata?.imageUrl || "");
-                              setAnnTag(ann.metadata?.tag || "");
-                              setAnnAlertUsers(!!ann.metadata?.alertUsers);
+                              setAnnImageUrl(ann.imageUrl || ann.metadata?.imageUrl || "");
+                              setAnnTag(ann.tag || ann.metadata?.tag || "");
+                              setAnnAlertUsers(!!(ann.metadata?.alertUsers ?? true));
                               setIsCreatingAnnx(true);
                             }}
                             className="text-[var(--theme-text)] opacity-70 hover:opacity-100 transition-colors cursor-pointer"

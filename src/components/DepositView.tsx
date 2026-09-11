@@ -297,8 +297,8 @@ export default function DepositView({
 
   return (
     <div className="bg-transparent text-[var(--theme-text)] p-1 space-y-4 select-none">
-      {/* Top bar — back only (balance now in visa card) */}
-      <div className="flex items-center">
+      {/* Top bar — back + title */}
+      <div className="flex items-center justify-between gap-3">
         <button
           onClick={onBack}
           className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] text-xs font-black uppercase tracking-wider text-[var(--theme-text)] hover:border-[var(--theme-primary)]/30 transition-colors cursor-pointer"
@@ -306,6 +306,8 @@ export default function DepositView({
           <ArrowLeft className="w-4 h-4 text-[var(--theme-primary)]" />
           Back
         </button>
+        <h1 className="text-sm font-display font-black uppercase tracking-wider text-[var(--theme-text)]">Recharge Account</h1>
+        <span className="w-[72px]" />
       </div>
 
       {/* Selected product strip — theme-aware */}

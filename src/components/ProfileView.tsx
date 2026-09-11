@@ -51,7 +51,8 @@ interface ProfileViewProps {
   notifications?: any[];
   onProfileUpdate: (newProfile: UserProfile) => void;
   onNavigateToDeposit: () => void;
-  onNavigate: (tab: "dashboard" | "catalog" | "income" | "history" | "referral" | "chat" | "profile" | "deposit" | "alerts", chatRoom?: "shared" | "admin") => void;
+  onNavigateToWithdraw?: () => void;
+  onNavigate: (tab: "dashboard" | "catalog" | "income" | "history" | "referral" | "chat" | "profile" | "deposit" | "withdraw" | "alerts", chatRoom?: "shared" | "admin") => void;
   onLogout: () => void;
   autoOpenWithdraw?: boolean;
   onCloseAutoWithdraw?: () => void;
@@ -64,6 +65,7 @@ export default function ProfileView({
   notifications = [],
   onProfileUpdate,
   onNavigateToDeposit,
+  onNavigateToWithdraw,
   onNavigate,
   onLogout,
   autoOpenWithdraw,
@@ -457,7 +459,7 @@ export default function ProfileView({
           <ArrowDownLeft className="w-4 h-4" /> Deposit
         </button>
         <button
-          onClick={() => setShowWithdrawSheet(true)}
+          onClick={() => (onNavigateToWithdraw ? onNavigateToWithdraw() : setShowWithdrawSheet(true))}
           className="flex-1 py-2.5 rounded-full bg-[var(--theme-card-bg)] border-2 border-[var(--theme-card-border)] text-[var(--theme-text)] font-black text-xs uppercase tracking-wider hover:border-[var(--theme-primary)]/30 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
         >
           <ArrowUpRight className="w-4 h-4 text-[var(--theme-primary)]" /> Withdraw
@@ -819,234 +821,6 @@ export default function ProfileView({
 
 
 {/* ================= SHEETS & DRAWERS OVERLAYS ================= */}
-
-      
-      {/* 1. Nice Minimal Withdraw Sheet */}
-      <AnimatePresence>
-        {showWithdrawSheet && (
-          <div className="fixed inset-0 z-50 flex items-end justify-center">
-            {/* Backdrop - Note: closable only by the X btn, so no onClick close handler here */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/60 backdrop-blur-xs"
-            />
-            {/* Sheet - 92vh height */}
-            <motion.div
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              transition={{ type: "spring", damping: 26, stiffness: 220 }}
-              className="relative w-full max-w-md h-[92vh] max-h-[92vh] bg-[var(--theme-card-bg)] border-t border-[var(--theme-card-border)] text-[var(--theme-text)] rounded-t-[32px] p-6 pb-8 flex flex-col z-10 overflow-hidden shadow-2xl"
-            >
-              {/* Header */}
-              <div className="flex justify-between items-center pb-3 border-b border-[var(--theme-card-border)] shrink-0">
-                <h4 className="font-display font-black text-xl text-[var(--theme-text)] tracking-tight">Withdrawal</h4>
-                <button
-                  onClick={() => setShowWithdrawSheet(false)}
-                  className="btn-3d-secondary p-2 rounded-full border border-[var(--theme-card-border)] text-[var(--theme-text)] cursor-pointer focus:outline-none"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Minimalist withdraw form body */}
-              <form onSubmit={handleWithdrawal} className="flex-1 flex flex-col justify-between pt-4 pb-2 space-y-6 overflow-y-auto scrollbar-none">
-                <div className="space-y-6">
-                  {/* Operator 3D Tabs */}
-                  <div className="flex gap-2.5 p-1 bg-[var(--theme-bg)]/60 rounded-[var(--theme-radius)] border border-[var(--theme-card-border)] mb-2">
-                    <button
-                      type="button"
-                      onClick={() => setWithdrawOperator(userProfile.operator === "Airtel" ? "Airtel" : "MTN")}
-                      className={`flex-1 py-3 px-3 rounded-[var(--theme-radius)] font-display font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                        withdrawOperator !== "USDT"
-                          ? "btn-3d-primary text-white shadow-md"
-                          : "btn-3d-secondary text-[var(--theme-text)] border border-[var(--theme-card-border)]"
-                      }`}
-                    >
-                      <div className="flex -space-x-1 items-center shrink-0">
-                        {siteConfig?.mtnLogoUrl && (
-                          <img src={siteConfig.mtnLogoUrl} alt="MTN" className="w-8 h-8 p-1 bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] rounded-full object-contain shadow-xs" />
-                        )}
-                        {siteConfig?.airtelLogoUrl && (
-                          <img src={siteConfig.airtelLogoUrl} alt="Airtel" className="w-8 h-8 p-1 bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] rounded-full object-contain shadow-xs" />
-                        )}
-                      </div>
-                      <span>Mobile Money</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setWithdrawOperator("USDT")}
-                      className={`flex-1 py-3 px-3 rounded-[var(--theme-radius)] font-display font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                        withdrawOperator === "USDT"
-                          ? "btn-3d-primary text-white shadow-md"
-                          : "btn-3d-secondary text-[var(--theme-text)] border border-[var(--theme-card-border)]"
-                      }`}
-                    >
-                      {siteConfig?.usdtLogoUrl && (
-                        <img src={siteConfig.usdtLogoUrl} alt="USDT" className="w-8 h-8 p-1 bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] rounded-full object-contain shadow-xs" />
-                      )}
-                      <span>USDT (TRC20)</span>
-                    </button>
-                  </div>
-
-                  {/* Phone / Address input */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-sans uppercase tracking-wider text-[var(--theme-text)] opacity-70 font-extrabold block">
-                      {withdrawOperator === "USDT" ? "USDT Wallet Address" : "Withdrawal Phone Number"}
-                    </label>
-                    <div className="relative">
-                      {withdrawOperator !== "USDT" && <Phone className="w-4 h-4 text-[var(--theme-primary)] absolute left-3 top-3.5" />}
-                      <input
-                        type={withdrawOperator === "USDT" ? "text" : "tel"}
-                        required
-                        value={withdrawOperator === "USDT" ? usdtAddress : withdrawalPhone}
-                        disabled={withdrawOperator !== "USDT"}
-                        readOnly={withdrawOperator !== "USDT"}
-                        onChange={(e) => {
-                          if (withdrawOperator === "USDT") {
-                            setUsdtAddress(e.target.value);
-                          }
-                        }}
-                        className={`w-full ${withdrawOperator === "USDT" ? "px-4" : "pl-9 pr-4"} py-3.5 bg-[var(--theme-bg)]/60 border border-[var(--theme-card-border)] text-[var(--theme-text)] text-sm rounded-[var(--theme-radius)] outline-none font-sans font-medium focus:border-[var(--theme-primary)] transition-all`}
-                        placeholder={withdrawOperator === "USDT" ? "T..." : "e.g. 0771234567"}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Amount input */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-sans uppercase tracking-wider text-[var(--theme-text)] opacity-70 font-extrabold block">Amount (UGX)</label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        required
-                        min={minimumWithdrawal}
-                        max={maximumWithdrawal > 0 ? maximumWithdrawal : undefined}
-                        placeholder={`Min ${minimumWithdrawal.toLocaleString()}${maximumWithdrawal > 0 ? ` - Max ${maximumWithdrawal.toLocaleString()}` : ""}`}
-                        value={pointsToWithdraw || ""}
-                        onChange={(e) => setPointsToWithdraw(parseInt(e.target.value) || 0)}
-                        className="w-full px-4 py-3.5 bg-[var(--theme-bg)]/60 border border-[var(--theme-card-border)] text-[var(--theme-text)] text-sm rounded-[var(--theme-radius)] outline-none font-sans font-bold focus:border-[var(--theme-primary)] transition-all"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setPointsToWithdraw(Math.min(userProfile.points || 0, maximumWithdrawal > 0 ? maximumWithdrawal : (userProfile.points || 0)))}
-                        className="absolute right-2.5 top-2.5 px-3 py-1 btn-3d-secondary text-[var(--theme-text)] border border-[var(--theme-card-border)] text-[11px] font-display font-black rounded-[var(--theme-radius)] transition-colors cursor-pointer uppercase"
-                      >
-                        MAX
-                      </button>
-                    </div>
-                    <p className="text-[11px] text-[var(--theme-text)] opacity-60 font-sans">
-                      Available: <span className="font-bold">{formatCurrency(userProfile.points || 0)}</span> · Minimum: <span className="font-bold">{formatCurrency(minimumWithdrawal)}</span>
-                      {maximumWithdrawal > 0 ? <> · Maximum: <span className="font-bold">{formatCurrency(maximumWithdrawal)}</span></> : <> · No maximum</>}
-                    </p>
-                    {pointsToWithdraw > 0 && pointsToWithdraw > (userProfile.points || 0) && (
-                      <p className="text-[11px] text-rose-500 font-semibold">Insufficient withdrawable balance for this amount.</p>
-                    )}
-                  </div>
-
-                  {/* Dynamic Fee badge & details */}
-                  <div className="space-y-2.5 p-4 rounded-[var(--theme-radius)] bg-[var(--theme-bg)]/40 border border-[var(--theme-card-border)] text-[var(--theme-text)]">
-                    <div className="flex justify-between items-center text-xs font-sans">
-                      <span className="text-[var(--theme-text)] opacity-70 uppercase tracking-wider font-extrabold">Withdraw Fee</span>
-                      <span className="px-2.5 py-0.5 bg-[var(--theme-card-bg)] text-[var(--theme-text)] text-[12px] font-display font-black rounded-full border border-[var(--theme-card-border)]">
-                        {siteConfig?.withdrawFee || 0}%
-                      </span>
-                    </div>
-
-                    <div className="border-t border-[var(--theme-card-border)] my-2" />
-
-                    <div className="flex justify-between text-sm font-sans">
-                      <span className="text-[var(--theme-text)] font-extrabold">Estimated Payout:</span>
-                      <span className="text-[var(--theme-text)] font-black">
-                        {formatCurrency(Math.max(0, pointsToWithdraw - Math.floor(pointsToWithdraw * ((siteConfig?.withdrawFee || 0) / 100))))}
-                      </span>
-                    </div>
-
-                    {withdrawOperator === "USDT" && (
-                      <>
-                        <div className="flex justify-between text-sm font-sans text-[var(--theme-primary)] font-black border-t border-[var(--theme-card-border)]/50 pt-2 mt-1">
-                          <span>USDT Payout:</span>
-                          <span>
-                            ≈ ${(Math.max(0, pointsToWithdraw - Math.floor(pointsToWithdraw * ((siteConfig?.withdrawFee || 0) / 100))) / (siteConfig?.usdtRate || 3700)).toFixed(2)} USDT
-                          </span>
-                        </div>
-                        <div className="flex justify-between text-[11px] font-sans text-[var(--theme-text)] opacity-60">
-                          <span>USDT Rate:</span>
-                          <span>1 USDT = {formatCurrency((siteConfig?.usdtRate || 3700))}</span>
-                        </div>
-                      </>
-                    )}
-
-                    <div className="flex justify-between text-xs font-sans text-[var(--theme-text)] opacity-60">
-                      <span>Deducted Fee:</span>
-                      <span>{formatCurrency(Math.floor(pointsToWithdraw * ((siteConfig?.withdrawFee || 0) / 100)))}</span>
-                    </div>
-                  </div>
-
-                  {/* Guidelines / ToS block */}
-                  <div className="space-y-3 p-4 rounded-[var(--theme-radius)] bg-[var(--theme-bg)]/40 border border-[var(--theme-card-border)] text-[var(--theme-text)]">
-                    <div className="flex gap-2.5 items-start text-[11px] text-[var(--theme-text)] opacity-80 font-sans text-left">
-                      <Info className="w-3.5 h-3.5 text-[var(--theme-primary)] shrink-0 mt-0.5" />
-                      <div>
-                        <span className="font-extrabold text-[var(--theme-text)] block mb-0.5">1. Processing Time</span>
-                        {withdrawalMode === "manual"
-                          ? "Your request is pending admin approval. Once approved, it will be settled to the destination you provided."
-                          : "Your request remains pending until the payment provider confirms it through a webhook, usually within 5 to 30 minutes."}
-                      </div>
-                    </div>
-                    <div className="border-t border-[var(--theme-card-border)] my-1" />
-                    <div className="flex gap-2.5 items-start text-[11px] text-[var(--theme-text)] opacity-80 font-sans text-left">
-                      {activeNodes && activeNodes.length > 0 ? (
-                        <>
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
-                          <div>
-                            <span className="font-extrabold text-[var(--theme-text)] block mb-0.5">2. Security Compliance</span>
-                            Active product verified. Your withdrawal privilege is fully active.
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
-                          <div>
-                            <span className="font-extrabold text-[var(--theme-text)] block mb-0.5">2. Security Regulation</span>
-                            You must own at least one active product subscription to execute withdrawals.
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Confirm Action Button */}
-                <button
-                  type="submit"
-                  disabled={isWithdrawing || !Number.isInteger(pointsToWithdraw) || pointsToWithdraw < minimumWithdrawal || (maximumWithdrawal > 0 && pointsToWithdraw > maximumWithdrawal) || pointsToWithdraw > (userProfile.points || 0) || !activeNodes || activeNodes.length === 0}
-                  className={`w-full py-3.5 rounded-[var(--theme-radius)] font-display font-black text-xs uppercase tracking-wider transition-all outline-none cursor-pointer flex items-center justify-center gap-2 shrink-0 ${
-                    Number.isInteger(pointsToWithdraw) && pointsToWithdraw >= minimumWithdrawal && (maximumWithdrawal === 0 || pointsToWithdraw <= maximumWithdrawal) && pointsToWithdraw <= (userProfile.points || 0) && activeNodes && activeNodes.length > 0
-                      ? "btn-3d-primary text-white shadow-md active:scale-95"
-                      : "btn-3d-secondary text-[var(--theme-text)] opacity-50 border border-[var(--theme-card-border)] cursor-not-allowed"
-                  }`}
-                >
-                  {isWithdrawing ? (
-                    <Loader2 className="w-4 h-4 animate-spin text-white" />
-                  ) : !activeNodes || activeNodes.length === 0 ? (
-                    <span>Purchase Product First</span>
-                  ) : (
-                    <>
-                      <ArrowUpRight className="w-4 h-4 text-white font-bold" />
-                      <span>Request Withdrawal</span>
-                    </>
-                  )}
-                </button>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
 
       {/* 2. Nice Minimal Settings Sheet */}
       <AnimatePresence>
