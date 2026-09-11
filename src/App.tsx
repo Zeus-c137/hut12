@@ -10,6 +10,7 @@ import DashboardView from "./components/DashboardView";
 import CatalogView from "./components/CatalogView";
 import IncomeView from "./components/IncomeView";
 import DepositView from "./components/DepositView";
+import WithdrawView from "./components/WithdrawView";
 import ReferralView from "./components/ReferralView";
 import ProfileView from "./components/ProfileView";
 import ChatView from "./components/ChatView";
@@ -146,7 +147,7 @@ export default function App() {
       cancelled = true;
     };
   }, [isAdminRoute]);
-  const [activeTab, setActiveTab] = useState<"dashboard" | "catalog" | "income" | "history" | "ai" | "referral" | "chat" | "profile" | "deposit" | "alerts">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "catalog" | "income" | "history" | "ai" | "referral" | "chat" | "profile" | "deposit" | "withdraw" | "alerts">("dashboard");
   const [siteConfig, setSiteConfig] = useState<any>(null);
   const [vipBadgeLevel, setVipBadgeLevel] = useState(0);
   const [userNotifications, setUserNotifications] = useState<NotificationItem[]>([]);
@@ -273,7 +274,7 @@ export default function App() {
     }
   }, [siteConfig]);
 
-  const [previousTab, setPreviousTab] = useState<"dashboard" | "catalog" | "income" | "history" | "referral" | "chat" | "profile" | "deposit">("dashboard");
+  const [previousTab, setPreviousTab] = useState<"dashboard" | "catalog" | "income" | "history" | "referral" | "chat" | "profile" | "deposit" | "withdraw">("dashboard");
 
   useEffect(() => {
     if (activeTab !== "alerts") {
@@ -734,10 +735,7 @@ export default function App() {
                     setPreselectedGpuRent(null);
                     setActiveTab("deposit");
                   }}
-                  onNavigateToWithdraw={() => {
-                    setAutoOpenWithdraw(true);
-                    setActiveTab("profile");
-                  }}
+                  onNavigateToWithdraw={() => setActiveTab("withdraw")}
                   onNavigateToProfile={() => setActiveTab("profile")}
                   onNavigateToAlerts={() => setActiveTab("alerts")}
                   items={items}
@@ -824,6 +822,23 @@ export default function App() {
               </motion.div>
             )}
 
+            {(activeTab === "withdraw" || (activeTab === "alerts" && previousTab === "withdraw")) && (
+              <motion.div
+                key="wit"
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+              >
+                <WithdrawView
+                  userProfile={userProfile}
+                  siteConfig={siteConfig}
+                  activeNodes={activeNodes}
+                  onBack={() => setActiveTab("profile")}
+                  onProfileUpdate={handleProfileChange}
+                />
+              </motion.div>
+            )}
+
             {(activeTab === "referral" || (activeTab === "alerts" && previousTab === "referral")) && (
               <motion.div
                 key="ref"
@@ -861,6 +876,7 @@ export default function App() {
                   notifications={userNotifications}
                   onProfileUpdate={handleProfileChange}
                   onNavigateToDeposit={() => setActiveTab("deposit")}
+                  onNavigateToWithdraw={() => setActiveTab("withdraw")}
                   autoOpenWithdraw={autoOpenWithdraw}
                   onCloseAutoWithdraw={() => setAutoOpenWithdraw(false)}
                   onNavigate={(tab, room) => {
@@ -869,7 +885,7 @@ export default function App() {
                     } else {
                       setChatRoomDefault("shared");
                     }
-                    setActiveTab(tab);
+                    setActiveTab(tab as any);
                   }}
                   onLogout={handleLogout}
                 />

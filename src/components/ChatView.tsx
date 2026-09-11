@@ -172,27 +172,27 @@ export default function ChatView({ userProfile, initialRoom = "shared" }: ChatVi
   };
 
   return (
-    <div className="w-full h-full flex flex-col overflow-hidden select-none relative p-2 md:p-3">
+    <div className="w-full h-full flex flex-col overflow-hidden select-none relative">
       
-      {/* Main chat terminal view with card preset awareness */}
-      <div className="flex-1 flex flex-col justify-between h-full theme-card card-playful-3d bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] min-w-0 overflow-hidden relative shadow-md">
+      {/* Main chat terminal view */}
+      <div className="flex-1 flex flex-col justify-between h-full min-w-0 overflow-hidden relative">
         
-        {/* Active room header bar - Only centered navigation tabs */}
-        <div className="px-4 py-3 border-b border-[var(--theme-card-border)] bg-[var(--theme-card-bg)]/95 backdrop-blur-md flex items-center justify-center shrink-0 z-10">
-          {/* Integrated Navigation Tabs inside Header */}
-          <div className="flex bg-[var(--theme-bg)]/80 rounded-full p-1 gap-1 border border-[var(--theme-card-border)] w-full max-w-[340px] relative shadow-xs">
+        {/* Active room header bar - outline tabs like deposit/withdraw */}
+        <div className="px-1 py-2 flex items-center justify-center shrink-0 z-10 border-b border-[var(--theme-card-border)]">
+          <div className="flex gap-1 w-full max-w-[340px]">
             <button
               type="button"
               onClick={() => {
                 setActiveRoom("shared");
                 setIsLoadingMessages(true);
               }}
-              className={`py-2 px-3 rounded-full text-xs font-sans font-extrabold flex items-center justify-center gap-1.5 transition-all outline-none cursor-pointer flex-1 relative z-10 ${
-                activeRoom === "shared" ? "btn-3d-primary text-white shadow-md scale-102" : "text-[var(--theme-text)] opacity-70 hover:opacity-100"
+              className={`flex-1 flex items-center justify-center gap-2 py-3.5 relative text-[11px] font-black uppercase tracking-wider transition-colors cursor-pointer ${
+                activeRoom === "shared" ? "text-[var(--theme-primary)]" : "text-[var(--theme-text)] opacity-60 hover:opacity-100"
               }`}
             >
-              <MessageSquare className="w-3.5 h-3.5" />
+              <MessageSquare className="w-4 h-4" />
               <span>Global Lobby</span>
+              {activeRoom === "shared" && <span className="absolute bottom-0 left-2 right-2 h-[3px] bg-[var(--theme-primary)] rounded-full" />}
             </button>
 
             <button
@@ -201,12 +201,13 @@ export default function ChatView({ userProfile, initialRoom = "shared" }: ChatVi
                 setActiveRoom("admin");
                 setIsLoadingMessages(true);
               }}
-              className={`py-2 px-3 rounded-full text-xs font-sans font-extrabold flex items-center justify-center gap-1.5 transition-all outline-none cursor-pointer flex-1 relative z-10 ${
-                activeRoom === "admin" ? "btn-3d-primary text-white shadow-md scale-102" : "text-[var(--theme-text)] opacity-70 hover:opacity-100"
+              className={`flex-1 flex items-center justify-center gap-2 py-3.5 relative text-[11px] font-black uppercase tracking-wider transition-colors cursor-pointer ${
+                activeRoom === "admin" ? "text-[var(--theme-primary)]" : "text-[var(--theme-text)] opacity-60 hover:opacity-100"
               }`}
             >
-              <Shield className="w-3.5 h-3.5" />
+              <Shield className="w-4 h-4" />
               <span>Support Desk</span>
+              {activeRoom === "admin" && <span className="absolute bottom-0 left-2 right-2 h-[3px] bg-[var(--theme-primary)] rounded-full" />}
             </button>
           </div>
         </div>
@@ -327,7 +328,7 @@ export default function ChatView({ userProfile, initialRoom = "shared" }: ChatVi
         )}
 
         {/* Input box form panel */}
-        <form onSubmit={handleSendMessage} className="p-3 border-t border-[var(--theme-card-border)] bg-[var(--theme-card-bg)]/95 backdrop-blur-md space-y-3 shrink-0">
+        <form onSubmit={handleSendMessage} className="p-3 border-t border-[var(--theme-card-border)] bg-transparent space-y-3 shrink-0">
           
           {/* File attachment preview row if chosen */}
           {base64Image && (
