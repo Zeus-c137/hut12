@@ -2531,15 +2531,15 @@ export default function AdminView() {
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
                               <label className="text-xs font-bold text-[var(--theme-text)] opacity-80 uppercase tracking-wider flex items-center gap-1.5">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-3.5 h-3.5 shrink-0 fill-sky-500"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.295-.6.295-.002 0-.003 0-.005 0l.213-3.054 5.56-5.022c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.135-.954l11.566-4.458c.538-.196 1.006.128.832.94z"/></svg>
-                                <span>Telegram Support Link</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-3.5 h-3.5 shrink-0 fill-emerald-500"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.26-1.38a9.87 9.87 0 004.78 1.22h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.91-7.99zM12.05 20.04a8.13 8.13 0 01-4.15-1.13l-.3-.18-3.12.82.83-3.04-.2-.31a8.2 8.2 0 01-1.27-4.29c0-4.54 3.7-8.24 8.24-8.24 2.2 0 4.27.86 5.82 2.41a8.18 8.18 0 012.42 5.83c0 4.54-3.7 8.24-8.27 8.24zm6.74-6.05c-.37-.19-2.2-1.09-2.54-1.21-.34-.12-.59-.19-.84.19-.25.37-.97 1.21-1.19 1.46-.22.25-.44.28-.81.09-.37-.19-1.57-.58-2.99-1.85-.91-.81-1.52-1.81-1.7-2.12-.18-.31-.02-.48.13-.63.14-.14.37-.37.56-.56.18-.19.25-.31.37-.52.12-.22.06-.4-.03-.56-.09-.19-.84-2.02-1.15-2.77-.3-.73-.61-.63-.84-.64l-.72-.01c-.25 0-.65.09-.99.47-.34.37-1.3 1.27-1.3 3.1s1.33 3.6 1.52 3.85c.19.25 2.62 4 6.35 5.61.89.38 1.58.61 2.12.78.89.28 1.7.24 2.34.15.71-.11 2.2-.9 2.51-1.77.31-.87.31-1.61.22-1.77-.09-.16-.34-.25-.71-.43z"/></svg>
+                                <span>WhatsApp Support Link</span>
                               </label>
                               <input
                                 type="url"
                                 value={siteConfig.whatsappLink || ""}
                                 onChange={(e) => setSiteConfig({ ...siteConfig, whatsappLink: e.target.value })}
-                                className="theme-input w-full px-4 py-3 text-sm focus:border-sky-500"
-                                placeholder="https://t.me/..."
+                                className="theme-input w-full px-4 py-3 text-sm focus:border-emerald-500"
+                                placeholder="https://wa.me/..."
                               />
                             </div>
                             <div className="space-y-2">

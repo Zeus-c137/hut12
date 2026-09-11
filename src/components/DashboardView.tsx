@@ -69,6 +69,7 @@ export default function DashboardView({
 }: DashboardViewProps) {
   const { formatCurrency } = useCurrency();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showCommunitySheet, setShowCommunitySheet] = useState(false);
 
   // Notifications — prefer parent-provided list to avoid duplicate /api/profile/notifications fetches
   const [notifications, setNotifications] = useState<NotificationItem[]>(() => externalNotifications ?? []);
@@ -272,22 +273,23 @@ export default function DashboardView({
         )}
       </div>
 
-      {/* Community — single row, collapsed */}
-      <a
-        href={siteConfig?.telegramLink || siteConfig?.whatsappLink || "https://t.me/"}
-        target="_blank"
-        rel="noreferrer"
-        className="flex items-center gap-3 theme-card border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] rounded-[var(--theme-radius)] p-3 active:scale-[0.99] transition-all group"
+      {/* Community — single row, triggers liquid-glass sheet */}
+      <button
+        type="button"
+        onClick={() => setShowCommunitySheet(true)}
+        className="w-full flex items-center gap-3 rounded-[var(--theme-radius)] bg-white/60 backdrop-blur-xl border border-white/30 p-3 active:scale-[0.99] transition-all group text-left cursor-pointer shadow-sm"
+        style={{
+          backdropFilter: "blur(16px) saturate(160%)",
+          WebkitBackdropFilter: "blur(16px) saturate(160%)",
+        }}
       >
-        <div className="w-9 h-9 rounded-xl bg-sky-500 text-white flex items-center justify-center shrink-0 shadow-sm">
-          <svg className="w-4.5 h-4.5 fill-current" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12s5.37 12 12 12 12-5.37 12-12S18.63 0 12 0zm5.562 8.161c-.18.717-.962 4.084-1.362 5.762-.17.712-.433.951-.687.974-.558.052-.982-.367-1.522-.721-.845-.555-1.323-.9-2.143-1.44-.948-.625-.334-.969.207-1.532.142-.147 2.607-2.39 2.654-2.593.006-.026.011-.122-.047-.173s-.144-.034-.206-.02c-.088.02-1.491.95-4.208 2.787-.398.273-.758.407-1.08.399-.356-.008-1.04-.202-1.549-.368-.625-.203-1.121-.311-1.078-.656.022-.18.271-.364.747-.552 2.924-1.274 4.874-2.114 5.852-2.52 2.793-1.157 3.374-1.358 3.753-1.365.083-.001.268.02.388.118.101.083.13.195.143.275.014.088.03.284.016.444z"/></svg>
-        </div>
+        <img src="/telegram.svg" alt="Telegram" className="w-9 h-9 rounded-xl shrink-0 shadow-sm object-contain" />
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-display font-black text-[var(--theme-text)] leading-none">Community • Official</p>
-          <p className="text-[10.5px] font-sans font-bold text-[var(--theme-text)] opacity-60 leading-none mt-1 truncate">Telegram • {siteConfig?.telegramLink ? "tap to join" : "2.4k online"}</p>
+          <p className="text-xs font-display font-black text-slate-700 leading-none">Community • Official</p>
+          <p className="text-[10.5px] font-sans font-bold text-slate-500 leading-none mt-1 truncate">Tap to open • {siteConfig?.telegramLink && siteConfig?.whatsappLink ? "Telegram & WhatsApp" : siteConfig?.telegramLink ? "Telegram" : siteConfig?.whatsappLink ? "WhatsApp" : "2.4k online"}</p>
         </div>
-        <ChevronRight className="w-4 h-4 text-[var(--theme-text)] opacity-30 group-hover:opacity-60 transition-opacity shrink-0" />
-      </a>
+        <ChevronRight className="w-4 h-4 text-slate-500 opacity-40 group-hover:opacity-60 transition-opacity shrink-0" />
+      </button>
 
       {/* Quick Actions — docked bar */}
       <div className="theme-card border-2 border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] rounded-[var(--theme-radius)] p-1.5 grid grid-cols-2 gap-1.5 shadow-sm">
@@ -410,6 +412,70 @@ export default function DashboardView({
             </div>
           );
         })()}
+      </AnimatePresence>
+
+      {/* Community — liquid glass sheet */}
+      <AnimatePresence>
+        {showCommunitySheet && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowCommunitySheet(false)}
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ y: 40, opacity: 0, scale: 0.97 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 40, opacity: 0, scale: 0.97 }}
+              transition={{ type: "spring", damping: 26, stiffness: 340 }}
+              className="relative w-full max-w-sm rounded-[28px] overflow-hidden border border-white/20 shadow-[0_20px_60px_rgba(0,0,0,0.3)]"
+              style={{
+                background: "linear-gradient(135deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.65) 100%)",
+                backdropFilter: "blur(24px) saturate(180%)",
+                WebkitBackdropFilter: "blur(24px) saturate(180%)",
+              }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-[var(--theme-primary)]/10 pointer-events-none" />
+              <div className="relative p-5 pb-6">
+                <div className="w-10 h-1 rounded-full bg-black/15 mx-auto mb-4" />
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-700">Join our community</h3>
+                  <button onClick={() => setShowCommunitySheet(false)} className="w-8 h-8 rounded-full bg-black/10 hover:bg-black/15 flex items-center justify-center text-slate-600 transition-colors">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="space-y-2.5">
+                  {siteConfig?.whatsappLink && (
+                    <a href={siteConfig.whatsappLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-colors group">
+                      <img src="/whatsapp.svg" alt="WhatsApp" className="w-10 h-10 rounded-xl shrink-0 shadow-sm object-contain bg-white p-1" />
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-[13px] font-black text-slate-800 leading-none">WhatsApp Support</span>
+                        <span className="block text-[11px] font-bold text-slate-500 leading-none mt-1 truncate">{siteConfig.whatsappLink}</span>
+                      </span>
+                      <ExternalLink className="w-4 h-4 text-slate-400 group-hover:text-slate-600 shrink-0" />
+                    </a>
+                  )}
+                  {siteConfig?.telegramLink && (
+                    <a href={siteConfig.telegramLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-colors group">
+                      <img src="/telegram.svg" alt="Telegram" className="w-10 h-10 rounded-xl shrink-0 shadow-sm object-contain bg-white p-1" />
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-[13px] font-black text-slate-800 leading-none">Telegram Channel</span>
+                        <span className="block text-[11px] font-bold text-slate-500 leading-none mt-1 truncate">{siteConfig.telegramLink}</span>
+                      </span>
+                      <ExternalLink className="w-4 h-4 text-slate-400 group-hover:text-slate-600 shrink-0" />
+                    </a>
+                  )}
+                  {!siteConfig?.telegramLink && !siteConfig?.whatsappLink && (
+                    <p className="text-center text-sm font-bold text-slate-500 py-6">No community links configured yet.</p>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
       </AnimatePresence>
     </div>
   );
