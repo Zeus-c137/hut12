@@ -43,6 +43,52 @@ function requireDatabase(operation: string) {
   return drizzleDb;
 }
 
+const SCRYPT_KEY_LEN = 64;
+const SCRYPT_MAXMEM = 32 * 1024 * 1024;
+
+export function isPasswordHashed(stored: string): boolean {
+  return typeof stored === "string" && stored.startsWith("scrypt$");
+}
+
+export function hashPassword(plain: string): string {
+  const salt = crypto.randomBytes(16);
+  const key = crypto.scryptSync(plain, salt, SCRYPT_KEY_LEN, { N: 16384, r: 8, p: 1, maxmem: SCRYPT_MAXMEM });
+  return `scrypt$16384$8$1$${salt.toString("hex")}:${key.toString("hex")}`;
+}
+
+export function verifyPassword(stored: string, supplied: string): { ok: boolean; needsRehash: boolean } {
+  if (!stored || typeof supplied !== "string" || supplied.length === 0) return { ok: false, needsRehash: false };
+  if (!isPasswordHashed(stored)) {
+    const a = Buffer.from(stored, "utf8");
+    const b = Buffer.from(supplied, "utf8");
+    const ok = a.length === b.length && crypto.timingSafeEqual(a, b);
+    return { ok, needsRehash: ok };
+  }
+  const parts = stored.split("$");
+  if (parts.length !== 5) return { ok: false, needsRehash: false };
+  const N = Number(parts[1]);
+  const r = Number(parts[2]);
+  const p = Number(parts[3]);
+  const [saltHex, keyHex] = (parts[4] || "").split(":");
+  if (!Number.isInteger(N) || !Number.isInteger(r) || !Number.isInteger(p) || !saltHex || !keyHex) {
+    return { ok: false, needsRehash: false };
+  }
+  try {
+    const key = Buffer.from(keyHex, "hex");
+    const derived = crypto.scryptSync(supplied, Buffer.from(saltHex, "hex"), key.length, { N, r, p, maxmem: SCRYPT_MAXMEM });
+    const ok = derived.length === key.length && crypto.timingSafeEqual(derived, key);
+    return { ok, needsRehash: false };
+  } catch {
+    return { ok: false, needsRehash: false };
+  }
+}
+
+export function publicProfile<T extends { password?: unknown }>(profile: T | null | undefined): Omit<T, "password"> | null {
+  if (!profile) return null;
+  const { password: _dropped, ...rest } = profile;
+  return rest;
+}
+
 const NUMERIC_INVITE_CODE_PATTERN = /^\d{5}$/;
 const PLATFORM_TIME_ZONE = "Africa/Nairobi";
 
@@ -272,7 +318,8 @@ export async function registerUserProfile(data: any): Promise<any> {
   const drizzleDb = requireDatabase("create your account");
   // Personal invite codes are deliberately short, numeric, and easy to share.
   const personalInviteCode = await generateUniqueInviteCode(drizzleDb);
-  const password = data.password || data.passwordHash || "";
+  const rawPassword = data.password || data.passwordHash || "";
+  const password = rawPassword ? hashPassword(rawPassword) : "";
   const referredByCode = (data.referredByCode || (data.inviteCode && data.inviteCode !== personalInviteCode ? data.inviteCode : "")).trim();
 
   const config = await getSiteConfig();
@@ -420,13 +467,23 @@ export async function registerUserProfile(data: any): Promise<any> {
 
 export async function loginUser(phone: string, pass: string): Promise<UserProfile | null> {
   const user = await getUserProfile(phone);
-  if (user && user.password === pass) {
-    if (user.locked) {
-      throw new Error("Account locked. Please contact support.");
-    }
-    return user;
+  if (!user) return null;
+  const { ok, needsRehash } = verifyPassword(user.password || "", pass);
+  if (!ok) return null;
+  if (user.locked) {
+    throw new Error("Account locked. Please contact support.");
   }
-  return null;
+  if (needsRehash) {
+    try {
+      const drizzleDb = getDb();
+      if (drizzleDb) {
+        await drizzleDb.update(schema.users).set({ password: hashPassword(pass) }).where(eq(schema.users.phone, phone));
+      }
+    } catch (err) {
+      console.warn("[Database] transparent password rehash failed for", phone);
+    }
+  }
+  return user;
 }
 
 export async function updateUserProfile(
@@ -447,6 +504,10 @@ export async function updateUserProfile(
       usdtAddress: usdtAddress || undefined
     };
     if (newPassword) updates.password = newPassword;
+  }
+
+  if (updates.password && !isPasswordHashed(updates.password)) {
+    updates.password = hashPassword(updates.password);
   }
 
   const existing = (await getUserProfile(phone)) || {
@@ -1640,7 +1701,6 @@ export async function adminGetAllUsers(): Promise<UserProfile[]> {
         list = rows.map(u => ({
           phone: u.phone,
           username: u.username,
-          password: u.password,
           inviteCode: u.inviteCode,
           referredByCode: u.referredByCode || "",
           operator: u.operator || "MTN",
@@ -2146,6 +2206,15 @@ export async function updateSiteConfig(newConfig: Partial<SiteConfig>): Promise<
   try {
     const current = await getSiteConfig().catch(() => ({}));
     const updated = { ...current, ...newConfig } as SiteConfig & Record<string, any>;
+
+    if ("adminPass" in newConfig) {
+      const incoming = (newConfig as any).adminPass;
+      if (typeof incoming === "string" && incoming.length > 0) {
+        updated.adminPass = isPasswordHashed(incoming) ? incoming : hashPassword(incoming);
+      } else {
+        updated.adminPass = (current as any).adminPass || "";
+      }
+    }
 
     if (Array.isArray(updated.vipTaskCategories)) {
       updated.vipTaskCategories = Array.from(new Set(

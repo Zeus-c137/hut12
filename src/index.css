@@ -307,6 +307,13 @@ textarea:focus {
   border: 1px solid var(--theme-card-border);
 }
 
+/* Chat bubbles — flat translucent tint, identical for every sender */
+.chat-bubble-flat {
+  background: var(--theme-card-bg);
+  background: color-mix(in srgb, var(--theme-card-bg) 38%, transparent);
+  border: 1px solid var(--theme-card-border);
+}
+
 /* 2b. Liquid Glass Card Style (Ultra Translucent Blur & Sheen) */
 [data-card-style="liquid-glass"] .theme-card,
 [data-card-style="liquid-glass"] .card-playful-3d,

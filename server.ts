@@ -67,7 +67,9 @@ import {
   getMaximumWithdrawalAmount,
   getPlatformDateKey,
   createTransactionId,
-  getTransactionByExternalReference
+  getTransactionByExternalReference,
+  publicProfile,
+  verifyPassword
 } from "./src/server/db";
 
 // Ensure .env is loaded robustly in production iisnode and custom hosting environments (like SmarterASP)
@@ -287,7 +289,7 @@ app.get("/api/auth/session", async (req, res) => {
     if (!phone) return res.status(401).json({ authenticated: false });
     const profile = await getUserProfile(phone);
     if (!profile) return res.status(401).json({ authenticated: false });
-    res.json({ authenticated: true, profile });
+    res.json({ authenticated: true, profile: publicProfile(profile) });
   } catch (error: any) {
     console.error("[Auth] Session restore failed:", error);
     res.status(401).json({ authenticated: false });
@@ -330,7 +332,7 @@ app.post("/api/auth/register", async (req, res) => {
       passwordHash: password, // Store password safely for live demo validation
       referredByCode: inviteCode ? inviteCode.trim() : ""
     });
-    res.json({ success, profile });
+    res.json({ success, profile: publicProfile(profile) });
   } catch (error: any) {
     console.error("Register Error:", error);
     const response = errorResponse(error, "Registration could not be completed.", 400);
@@ -366,7 +368,7 @@ app.post("/api/auth/login", async (req, res) => {
       return res.status(503).json({ error: "Sign-in is temporarily unavailable because secure session configuration is missing." });
     }
     res.setHeader("Set-Cookie", `${USER_SESSION_COOKIE}=${encodeURIComponent(signUserSession(normalizedPhone, secret))}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${USER_SESSION_TTL_SECONDS}`);
-    res.json({ success: true, profile });
+    res.json({ success: true, profile: publicProfile(profile) });
   } catch (error: any) {
     console.error("Login Error:", error);
     const response = errorResponse(error, "We could not sign you in right now. Please try again.", 500);
@@ -391,7 +393,7 @@ app.post("/api/auth/profile", async (req, res) => {
       newPassword,
       usdtAddress
     );
-    res.json({ success: true, profile });
+    res.json({ success: true, profile: publicProfile(profile) });
   } catch (error: any) {
     console.error("Profile Edit Error:", error);
     res.status(400).json({ error: error.message });
@@ -403,7 +405,7 @@ app.get("/api/profile/:phone", async (req, res) => {
   try {
     await ensureUserDailyYields(req.params.phone);
     const profile = await getUserProfile(req.params.phone);
-    res.json(profile);
+    res.json(publicProfile(profile));
   } catch (error: any) {
     console.error("Profile Fetch Error:", error);
     res.status(404).json({ error: error.message });
@@ -1843,7 +1845,11 @@ app.post("/api/admin/login", async (req, res) => {
       return res.status(400).json({ error: "Enter a valid admin password." });
     }
     const config = await getSiteConfig();
-    if (phone === config.adminPhone && password === config.adminPass) {
+    const adminCheck = verifyPassword(config.adminPass || "", password);
+    if (phone === config.adminPhone && adminCheck.ok) {
+      if (adminCheck.needsRehash) {
+        config.adminPass = (await updateSiteConfig({ adminPass: password })).adminPass;
+      }
       // Keep the administrator usable on the normal user login screen too.
       // Older releases could mark activation complete while the users row was
       // never written, so repair that inconsistency on a valid admin login.
@@ -1858,7 +1864,7 @@ app.post("/api/admin/login", async (req, res) => {
           referredByCode: "",
           operator: "MTN"
         });
-      } else if (adminUser.password !== password) {
+      } else if (!verifyPassword(adminUser.password || "", password).ok) {
         await updateUserProfile(phone, { password });
       }
       const secret = adminSessionSecret(config);
@@ -1922,7 +1928,7 @@ app.post("/api/user/checkin", async (req, res) => {
 // Admin config endpoint
 app.post("/api/admin/gift_codes", async (req, res) => {
   try {
-    const { phone, password, code, amount, maxRedemptions, expiryDate } = req.body;
+    const { code, amount, maxRedemptions, expiryDate } = req.body;
     
     const result = await adminCreateGiftCode(code, amount, maxRedemptions, expiryDate);
     res.json(result);
@@ -1933,8 +1939,6 @@ app.post("/api/admin/gift_codes", async (req, res) => {
 
 app.get("/api/admin/gift_codes", async (req, res) => {
   try {
-    const { phone, password } = req.query;
-    
     const result = await adminGetGiftCodes();
     res.json(result);
   } catch (e: any) {
@@ -1944,8 +1948,6 @@ app.get("/api/admin/gift_codes", async (req, res) => {
 
 app.delete("/api/admin/gift_codes/:id", async (req, res) => {
   try {
-    const { phone, password } = req.body;
-    
     await adminDeleteGiftCode(req.params.id);
     res.json({ success: true });
   } catch (e: any) {

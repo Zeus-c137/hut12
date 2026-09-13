@@ -54,6 +54,7 @@ import { motion, AnimatePresence } from "motion/react";
 
 import { ThemeProvider } from "./context/ThemeContext";
 import { readApiJson } from "./utils/api";
+import { useChatUnread } from "./hooks/useChatUnread";
 
 function getVipBadgeConfig(level: number = 0) {
   const configs: Record<number, { label: string; badgeColor: string }> = {
@@ -149,6 +150,7 @@ export default function App() {
   }, [isAdminRoute]);
   const [activeTab, setActiveTab] = useState<"dashboard" | "catalog" | "income" | "history" | "ai" | "referral" | "chat" | "profile" | "deposit" | "withdraw" | "alerts">("dashboard");
   const [siteConfig, setSiteConfig] = useState<any>(null);
+  const chatUnread = useChatUnread(userProfile?.phone);
   const [vipBadgeLevel, setVipBadgeLevel] = useState(0);
   const [userNotifications, setUserNotifications] = useState<NotificationItem[]>([]);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
@@ -858,7 +860,7 @@ export default function App() {
                 exit={{ opacity: 0, scale: 0.96 }}
                 className="flex-1 flex flex-col min-h-0 h-full w-full"
               >
-                <ChatView userProfile={userProfile} initialRoom={chatRoomDefault} />
+                <ChatView userProfile={userProfile} initialRoom={chatRoomDefault} canUpload={userProfile.phone === siteConfig?.adminPhone} />
               </motion.div>
             )}
 
@@ -1080,9 +1082,14 @@ export default function App() {
             {/* Chat */}
             <button
               onClick={() => setActiveTab("chat")}
-              className={`flex-1 flex flex-col items-center gap-1 py-2.5 px-1 rounded-2xl border-2 transition-all active:scale-95 ${activeTab === "chat" ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white shadow-[0_4px_0_0_var(--theme-primary-shadow)] -translate-y-1" : "bg-[var(--theme-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
+              className={`relative flex-1 flex flex-col items-center gap-1 py-2.5 px-1 rounded-2xl border-2 transition-all active:scale-95 ${activeTab === "chat" ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white shadow-[0_4px_0_0_var(--theme-primary-shadow)] -translate-y-1" : "bg-[var(--theme-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
             >
               <MessageCircleMore className="w-5 h-5 shrink-0" />
+              {chatUnread > 0 && (
+                <span className="absolute top-1 right-1 min-w-5 h-5 px-1 rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center border-2 border-[var(--theme-bg)]">
+                  {chatUnread > 99 ? "99+" : chatUnread}
+                </span>
+              )}
               <span className="text-[9px] sm:text-[10px] font-display font-black uppercase tracking-wide leading-none">Chat</span>
             </button>
 
