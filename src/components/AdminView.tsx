@@ -487,7 +487,7 @@ export default function AdminView() {
         setSiteConfig(await confRes.json());
       }
       
-      const gcRes = await fetch(`/api/admin/gift_codes?phone=${phone}&password=${password}`);
+      const gcRes = await fetch(`/api/admin/gift_codes`);
       if (gcRes.ok) {
         setGiftCodesList(await gcRes.json());
       }
@@ -1005,10 +1005,8 @@ export default function AdminView() {
       const res = await fetch("/api/admin/gift_codes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          phone, 
-          password, 
-          code: newGiftCode.toUpperCase().trim(), 
+        body: JSON.stringify({
+            code: newGiftCode.toUpperCase().trim(),
           amount: newGiftCodeAmount, 
           maxRedemptions: newGiftCodeMax, 
           expiryDate: calculatedExpiry 
@@ -1035,8 +1033,7 @@ export default function AdminView() {
       setIsDeletingGiftCode(true);
       const res = await fetch(`/api/admin/gift_codes/${codeId}`, {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone, password })
+        headers: { "Content-Type": "application/json" }
       });
       if (res.ok) {
         toast.success("Gift code deleted successfully");
