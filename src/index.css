@@ -199,20 +199,32 @@ textarea:focus {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-primary) 20%, transparent);
   outline: none;
 }
-/* autofill both modes */
+/* autofill both modes — fix prefilled invisible in #000000 true OLED + #faf6f0 light */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
-input:-webkit-autofill:focus {
+input:-webkit-autofill:focus,
+input:autofill,
+input:autofill:hover,
+input:autofill:focus {
   -webkit-text-fill-color: var(--theme-text) !important;
-  caret-color: var(--theme-text);
+  caret-color: var(--theme-text) !important;
+  -webkit-box-shadow: 0 0 0px 1000px color-mix(in srgb, var(--theme-card-bg) 96%, var(--theme-bg)) inset !important;
+  box-shadow: 0 0 0px 1000px color-mix(in srgb, var(--theme-card-bg) 96%, var(--theme-bg)) inset !important;
+  border-color: var(--theme-card-border) !important;
   transition: background-color 5000s ease-in-out 0s;
 }
 .dark input:-webkit-autofill,
 .dark input:-webkit-autofill:hover,
-.dark input:-webkit-autofill:focus {
-  -webkit-box-shadow: 0 0 0px 1000px rgba(255,255,255,0.07) inset !important;
-  box-shadow: 0 0 0px 1000px rgba(255,255,255,0.07) inset !important;
+.dark input:-webkit-autofill:focus,
+.dark input:autofill {
+  -webkit-text-fill-color: #fafaf9 !important;
+  caret-color: #fafaf9 !important;
+  -webkit-box-shadow: 0 0 0px 1000px #121214 inset !important;
+  box-shadow: 0 0 0px 1000px #121214 inset !important;
+  border-color: rgba(255,255,255,0.12) !important;
 }
+input:-webkit-autofill::first-line { font-size: 14px; }
+
 
 /* Dynamic Adaptive Card Utilities */
 .theme-card,

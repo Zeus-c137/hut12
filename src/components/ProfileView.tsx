@@ -39,6 +39,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { useCurrency } from "../currency";
+import { Button } from "./ui/button";
 import confetti from "canvas-confetti";
 import ParticleBg from "./ParticleBg";
 import NewsCarousel from "./NewsCarousel";
@@ -512,19 +513,13 @@ export default function ProfileView({
         rightLabel="Withdrawable"
         rightValue={`${currency === 'USD' ? '$' : 'UGX'} ${currency === 'USD' ? ((userProfile.points || 0) / 3700).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : (userProfile.points || 0).toLocaleString()}`}
       />
-      <div className="flex gap-2">
-        <button
-          onClick={onNavigateToDeposit}
-          className="flex-1 py-2.5 rounded-full bg-[var(--theme-primary)] text-white font-black text-xs uppercase tracking-wider shadow-[0_3px_0_0_var(--theme-primary-shadow)] active:translate-y-[1px] active:shadow-none transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-        >
+      <div className="grid grid-cols-2 gap-2 bg-transparent border-0 p-0">
+        <Button variant="gold-glossy" size="sm" onClick={onNavigateToDeposit} className="w-full" glow={false}>
           <ArrowDownLeft className="w-4 h-4" /> Deposit
-        </button>
-        <button
-          onClick={() => (onNavigateToWithdraw ? onNavigateToWithdraw() : setShowWithdrawSheet(true))}
-          className="flex-1 py-2.5 rounded-full bg-[var(--theme-card-bg)] border-2 border-[var(--theme-card-border)] text-[var(--theme-text)] font-black text-xs uppercase tracking-wider hover:border-[var(--theme-primary)]/30 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-        >
-          <ArrowUpRight className="w-4 h-4 text-[var(--theme-primary)]" /> Withdraw
-        </button>
+        </Button>
+        <Button variant="gold-matte" size="sm" onClick={() => (onNavigateToWithdraw ? onNavigateToWithdraw() : setShowWithdrawSheet(true))} className="w-full" glow={false}>
+          <ArrowUpRight className="w-4 h-4" /> Withdraw
+        </Button>
       </div>
 
         {/* More Actions Section Header */}

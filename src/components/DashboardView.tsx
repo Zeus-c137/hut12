@@ -41,6 +41,7 @@ import NewsCarousel from "./NewsCarousel";
 import MetricCard from "./MetricCard";
 import FeaturedProducts from "./FeaturedProducts";
 import { useCurrency } from "../currency";
+import { Button } from "./ui/button";
 
 interface DashboardViewProps {
   profile: UserProfile;
@@ -298,24 +299,17 @@ export default function DashboardView({
         <ChevronRight className="w-4 h-4 text-[var(--theme-text)] opacity-40 group-hover:opacity-60 transition-opacity shrink-0" />
       </button>
 
-      {/* Quick Actions — docked bar */}
-      <div className="theme-card border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)]/60 backdrop-blur-[20px] backdrop-saturate-[180%] rounded-[var(--theme-radius)] p-1.5 grid grid-cols-2 gap-1.5 shadow-sm">
-        <button
-          onClick={onNavigateToDeposit}
-          className="btn-3d-primary text-white font-display font-black text-xs uppercase tracking-wider py-3 rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer shadow-[0_3px_0_0_var(--theme-primary-shadow)]"
-        >
+      {/* Quick Actions — unified presets, container bg removed */}
+      <div className="grid grid-cols-2 gap-2 bg-transparent border-0 p-0 shadow-none">
+        <Button variant="gold-glossy" size="sm" onClick={onNavigateToDeposit} className="w-full" glow={false}>
           <ArrowDownLeft className="w-4 h-4" />
           <span>Deposit</span>
-        </button>
-
-        <button
-          onClick={onNavigateToWithdraw || onNavigateToDeposit}
-          className="bg-[var(--theme-bg)] border-2 border-[var(--theme-card-border)] text-[var(--theme-text)] font-display font-black text-xs uppercase tracking-wider py-3 rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer hover:border-[var(--theme-primary)]/30"
-        >
-          <ArrowUpRight className="w-4 h-4 text-[var(--theme-primary)]" />
+        </Button>
+        <Button variant="gold-matte" size="sm" onClick={onNavigateToWithdraw || onNavigateToDeposit} className="w-full" glow={false}>
+          <ArrowUpRight className="w-4 h-4" />
           <span>Withdraw</span>
-          </button>
-        </div>
+        </Button>
+      </div>
 
       <FeaturedProducts items={items} onBrowseProducts={onNavigateToCatalog} />
 
