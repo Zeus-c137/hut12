@@ -108,9 +108,7 @@ export default function VisaMetricCard({
         </div>
       </div>
 
-      <div
-        className={`relative flex items-end justify-between mt-4 pt-3 border-t ${isDark ? "border-white/10" : "border-black/10"}`}
-      >
+      <div className="relative flex items-end justify-between mt-4">
         <p
           className={`font-mono text-[11px] sm:text-xs tracking-[0.2em] select-none ${
             isDark ? "text-white/50" : "text-black/40"
