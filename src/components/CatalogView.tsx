@@ -198,10 +198,10 @@ export default function CatalogView({
                     </div>
 
                     {/* Right portion: specs — min-w-0 prevents overflow when title/amounts are long */}
-                    <div className="flex-1 min-w-0 p-3 flex flex-col justify-between space-y-1.5 font-sans text-xs">
+                    <div className="flex-1 min-w-0 p-4 flex flex-col justify-between space-y-2.5 font-sans text-xs">
                       <div className="min-w-0">
                         {/* Title Row with Rent — title truncates, rent never overflows */}
-                        <div className="flex items-start justify-between gap-2 pb-2 border-b border-[var(--theme-card-border)]/40 mb-1.5 min-w-0">
+                        <div className="flex items-start justify-between gap-2 pb-3 border-b border-[var(--theme-card-border)]/40 mb-2 min-w-0">
                           <div className="min-w-0 flex-1 flex items-center gap-2">
                             <h3 className="font-display font-extrabold text-[13px] sm:text-sm text-[var(--theme-primary)] uppercase tracking-tight leading-tight line-clamp-2 break-words min-w-0">
                               {item.name}
@@ -231,7 +231,7 @@ export default function CatalogView({
                         </div>
 
                         {/* Specs — values truncate/nowrap so millions don't wrap */}
-                        <div className="space-y-1 text-[var(--theme-text)] min-w-0">
+                        <div className="space-y-1.5 text-[var(--theme-text)] min-w-0">
                           <p className="flex items-center justify-between gap-2 min-w-0">
                             <span className="text-[11px] text-[var(--theme-text)] opacity-60 uppercase tracking-wider font-bold shrink-0">Duration:</span>
                             <span className="font-bold text-[var(--theme-text)] text-[11px] sm:text-xs truncate text-right min-w-0">{item.duration} Days</span>
