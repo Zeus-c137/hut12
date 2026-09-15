@@ -215,11 +215,11 @@ export default function CatalogView({
                           </div>
                           <Button
                             variant="gold-matte"
-                            size="sm"
+                            size="xs"
                             glow={false}
                             onClick={() => handleSubscribe(item)}
                             disabled={submittingItemId === item.id || isOutOfStock}
-                            className="shrink-0 whitespace-nowrap self-start !px-3 !py-1.5 !text-[10px] !min-w-0"
+                            className="shrink-0 whitespace-nowrap self-start"
                           >
                             {submittingItemId === item.id ? (
                               <Loader2 className="w-3.5 h-3.5 animate-spin" />
