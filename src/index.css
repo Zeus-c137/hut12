@@ -22,12 +22,12 @@
 :root {
   --theme-font-family: 'Sora', 'Outfit', sans-serif;
   --theme-font-base: 16px;
-  --theme-primary: #c27a2e;
-  --theme-primary-shadow: #92400e;
-  --theme-accent: #c27a2e;
-  --theme-accent-shadow: #92400e;
-  --theme-secondary: #c27a2e;
-  --theme-secondary-shadow: #92400e;
+  --theme-primary: #CF7500;
+  --theme-primary-shadow: #9A4F00;
+  --theme-accent: #CF7500;
+  --theme-accent-shadow: #9A4F00;
+  --theme-secondary: #CF7500;
+  --theme-secondary-shadow: #9A4F00;
   --theme-bg: #faf6f0;
   --theme-card-bg: #ffffff;
   --theme-card-border: #e7e5e4;
@@ -434,10 +434,10 @@ input:-webkit-autofill:focus {
 
 /* — Hut12 3D Gold Button — extracted from mock3dbtn (matte) + mock3dbtn copy (glossy) — */
 :root {
-  --hut-gold-highlight: #FFF7DE;
-  --hut-gold-100: #F6DC93;
-  --hut-gold-300-matte: #E8A735;
-  --hut-gold-300-glossy: #F0B84A;
+  --hut-gold-highlight: #FFFFFF;
+  --hut-gold-100: #FFE8A3;
+  --hut-gold-300-matte: #FF9F0A;
+  --hut-gold-300-glossy: #FFB033;
   --hut-gold-500: #CF7500;
   --hut-gold-700: #9A4F00;
   --hut-gold-900: #5A2E00;
