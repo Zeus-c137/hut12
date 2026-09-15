@@ -230,18 +230,18 @@ export default function DashboardView({
             {/* Unified earnings: AI Income + Today in one hero translucent bento */}
             <div style={{ transform: "translateZ(0)" }} className="col-span-2 relative overflow-hidden theme-card rounded-[var(--theme-radius)] p-3.5 h-[112px] flex flex-col justify-between bg-[var(--theme-card-bg)]/60 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 shadow-sm isolate">
               <div className="flex items-start justify-between gap-2">
-                <span className="text-[10.5px] font-display uppercase tracking-[0.12em] leading-none block pt-1 font-black text-[var(--theme-primary)]">Earnings</span>
+                <span className="text-[10.5px] font-display uppercase tracking-[0.12em] leading-none block pt-1 font-black text-[var(--theme-primary)]">Product Income</span>
                 <div className="w-11 h-11 flex items-center justify-center shrink-0 overflow-hidden bg-transparent border-0">
                   <img src={money3d} alt="" className="w-11 h-11 object-contain" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-0 -mt-1">
                 <div className="pr-3">
-                  <p className="text-[9px] font-display font-black uppercase tracking-widest opacity-50 leading-none mb-1">AI Income</p>
+                  <p className="text-[9px] font-display font-black uppercase tracking-widest opacity-50 leading-none mb-1">Total Overall</p>
                   <p className="font-display font-black text-[15px] sm:text-[16px] text-[var(--theme-text)] leading-none tracking-tight truncate">{formatCurrency(totalEarnedAllTime)}</p>
                 </div>
                 <div className="pl-3 border-l border-white/10">
-                  <p className="text-[9px] font-display font-black uppercase tracking-widest opacity-50 leading-none mb-1">Today</p>
+                  <p className="text-[9px] font-display font-black uppercase tracking-widest opacity-50 leading-none mb-1">Earnings Today</p>
                   <p className="font-display font-black text-[15px] sm:text-[16px] text-[var(--theme-text)] leading-none tracking-tight truncate">{formatCurrency(todayEarnings)}</p>
                 </div>
               </div>
