@@ -122,7 +122,7 @@ export default function AlertsView({ profile, onBack, initialNotifications = [],
   ).length;
 
   return (
-    <div className="bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 rounded-[24px] p-4 select-none relative text-[var(--theme-text)]">
+    <div className="bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 rounded-[24px] p-4 select-none relative min-h-[85vh] text-[var(--theme-text)]">
       <AnimatePresence>
         {selectedAlert && (() => {
           let categoryIcon3d: string = bell3d;
@@ -146,7 +146,7 @@ export default function AlertsView({ profile, onBack, initialNotifications = [],
                 animate={{ scale: 1, opacity: 1, y: 0 }}
                 exit={{ scale: 0.94, opacity: 0, y: 15 }}
                 transition={{ type: "spring", damping: 25, stiffness: 350 }}
-                className="relative w-full max-w-md bg-[var(--theme-card-bg)]/90 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 rounded-[24px] shadow-2xl overflow-hidden z-10 flex flex-col max-h-[85vh]"
+                className="relative w-full max-w-md bg-[var(--theme-card-bg)]/90 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 rounded-[24px] shadow-2xl overflow-hidden z-10 flex flex-col max-h-[90vh]"
               >
                 {/* Header mimicking the Alert Card */}
                 <div className="flex justify-between items-center p-5 bg-transparent shrink-0 border-b border-white/10">
@@ -206,13 +206,6 @@ export default function AlertsView({ profile, onBack, initialNotifications = [],
         })()}
       </AnimatePresence>
       <div>
-        {/* Sticky Header Ribbon - Sticky top */}
-        <div className="sticky top-0 z-20 bg-[var(--theme-card-bg)]/60 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 py-3.5 px-3 mb-4 flex items-center justify-between shadow-sm rounded-[16px]">
-          <h2 className="font-display font-black text-sm uppercase tracking-wider text-[var(--theme-primary)]">
-            Notifications ({unreadCount})
-          </h2>
-        </div>
-
         <div className="space-y-4">
 
           {loading ? (
@@ -277,7 +270,7 @@ export default function AlertsView({ profile, onBack, initialNotifications = [],
                   <div
                     key={logs.id}
                     onClick={() => handleOpenAlert(logs)}
-                    className="bg-[var(--theme-card-bg)]/60 backdrop-blur-[12px] border border-white/10 p-4 rounded-[20px] flex gap-3.5 transition-all text-left cursor-pointer active:scale-[0.98] shadow-sm"
+                    className="bg-transparent border border-white/10 p-4 rounded-[20px] flex gap-3.5 transition-all text-left cursor-pointer active:scale-[0.98]"
                   >
                     <div className="w-10 h-10 bg-transparent border-0 flex items-center justify-center shrink-0">
                       <img src={categoryIcon3dList} alt="" className="w-10 h-10 object-contain" />
