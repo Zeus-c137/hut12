@@ -177,10 +177,10 @@ export default function CatalogView({
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: idx * 0.03, duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
-                    className="relative flex flex-row theme-card card-playful-3d border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] p-3 overflow-hidden transition-all duration-150 group select-none shadow-sm hover:border-[var(--theme-primary)]/70"
+                    className="relative flex flex-row items-stretch theme-card card-playful-3d border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] overflow-hidden transition-all duration-150 group select-none shadow-sm hover:border-[var(--theme-primary)]/70"
                   >
-                    {/* Left portion: Hardware Image — transparent bg like income, contain */}
-                    <div onClick={() => item.imageUrl && setPreviewImage(item.imageUrl)} className="w-28 h-28 sm:w-32 sm:h-32 md:w-44 md:h-44 relative overflow-hidden rounded-[var(--theme-radius)] bg-transparent border border-[var(--theme-card-border)] shrink-0 cursor-zoom-in group-hover:border-[var(--theme-primary)]/30 transition-colors p-2 flex items-center justify-center">
+                    {/* Left portion: Hardware Image — fills parent height */}
+                    <div onClick={() => item.imageUrl && setPreviewImage(item.imageUrl)} className="w-32 sm:w-36 md:w-44 self-stretch relative overflow-hidden rounded-l-[var(--theme-radius)] bg-transparent border-r border-[var(--theme-card-border)] shrink-0 cursor-zoom-in group-hover:border-[var(--theme-primary)]/30 transition-colors p-4 flex items-center justify-center">
                       {item.imageUrl ? (
                         <img
                           src={item.imageUrl}
@@ -198,7 +198,7 @@ export default function CatalogView({
                     </div>
 
                     {/* Right portion: specs — min-w-0 prevents overflow when title/amounts are long */}
-                    <div className="flex-1 min-w-0 p-2 flex flex-col justify-between space-y-1.5 font-sans text-xs">
+                    <div className="flex-1 min-w-0 p-3 flex flex-col justify-between space-y-1.5 font-sans text-xs">
                       <div className="min-w-0">
                         {/* Title Row with Rent — title truncates, rent never overflows */}
                         <div className="flex items-start justify-between gap-2 pb-2 border-b border-[var(--theme-card-border)]/40 mb-1.5 min-w-0">
