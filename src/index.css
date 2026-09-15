@@ -466,6 +466,8 @@ input:-webkit-autofill::first-line { font-size: 14px; }
   display: inline-block;
   padding-bottom: 8px;
 }
+.hut-btn-3d.hut-full { display: block; width: 100%; }
+.hut-btn-3d.hut-full .hut-btn-face { width: 100%; }
 .hut-btn-base {
   position: absolute;
   left: 0; right: 0; top: 8px; bottom: 0;

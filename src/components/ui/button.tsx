@@ -35,6 +35,7 @@ export function Button({
 
   const isGold = variant === "gold-matte" || variant === "gold-glossy"
   const isGlossy = variant === "gold-glossy"
+  const isFull = className?.includes("w-full")
 
   const handleClick: React.MouseEventHandler<HTMLButtonElement> = (e) => {
     if (disabled || loading || success) return
@@ -84,12 +85,12 @@ export function Button({
   }
 
   return (
-    <span ref={wrapRef} className={`hut-btn-3d ${success ? "success" : ""} ${className ?? ""}`}>
+    <span ref={wrapRef} className={`hut-btn-3d ${isFull ? "hut-full" : ""} ${success ? "success" : ""} ${className ?? ""}`}>
       {glow && <span className="hut-glow" aria-hidden />}
       <span className="hut-btn-base" aria-hidden />
       <span className="hut-btn-pulse" aria-hidden />
       <button
-        className={`hut-btn-face hut-${variant} ${sizeMap[size]} ${success ? "hut-success" : ""}`}
+        className={`hut-btn-face hut-${variant} ${sizeMap[size]} ${isFull ? "w-full" : ""} ${success ? "hut-success" : ""}`}
         onClick={handleClick}
         disabled={disabled || loading}
         {...props}
