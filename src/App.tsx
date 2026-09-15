@@ -1056,7 +1056,7 @@ export default function App() {
               onClick={() => setActiveTab("dashboard")}
               className={`flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-2xl border-0 transition-colors active:scale-[0.97] ${activeTab === "dashboard" ? "bg-[var(--theme-primary)] text-white shadow-[0_3px_0_0_var(--theme-primary-shadow)] -translate-y-0.5" : "bg-transparent text-[var(--theme-text)] opacity-100"}`}
             >
-              <img src={navHome3d} alt="" className="w-8 h-8 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" />
+              <img src={navHome3d} alt="" className="w-10 h-10 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" />
               <span className="text-[9px] sm:text-[10px] font-display font-black uppercase tracking-wide leading-none">Home</span>
             </button>
 
@@ -1065,7 +1065,7 @@ export default function App() {
               onClick={() => setActiveTab("catalog")}
               className={`flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-2xl border-0 transition-colors active:scale-[0.97] ${activeTab === "catalog" ? "bg-[var(--theme-primary)] text-white shadow-[0_3px_0_0_var(--theme-primary-shadow)] -translate-y-0.5" : "bg-transparent text-[var(--theme-text)] opacity-100"}`}
             >
-              <img src={navProducts3d} alt="" className="w-8 h-8 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" />
+              <img src={navProducts3d} alt="" className="w-10 h-10 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" />
               <span className="text-[9px] sm:text-[10px] font-display font-black uppercase tracking-wide leading-none">Products</span>
             </button>
 
@@ -1074,7 +1074,7 @@ export default function App() {
               onClick={() => setActiveTab("income")}
               className={`flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-2xl border-0 transition-colors active:scale-[0.97] ${activeTab === "income" ? "bg-[var(--theme-primary)] text-white shadow-[0_3px_0_0_var(--theme-primary-shadow)] -translate-y-0.5" : "bg-transparent text-[var(--theme-text)] opacity-100"}`}
             >
-              <img src={navIncome3d} alt="" className="w-8 h-8 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" />
+              <img src={navIncome3d} alt="" className="w-10 h-10 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" />
               <span className="text-[9px] sm:text-[10px] font-display font-black uppercase tracking-wide leading-none">Income</span>
             </button>
 
@@ -1083,7 +1083,7 @@ export default function App() {
               onClick={() => setActiveTab("history")}
               className={`flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-2xl border-0 transition-colors active:scale-[0.97] ${activeTab === "history" ? "bg-[var(--theme-primary)] text-white shadow-[0_3px_0_0_var(--theme-primary-shadow)] -translate-y-0.5" : "bg-transparent text-[var(--theme-text)] opacity-100"}`}
             >
-              <img src={navHistory3d} alt="" className="w-8 h-8 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" />
+              <img src={navHistory3d} alt="" className="w-10 h-10 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" />
               <span className="text-[9px] sm:text-[10px] font-display font-black uppercase tracking-wide leading-none">History</span>
             </button>
 
@@ -1092,7 +1092,7 @@ export default function App() {
               onClick={() => setActiveTab("chat")}
               className={`relative flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-2xl border-0 transition-colors active:scale-[0.97] ${activeTab === "chat" ? "bg-[var(--theme-primary)] text-white shadow-[0_3px_0_0_var(--theme-primary-shadow)] -translate-y-0.5" : "bg-transparent text-[var(--theme-text)] opacity-100"}`}
             >
-              <img src={navChat3d} alt="" className="w-8 h-8 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" />
+              <img src={navChat3d} alt="" className="w-10 h-10 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" />
               {chatUnread > 0 && (
                 <span className="absolute top-1 right-1 min-w-5 h-5 px-1 rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center border-2 border-[var(--theme-bg)]">
                   {chatUnread > 99 ? "99+" : chatUnread}
@@ -1106,7 +1106,7 @@ export default function App() {
               onClick={() => setActiveTab("profile")}
               className={`flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-2xl border-0 transition-colors active:scale-[0.97] ${activeTab === "profile" ? "bg-[var(--theme-primary)] text-white shadow-[0_3px_0_0_var(--theme-primary-shadow)] -translate-y-0.5" : "bg-transparent text-[var(--theme-text)] opacity-100"}`}
             >
-              <img src={navProfile3d} alt="" className="w-8 h-8 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" />
+              <img src={navProfile3d} alt="" className="w-10 h-10 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" />
               <span className="text-[9px] sm:text-[10px] font-display font-black uppercase tracking-wide leading-none">Profile</span>
             </button>
           </nav>

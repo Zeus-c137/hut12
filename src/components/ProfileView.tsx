@@ -535,34 +535,34 @@ export default function ProfileView({
           <h4 className="font-display font-black text-xs uppercase tracking-wider text-[var(--theme-text)] opacity-70">More Actions</h4>
           <div id="quick-action-menu-grid" className="grid grid-cols-4 gap-x-2 gap-y-5">
             <button onClick={() => onNavigate("history")} className="flex flex-col items-center gap-1.5 focus:outline-none group">
-              <img src={history3d} alt="" className="w-10 h-10 object-contain drop-shadow-sm" />
+              <img src={history3d} alt="" className="w-12 h-12 object-contain drop-shadow-sm" />
               <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">History</span>
             </button>
             <button onClick={() => onNavigate("referral")} className="flex flex-col items-center gap-1.5 focus:outline-none group">
-              <img src={invite3d} alt="" className="w-10 h-10 object-contain drop-shadow-sm" />
+              <img src={invite3d} alt="" className="w-12 h-12 object-contain drop-shadow-sm" />
               <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">Invite</span>
             </button>
             <button onClick={() => setShowVipTasksSheet(true)} className="flex flex-col items-center gap-1.5 focus:outline-none group">
-              <img src={vip3d} alt="" className="w-10 h-10 object-contain drop-shadow-sm" />
+              <img src={vip3d} alt="" className="w-12 h-12 object-contain drop-shadow-sm" />
               <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">VIP Tasks</span>
             </button>
             <button onClick={() => setShowGiftCodeSheet(true)} className="flex flex-col items-center gap-1.5 focus:outline-none group">
-              <img src={gift3d2} alt="" className="w-10 h-10 object-contain drop-shadow-sm" />
+              <img src={gift3d2} alt="" className="w-12 h-12 object-contain drop-shadow-sm" />
               <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">Gift Code</span>
             </button>
             <button onClick={() => setShowCheckinSheet(true)} className="flex flex-col items-center gap-1.5 focus:outline-none group">
-              <img src={checkin3d} alt="" className="w-10 h-10 object-contain drop-shadow-sm" />
+              <img src={checkin3d} alt="" className="w-12 h-12 object-contain drop-shadow-sm" />
               <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">Check-in</span>
           </button>
 
             <button onClick={async () => {
               if (isInstalled) { toast.success("App is already installed and running!"); } else if (canInstall) { const accepted = await install(); if (!accepted) toast.info("Installation was cancelled."); } else { toast.info("Automatic install is unavailable. Use browser install menu."); }
             }} className="flex flex-col items-center gap-1.5 focus:outline-none group">
-              <img src={install3d} alt="" className="w-10 h-10 object-contain drop-shadow-sm" />
+              <img src={install3d} alt="" className="w-12 h-12 object-contain drop-shadow-sm" />
               <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">{isInstalled ? "Installed" : "Install App"}</span>
             </button>
             <button onClick={() => { setSuccessUpdate(false); setShowSettingsSheet(true); }} className="flex flex-col items-center gap-1.5 focus:outline-none group">
-              <img src={bank3d} alt="" className="w-10 h-10 object-contain drop-shadow-sm" />
+              <img src={bank3d} alt="" className="w-12 h-12 object-contain drop-shadow-sm" />
               <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">Bank Account</span>
             </button>
           </div>
@@ -570,7 +570,7 @@ export default function ProfileView({
           {/* App updates — inside frosted container */}
           <div className="flex items-center gap-3">
           <div className="flex items-center justify-center shrink-0">
-            <img src={update3d} alt="" className="w-8 h-8 object-contain shrink-0 drop-shadow-sm" />
+            <img src={update3d} alt="" className="w-10 h-10 object-contain shrink-0 drop-shadow-sm" />
             <RefreshCw className={`w-5 h-5 text-[var(--theme-primary)] ${updateState === "checking" ? "animate-spin" : "hidden"}`} />
           </div>
           <div className="flex-1 min-w-0">
