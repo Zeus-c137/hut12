@@ -61,12 +61,12 @@ body {
 }
 
 .dark {
-  --theme-bg: #0f172a;
-  --theme-card-bg: rgba(255,255,255,0.07);
-  --theme-card-border: rgba(255,255,255,0.10);
-  --theme-card-shadow: #020617;
-  --theme-text: #f8fafc;
-  --theme-text-muted: #94a3b8;
+  --theme-bg: #000000;
+  --theme-card-bg: rgba(255,255,255,0.06);
+  --theme-card-border: rgba(255,255,255,0.08);
+  --theme-card-shadow: #000000;
+  --theme-text: #fafaf9;
+  --theme-text-muted: #a1a1aa;
 }
 
 /* 3D Extruded & Dynamic Button Controls */
