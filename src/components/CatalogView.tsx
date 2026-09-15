@@ -266,7 +266,7 @@ export default function CatalogView({
 
               {filteredItems.length === 0 && (
                 <div className="text-center py-12 text-xs font-sans text-[var(--theme-text)] opacity-60 theme-card border border-dashed border-[var(--theme-card-border)] rounded-[var(--theme-radius)]">
-                  No computational node hardware available under this filter.
+                  NO PRODUCTS FOUND HERE.
                 </div>
               )}
             </div>
