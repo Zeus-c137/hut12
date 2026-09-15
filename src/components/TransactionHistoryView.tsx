@@ -77,14 +77,14 @@ export default function TransactionHistoryView({ phone, siteConfig, onBack }: Pr
   };
 
   return (
-    <div className="bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 rounded-[24px] p-4 space-y-4 select-none min-h-[85vh]">
+    <div className="w-full min-h-[100dvh] select-none flex flex-col bg-transparent p-0">
       {/* Header like deposit/withdraw but no back */}
-      <div className="flex items-center justify-center py-2">
+      <div className="flex items-center justify-center py-3 shrink-0">
         <h1 className="text-sm font-display font-black uppercase tracking-wider text-[var(--theme-text)]">Transaction History</h1>
       </div>
 
-      {/* Search + Filter — no card */}
-      <div className="space-y-3">
+      {/* Search + Filter — sticky below header */}
+      <div className="sticky top-0 z-10 bg-[var(--theme-bg)]/80 backdrop-blur-[12px] space-y-3 px-0 py-2 shrink-0">
         <div className="relative">
           <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--theme-text)] opacity-40" />
           <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search type, status or amount..." className="w-full pl-9 pr-3 py-2.5 rounded-full bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] text-xs font-sans font-bold text-[var(--theme-text)] placeholder:text-[var(--theme-text)]/40 outline-none focus:border-[var(--theme-primary)]" />
@@ -105,12 +105,12 @@ export default function TransactionHistoryView({ phone, siteConfig, onBack }: Pr
       </div>
 
       {/* Count badge above list — like deposit min/max */}
-      <div className="flex justify-center">
+      <div className="flex justify-center py-2 shrink-0">
         <span className="text-[11px] font-bold opacity-50">{filtered.length} {filtered.length===1 ? "transaction" : "transactions"}</span>
       </div>
 
-      {/* List */}
-      <div className="space-y-2.5">
+      {/* List — scrolls below tabs */}
+      <div className="flex-1 overflow-y-auto overscroll-contain space-y-2.5 pb-8 scrollbar-none min-h-0">
         {txLoading ? (
           <div className="bg-transparent border border-white/10 rounded-[20px] p-10 flex flex-col items-center gap-2 backdrop-blur-[0px]">
             <Loader2 className="w-6 h-6 animate-spin text-[var(--theme-primary)]" />
@@ -134,20 +134,20 @@ export default function TransactionHistoryView({ phone, siteConfig, onBack }: Pr
             const payout = Number(metadata.payoutAmount ?? tx.amount ?? 0);
             const amount = (t==="withdrawal"||t==="withdraw") ? payout : (tx.amount||0);
             return (
-              <div key={tx.id} className={`rounded-[20px] border p-3.5 flex items-center gap-3 bg-transparent backdrop-blur-[0px] ${meta.card}`}>
+              <div key={tx.id} className={`rounded-[20px] border border-white/10 p-3.5 flex items-center gap-3 bg-transparent ${meta.card}`}>
                 <div className="w-11 h-11 rounded-xl bg-transparent border-0 flex items-center justify-center shrink-0">
                   <img src={meta.icon3d} alt="" className="w-11 h-11 object-contain" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-[11px] font-display font-black uppercase tracking-wide text-[var(--theme-text)]">{meta.label}</span>
-                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full border ${status==="SUCCESSFUL"||status==="COMPLETED" ? "bg-emerald-500/15 text-emerald-600 border-emerald-500/20" : status==="PENDING"?"bg-amber-500/15 text-amber-600 border-amber-500/20 animate-pulse":"bg-rose-500/15 text-rose-600 border-rose-500/20"}`}>{status}</span>
+                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full border ${status==="SUCCESSFUL"||status==="COMPLETED" ? "bg-emerald-700/15 text-emerald-700 border-emerald-700/20" : status==="PENDING"?"bg-amber-500/15 text-amber-600 border-amber-500/20 animate-pulse":"bg-rose-500/15 text-rose-600 border-rose-500/20"}`}>{status}</span>
                   </div>
                   <p className="text-[11px] font-sans font-bold text-[var(--theme-text)] opacity-60 truncate mt-0.5">{new Date(tx.createdAt||tx.timestamp||Date.now()).toLocaleDateString()} • {new Date(tx.createdAt||tx.timestamp||Date.now()).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})} {tx.operator ? `• ${tx.operator}` : ""}</p>
                   {(t==="withdrawal"||t==="withdraw") && fee>0 && <p className="text-[10px] font-bold text-[var(--theme-text)] opacity-50">Fee {formatCurrency(fee)}</p>}
                 </div>
                 <div className="text-right shrink-0">
-                  <p className={`text-sm font-display font-black tracking-tight ${isPositive?"text-emerald-600":"text-[var(--theme-text)]"}`}>{isPositive?"+":"-"} {formatCurrency(amount)}</p>
+                  <p className={`text-sm font-display font-black tracking-tight ${isPositive?"text-emerald-700":"text-[var(--theme-text)]"}`}>{isPositive?"+":"-"} {formatCurrency(amount)}</p>
                   {siteConfig?.usdtRate && (tx.operator==="USDT"||String(tx.senderPhone||"").startsWith("T")) && <p className="text-[11px] font-black text-[var(--theme-primary)]">≈ ${(amount/ siteConfig.usdtRate).toFixed(2)}</p>}
                 </div>
               </div>
