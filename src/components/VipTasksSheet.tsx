@@ -155,11 +155,11 @@ export default function VipTasksSheet({ isOpen, onClose, userProfile, onClaimSuc
               <p className="text-[11px] opacity-60 mt-0.5">Admin-configured referral bonus rewards</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] opacity-70 hover:opacity-100 cursor-pointer"><X className="w-4 h-4" /></button>
+          <button onClick={onClose} className="p-1.5 rounded-full bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] opacity-70 hover:opacity-100 cursor-pointer"><X className="w-4 h-4" /></button>
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 scrollbar-none pb-20">
-          <div className="p-4 rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border border-[var(--theme-card-border)] space-y-3">
+          <div className="p-4 rounded-[var(--theme-radius)] bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] space-y-3">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2"><Trophy className="w-4 h-4 text-amber-500" /><span className="text-xs font-black">VIP task progress · Levels 1–4</span></div>
               {loading && <RefreshCw className="w-4 h-4 animate-spin text-[var(--theme-primary)]" />}

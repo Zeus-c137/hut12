@@ -3,6 +3,7 @@ import path from "path";
 import { ensureDatabaseSchema, getDb, schema } from "../db/index";
 import { and, eq, desc, asc, isNull, inArray, sql } from "drizzle-orm";
 import { UserProfile, SubscriptionItem, SubscribedNode, ChatMessage, ReferralStat, NotificationItem, SiteConfig } from "../types";
+import { sanitizeSiteConfig } from "../utils/themeTokens";
 
 
 export class DatabaseOperationError extends Error {
@@ -2205,7 +2206,10 @@ export async function updateSiteConfig(newConfig: Partial<SiteConfig>): Promise<
   const drizzleDb = requireDatabase("save site configuration");
   try {
     const current = await getSiteConfig().catch(() => ({}));
-    const updated = { ...current, ...newConfig } as SiteConfig & Record<string, any>;
+    // hut12 tokens — sanitize merged config to heal stale presets
+    const mergedRaw = { ...current, ...newConfig } as SiteConfig & Record<string, any>;
+    const sanitizedTokens = sanitizeSiteConfig(mergedRaw);
+    const updated = { ...mergedRaw, ...sanitizedTokens } as SiteConfig & Record<string, any>;
 
     if ("adminPass" in newConfig) {
       const incoming = (newConfig as any).adminPass;

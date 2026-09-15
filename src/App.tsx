@@ -50,6 +50,15 @@ import {
   ShoppingCartIcon,
   DollarSignIcon
 } from "lucide-react";
+import navHome3d from "@/src/assets/3d/3dicons-star-iso-premium.png";
+import navProducts3d from "@/src/assets/3d/3dicons-fire-iso-premium.png";
+import navIncome3d from "@/src/assets/3d/3dicons-dollar-iso-premium.png";
+import navHistory3d from "@/src/assets/3d/3dicons-calender-iso-premium.png";
+import navChat3d from "@/src/assets/3d/3dicons-chat-bubble-iso-premium.png";
+import navProfile3d from "@/src/assets/3d/3dicons-setting-iso-premium.png";
+import headerAi3d from "@/src/assets/3d/3dicons-puzzle-iso-premium.png";
+import headerBell3d from "@/src/assets/3d/3dicons-bell-iso-premium.png";
+import headerBoy3d from "@/src/assets/3d/3dicons-boy-iso-premium.png";
 import { motion, AnimatePresence } from "motion/react";
 
 import { ThemeProvider } from "./context/ThemeContext";
@@ -656,11 +665,9 @@ export default function App() {
       >
         
         {/* Top Premium navigation Header ribbon */}
-        <header className="sticky top-0 z-40 bg-[var(--theme-card-bg)]/85 backdrop-blur-md border-b border-[var(--theme-card-border)] h-16 flex items-center justify-between px-3.5 sm:px-4.5 shrink-0 shadow-sm">
+        <header className="sticky top-0 z-40 bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] border-b border-white/10 supports-[backdrop-filter]:bg-[var(--theme-card-bg)]/40 h-16 flex items-center justify-between px-3.5 sm:px-4.5 shrink-0 will-change-[backdrop-filter]">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 flex items-center justify-center shrink-0">
-              <BrandLogo siteConfig={siteConfig} className="w-8 h-8 mx-auto block" />
-            </div>
+            <img src={headerBoy3d} alt="Hut12" className="w-10 h-10 object-contain drop-shadow-sm shrink-0" />
             <div>
               <span className="font-display font-black text-sm tracking-tight text-[var(--theme-text)] block leading-none mb-1">
                 Hi, {userProfile.username || "Miner"}
@@ -684,10 +691,10 @@ export default function App() {
                 if (activeTab !== "ai") setPreviousTab(activeTab as any);
                 setActiveTab("ai");
               }}
-              className={`relative p-2 rounded-xl text-xs font-sans font-bold flex items-center justify-center border-2 transition-all cursor-pointer outline-none h-9 w-9 shrink-0 shadow-sm active:scale-95 ${activeTab==="ai" ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white shadow-[0_4px_0_0_var(--theme-primary-shadow)]" : "bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-primary)] hover:brightness-105"}`}
+              className={`relative p-1 flex items-center justify-center border-0 transition-[transform,opacity] duration-100 cursor-pointer outline-none h-9 w-9 shrink-0 bg-transparent active:scale-[0.97] will-change-transform ${activeTab==="ai" ? "opacity-100" : "opacity-80 hover:opacity-100"}`}
               title="AI Assistant"
             >
-              <Bot className={`w-4.5 h-4.5 ${activeTab==="ai" ? "text-white" : "text-[var(--theme-primary)]"}`} />
+              <img src={headerAi3d} alt="" className="w-7 h-7 object-contain shrink-0 drop-shadow-sm" />
               <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span>
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 border-2 border-[var(--theme-card-bg)]"></span>
@@ -701,10 +708,10 @@ export default function App() {
                 setPreviousTab(activeTab as any);
                 setActiveTab("alerts");
               }}
-              className="relative p-2 rounded-xl text-xs font-sans font-bold flex items-center justify-center border-2 transition-all cursor-pointer outline-none h-9 w-9 shrink-0 bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] hover:brightness-105 active:scale-95 shadow-sm"
+              className="relative p-1 flex items-center justify-center border-0 transition-[transform,opacity] duration-100 cursor-pointer outline-none h-9 w-9 shrink-0 bg-transparent active:scale-[0.97] will-change-transform opacity-80 hover:opacity-100"
               title="View Alerts & Notifications"
             >
-              <Bell className="w-4 h-4 text-[var(--theme-primary)]" />
+              <img src={headerBell3d} alt="" className="w-7 h-7 object-contain shrink-0 drop-shadow-sm" />
               {userNotifications.filter(n => new Date(n.timestamp).getTime() > Number(localStorage.getItem("lastViewedAlertsTime") || 0)).length > 0 && (
                 <>
                   <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-rose-500 text-white text-[9px] font-black rounded-full flex items-center justify-center border-2 border-[var(--theme-card-bg)] shadow-xs animate-bounce">
@@ -720,7 +727,8 @@ export default function App() {
         </header>
 
         {/* Main interactive tabs content view block */}
-        <main className={`flex-1 scrollbar-none relative min-h-0 flex flex-col ${activeTab === "chat" ? "p-0 overflow-hidden h-full" : "px-1.5 sm:px-2 py-3 overflow-y-auto"}`}>
+        <main className={`flex-1 relative min-h-0 flex flex-col isolate ${activeTab === "chat" ? "p-0 overflow-hidden h-full" : "px-1.5 sm:px-2 py-3 overflow-y-auto overscroll-y-contain"}`}
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
           <AnimatePresence mode="wait">
             {(activeTab === "dashboard" || (activeTab === "alerts" && previousTab === "dashboard")) && (
               <motion.div
@@ -1042,49 +1050,49 @@ export default function App() {
 
         {/* Bottom Tab Bar — First stab: angular, chunky, Duolingo-playful, not a pill */}
         <div className="w-full px-0 pb-0 pt-0 bg-transparent shrink-0 z-40 select-none">
-          <nav className="w-full max-w-xl mx-auto bg-[var(--theme-card-bg)] border-t-[3px] border-[var(--theme-card-border)] rounded-t-[28px] shadow-[0_-10px_40px_rgba(0,0,0,0.08)] px-1.5 sm:px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] flex items-center justify-between gap-1">
+          <nav className="w-full max-w-xl mx-auto bg-[var(--theme-card-bg)]/70 backdrop-blur-xl border-0 rounded-t-[28px] shadow-[0_-10px_40px_rgba(0,0,0,0.08)] px-1.5 sm:px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] flex items-center justify-between gap-1">
             {/* Home */}
             <button
               onClick={() => setActiveTab("dashboard")}
-              className={`flex-1 flex flex-col items-center gap-1 py-2.5 px-1 rounded-2xl border-2 transition-all active:scale-95 ${activeTab === "dashboard" ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white shadow-[0_4px_0_0_var(--theme-primary-shadow)] -translate-y-1" : "bg-[var(--theme-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
+              className={`flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-2xl border-0 transition-colors active:scale-[0.97] ${activeTab === "dashboard" ? "bg-[var(--theme-primary)] text-white shadow-[0_3px_0_0_var(--theme-primary-shadow)] -translate-y-0.5" : "bg-transparent text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
             >
-              <Home className="w-5 h-5 shrink-0" />
+              <span className="w-9 h-9 rounded-xl bg-[var(--theme-card-bg)]/35 backdrop-blur-xl flex items-center justify-center shrink-0"><img src={navHome3d} alt="" className="w-8 h-8 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" /></span>
               <span className="text-[9px] sm:text-[10px] font-display font-black uppercase tracking-wide leading-none">Home</span>
             </button>
 
             {/* Products */}
             <button
               onClick={() => setActiveTab("catalog")}
-              className={`flex-1 flex flex-col items-center gap-1 py-2.5 px-1 rounded-2xl border-2 transition-all active:scale-95 ${activeTab === "catalog" ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white shadow-[0_4px_0_0_var(--theme-primary-shadow)] -translate-y-1" : "bg-[var(--theme-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
+              className={`flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-2xl border-0 transition-colors active:scale-[0.97] ${activeTab === "catalog" ? "bg-[var(--theme-primary)] text-white shadow-[0_3px_0_0_var(--theme-primary-shadow)] -translate-y-0.5" : "bg-transparent text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
             >
-              <ShoppingCartIcon className="w-5 h-5 shrink-0" />
+              <span className="w-9 h-9 rounded-xl bg-[var(--theme-card-bg)]/35 backdrop-blur-xl flex items-center justify-center shrink-0"><img src={navProducts3d} alt="" className="w-8 h-8 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" /></span>
               <span className="text-[9px] sm:text-[10px] font-display font-black uppercase tracking-wide leading-none">Products</span>
             </button>
 
             {/* Income */}
             <button
               onClick={() => setActiveTab("income")}
-              className={`flex-1 flex flex-col items-center gap-1 py-2.5 px-1 rounded-2xl border-2 transition-all active:scale-95 ${activeTab === "income" ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white shadow-[0_4px_0_0_var(--theme-primary-shadow)] -translate-y-1" : "bg-[var(--theme-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
+              className={`flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-2xl border-0 transition-colors active:scale-[0.97] ${activeTab === "income" ? "bg-[var(--theme-primary)] text-white shadow-[0_3px_0_0_var(--theme-primary-shadow)] -translate-y-0.5" : "bg-transparent text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
             >
-              <Wallet className="w-5 h-5 shrink-0" />
+              <span className="w-9 h-9 rounded-xl bg-[var(--theme-card-bg)]/35 backdrop-blur-xl flex items-center justify-center shrink-0"><img src={navIncome3d} alt="" className="w-8 h-8 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" /></span>
               <span className="text-[9px] sm:text-[10px] font-display font-black uppercase tracking-wide leading-none">Income</span>
             </button>
 
             {/* History — NEW */}
             <button
               onClick={() => setActiveTab("history")}
-              className={`flex-1 flex flex-col items-center gap-1 py-2.5 px-1 rounded-2xl border-2 transition-all active:scale-95 ${activeTab === "history" ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white shadow-[0_4px_0_0_var(--theme-primary-shadow)] -translate-y-1" : "bg-[var(--theme-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
+              className={`flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-2xl border-0 transition-colors active:scale-[0.97] ${activeTab === "history" ? "bg-[var(--theme-primary)] text-white shadow-[0_3px_0_0_var(--theme-primary-shadow)] -translate-y-0.5" : "bg-transparent text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
             >
-              <History className="w-5 h-5 shrink-0" />
+              <span className="w-9 h-9 rounded-xl bg-[var(--theme-card-bg)]/35 backdrop-blur-xl flex items-center justify-center shrink-0"><img src={navHistory3d} alt="" className="w-8 h-8 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" /></span>
               <span className="text-[9px] sm:text-[10px] font-display font-black uppercase tracking-wide leading-none">History</span>
             </button>
 
             {/* Chat */}
             <button
               onClick={() => setActiveTab("chat")}
-              className={`relative flex-1 flex flex-col items-center gap-1 py-2.5 px-1 rounded-2xl border-2 transition-all active:scale-95 ${activeTab === "chat" ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white shadow-[0_4px_0_0_var(--theme-primary-shadow)] -translate-y-1" : "bg-[var(--theme-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
+              className={`relative flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-2xl border-0 transition-colors active:scale-[0.97] ${activeTab === "chat" ? "bg-[var(--theme-primary)] text-white shadow-[0_3px_0_0_var(--theme-primary-shadow)] -translate-y-0.5" : "bg-transparent text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
             >
-              <MessageCircleMore className="w-5 h-5 shrink-0" />
+              <span className="w-9 h-9 rounded-xl bg-[var(--theme-card-bg)]/35 backdrop-blur-xl flex items-center justify-center shrink-0"><img src={navChat3d} alt="" className="w-8 h-8 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" /></span>
               {chatUnread > 0 && (
                 <span className="absolute top-1 right-1 min-w-5 h-5 px-1 rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center border-2 border-[var(--theme-bg)]">
                   {chatUnread > 99 ? "99+" : chatUnread}
@@ -1096,9 +1104,9 @@ export default function App() {
             {/* Profile */}
             <button
               onClick={() => setActiveTab("profile")}
-              className={`flex-1 flex flex-col items-center gap-1 py-2.5 px-1 rounded-2xl border-2 transition-all active:scale-95 ${activeTab === "profile" ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white shadow-[0_4px_0_0_var(--theme-primary-shadow)] -translate-y-1" : "bg-[var(--theme-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
+              className={`flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-2xl border-0 transition-colors active:scale-[0.97] ${activeTab === "profile" ? "bg-[var(--theme-primary)] text-white shadow-[0_3px_0_0_var(--theme-primary-shadow)] -translate-y-0.5" : "bg-transparent text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
             >
-              <User className="w-5 h-5 shrink-0" />
+              <span className="w-9 h-9 rounded-xl bg-[var(--theme-card-bg)]/35 backdrop-blur-xl flex items-center justify-center shrink-0"><img src={navProfile3d} alt="" className="w-8 h-8 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" /></span>
               <span className="text-[9px] sm:text-[10px] font-display font-black uppercase tracking-wide leading-none">Profile</span>
             </button>
           </nav>

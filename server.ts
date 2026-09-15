@@ -71,6 +71,7 @@ import {
   publicProfile,
   verifyPassword
 } from "./src/server/db";
+import { migratePreset as migratePresetServer, migrateCardStyle as migrateCardStyleServer, migrateFontFamily as migrateFontFamilyServer, sanitizeSiteConfig as sanitizeSiteConfigServer } from "./src/utils/themeTokens";
 
 // Ensure .env is loaded robustly in production iisnode and custom hosting environments (like SmarterASP)
 const envFiles = [".env", "env.txt", "env", ".env.local"];
@@ -1753,19 +1754,19 @@ app.get("/api/config/site", async (req, res) => {
       inviteBonus: config.inviteBonus !== undefined ? config.inviteBonus : 3000,
       checkinBaseBonus: config.checkinBaseBonus !== undefined ? config.checkinBaseBonus : 100,
       checkinIncrement: config.checkinIncrement !== undefined ? config.checkinIncrement : 50,
-      themePreset: config.themePreset || "duolingo-playful",
+      themePreset: migratePresetServer(config.themePreset as string) || "hut12-light",
       themeMode: config.themeMode || "light",
       authBgImage: config.authBgImage || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1600&q=80",
       dashboardBgImage: config.dashboardBgImage || "",
-      cardStyle: config.cardStyle || "playful-3d",
-      buttonStyle: config.buttonStyle || "playful-3d",
-      borderRadius: config.borderRadius || "rounded-2xl",
-      primaryColor: config.primaryColor || "#58cc02",
-      accentColor: config.accentColor || "#ff4b4b",
-      secondaryColor: config.secondaryColor || "#1cb0f6",
+      cardStyle: migrateCardStyleServer(config.cardStyle as string) || "solid",
+      buttonStyle: "pill-gradient",
+      borderRadius: "rounded-2xl",
+      primaryColor: config.primaryColor || "#c27a2e",
+      accentColor: config.accentColor || "#f59e0b",
+      secondaryColor: config.secondaryColor || "#0ea5e9",
       bgColor: config.bgColor || "",
       cardBgColor: config.cardBgColor || "",
-      fontFamily: config.fontFamily || "Fredoka",
+      fontFamily: migrateFontFamilyServer(config.fontFamily) || "Sora",
       fontSizeScale: config.fontSizeScale || "md",
       textColor: config.textColor || "",
       updatedAt: (config as any).updatedAt || 0
@@ -1897,7 +1898,8 @@ app.get("/api/admin/config", async (req, res) => {
 
 app.put("/api/admin/config", async (req, res) => {
   try {
-    const updated = await updateSiteConfig(req.body);
+    const sanitized = sanitizeSiteConfigServer(req.body);
+    const updated = await updateSiteConfig(sanitized);
     res.json({ success: true, config: updated });
   } catch (err: any) {
     const response = errorResponse(err, "Unable to save site configuration.", 500);
@@ -1977,6 +1979,18 @@ async function startServer() {
   try {
     // Verify the connection and create any missing application tables.
     await seedDatabaseIfEmpty();
+    // hut12 tokens migration — heal stale site_config once at boot
+    try {
+      const rawConfig = await getSiteConfig();
+      const rawPreset = String((rawConfig as any).themePreset || "");
+      if (rawPreset && rawPreset !== "hut12-light" && rawPreset !== "hut12-dark") {
+        const sanitized = sanitizeSiteConfigServer(rawConfig as any);
+        await updateSiteConfig(sanitized);
+        console.log(`[Startup] Migrated site_config themePreset ${rawPreset} -> ${(sanitized as any).themePreset}`);
+      }
+    } catch (e) {
+      console.warn("[Startup] tokens migration check failed:", e);
+    }
     databaseReady = true;
     console.log(`[Startup] Database ready in ${Date.now() - startupStartedAt}ms.`);
   } catch (seedErr) {

@@ -184,7 +184,7 @@ export default function ReferralView({ userProfile, siteConfig, onBack }: Referr
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {levelMetrics.map((metric) => (
-            <div key={metric.level} className="p-3.5 rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border border-[var(--theme-card-border)] space-y-2">
+            <div key={metric.level} className="p-3.5 rounded-[var(--theme-radius)] bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-black text-[var(--theme-text)]">Level {metric.level} {metric.level === 1 ? "Direct" : "Network"}</span>
                 <span className="text-xs font-mono font-black text-[var(--theme-primary)] bg-[var(--theme-primary)]/10 px-2 py-0.5 rounded-full border border-[var(--theme-primary)]/20">{metric.pct}% Bonus</span>
@@ -217,7 +217,7 @@ export default function ReferralView({ userProfile, siteConfig, onBack }: Referr
             {stats.map((s, idx) => (
               <div
                 key={idx}
-                className="p-3 rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border border-[var(--theme-card-border)] flex items-center justify-between gap-3 text-xs"
+                className="p-3 rounded-[var(--theme-radius)] bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] flex items-center justify-between gap-3 text-xs"
               >
                 <div className="flex items-center gap-3">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-white shrink-0 ${

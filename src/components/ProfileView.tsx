@@ -712,7 +712,7 @@ export default function ProfileView({
                           value={giftCodeValue}
                           onChange={e => setGiftCodeValue(e.target.value.toUpperCase())}
                           placeholder="ENTER CODE"
-                          className="w-full px-4 py-3 bg-[var(--theme-bg)] border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-sm font-display font-black text-center tracking-[0.2em] text-[var(--theme-text)] outline-none focus:border-[var(--theme-primary)] uppercase transition-all shadow-inner placeholder-[var(--theme-text)]/40"
+                          className="w-full px-4 py-3 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-sm font-display font-black text-center tracking-[0.2em] text-[var(--theme-text)] outline-none focus:border-[var(--theme-primary)] uppercase transition-all shadow-inner placeholder-[var(--theme-text)]/40"
                         />
                       </div>
                       <button

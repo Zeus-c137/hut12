@@ -32,6 +32,10 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
+import money3d from "@/src/assets/3d/3dicons-money-iso-premium.png";
+import medal3d from "@/src/assets/3d/3dicons-medal-iso-premium.png";
+import gift3d from "@/src/assets/3d/3dicons-gift-iso-premium.png";
+import shield3d from "@/src/assets/3d/3dicons-shield-iso-premium.png";
 import ParticleBg from "./ParticleBg";
 import NewsCarousel from "./NewsCarousel";
 import MetricCard from "./MetricCard";
@@ -177,14 +181,15 @@ export default function DashboardView({
     return kampalaTime.toISOString().split("T")[0];
   };
 
-  const todayStr = getKampalaDateStr();
-  const todayEarnings = activeNodes
-    .filter((n) => n.status === "active" && n.lastClaimedDate === todayStr)
-    .reduce((sum, n) => sum + n.dailyYield, 0);
-
-  // Total incoming from all nodes all time
-  const totalEarnedAllTime = activeNodes
-    .reduce((sum, n) => sum + (n.totalEarned || 0), 0);
+  const { todayEarnings, totalEarnedAllTime } = (() => {
+    const todayStr = getKampalaDateStr();
+    let today = 0, total = 0;
+    for (const n of activeNodes) {
+      total += n.totalEarned || 0;
+      if (n.status === "active" && n.lastClaimedDate === todayStr) today += n.dailyYield;
+    }
+    return { todayEarnings: today, totalEarnedAllTime: total };
+  })();
 
   const dynamicNews = notifications.filter(n => n.category === "news").map(n => ({
     id: n.id,
@@ -210,89 +215,91 @@ export default function DashboardView({
   }, [HUT8_NEWS_FEED.length]);
 
   return (
-    <div className="space-y-6 select-none bg-transparent text-[var(--theme-text)] p-1 rounded-2xl relative">
+    <div className="space-y-6 bg-transparent isolate text-[var(--theme-text)] p-1 rounded-2xl relative">
       
-      {/* Dynamic Grid for Miner Stats - hero/muted hierarchy */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+      {/* Dynamic Grid for Miner Stats - hut12 bento: 2 hero + 4 compact matching banner bg */}
+      <div className="grid grid-cols-2 gap-3">
         {isRefreshing ? (
           <>
-            {[...Array(6)].map((_, i) => (
+            {[...Array(4)].map((_, i) => (
               <MetricCard key={i} title="Loading..." value="" isLoading={true} variant="muted" />
             ))}
           </>
         ) : (
           <>
-            {/* Hero: yield */}
-            <MetricCard
-              title="AI Income"
-              value={formatCurrency(totalEarnedAllTime)}
-              titleColor="accent"
-              icon={<Cpu />}
-              variant="hero"
-            />
+            {/* Unified earnings: AI Income + Today in one hero translucent bento */}
+            <div style={{ transform: "translateZ(0)" }} className="col-span-2 relative overflow-hidden theme-card rounded-[var(--theme-radius)] p-3.5 h-[112px] flex flex-col justify-between bg-[var(--theme-card-bg)]/60 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 shadow-sm isolate">
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-[10.5px] font-display uppercase tracking-[0.12em] leading-none block pt-1 font-black text-[var(--theme-primary)]">Product Income</span>
+                <div className="w-11 h-11 flex items-center justify-center shrink-0 overflow-hidden bg-transparent border-0">
+                  <img src={money3d} alt="" className="w-11 h-11 object-contain" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-0 -mt-1">
+                <div className="pr-3">
+                  <p className="text-[9px] font-display font-black uppercase tracking-widest opacity-50 leading-none mb-1">Total Overall</p>
+                  <p className="font-display font-black text-[15px] sm:text-[16px] text-[var(--theme-text)] leading-none tracking-tight truncate">{formatCurrency(totalEarnedAllTime)}</p>
+                </div>
+                <div className="pl-3 border-l border-white/10">
+                  <p className="text-[9px] font-display font-black uppercase tracking-widest opacity-50 leading-none mb-1">Earnings Today</p>
+                  <p className="font-display font-black text-[15px] sm:text-[16px] text-[var(--theme-text)] leading-none tracking-tight truncate">{formatCurrency(todayEarnings)}</p>
+                </div>
+              </div>
+            </div>
 
-            <MetricCard
-              title="Today's Earnings"
-              value={formatCurrency(todayEarnings)}
-              titleColor="gold"
-              icon={<Zap />}
-              variant="hero"
-            />
-
-            {/* Muted: secondary stats */}
-            <MetricCard
-              title="Total Deposits"
-              value={formatCurrency(profile.totalDeposits || 0)}
-              titleColor="primary"
-              icon={<ArrowDownLeft />}
-              variant="muted"
-            />
-
-            <MetricCard
-              title="Total Cash Out"
-              value={formatCurrency(profile.withdrawnCash || 0)}
-              titleColor="secondary"
-              icon={<ArrowUpRight />}
-              variant="muted"
-            />
+            {/* Unified funds: deposits + cashout in one shield card */}
+            <div style={{ transform: "translateZ(0)" }} className="col-span-2 relative overflow-hidden theme-card rounded-[var(--theme-radius)] p-3.5 h-[96px] flex flex-col justify-between bg-[var(--theme-card-bg)]/60 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 shadow-sm isolate">
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-[10.5px] font-display uppercase tracking-[0.12em] leading-none block pt-1 font-black text-[var(--theme-primary)]">Transactions</span>
+                <div className="w-11 h-11 flex items-center justify-center shrink-0 overflow-hidden bg-transparent border-0">
+                  <img src={shield3d} alt="" className="w-11 h-11 object-contain" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-0 -mt-1">
+                <div className="pr-3">
+                  <p className="text-[9px] font-display font-black uppercase tracking-widest opacity-50 leading-none mb-1">Total Deposits</p>
+                  <p className="font-display font-black text-[15px] sm:text-[16px] text-[var(--theme-text)] leading-none tracking-tight truncate">{formatCurrency(profile.totalDeposits || 0)}</p>
+                </div>
+                <div className="pl-3 border-l border-[var(--theme-card-border)]">
+                  <p className="text-[9px] font-display font-black uppercase tracking-widest opacity-50 leading-none mb-1">Total Cash Out</p>
+                  <p className="font-display font-black text-[15px] sm:text-[16px] text-[var(--theme-text)] leading-none tracking-tight truncate">{formatCurrency(profile.withdrawnCash || 0)}</p>
+                </div>
+              </div>
+            </div>
 
             <MetricCard
               title="Invite Count"
               value={(teamCount || profile.invitesCount || 0).toLocaleString()}
-              icon={<Users />}
+              icon={<img src={medal3d} alt="" />}
               variant="muted"
             />
 
             <MetricCard
               title="Invite Income"
               value={formatCurrency(profile.referralRewardsEarned || 0)}
-              icon={<Gift />}
+              icon={<img src={gift3d} alt="" />}
               variant="muted"
             />
           </>
         )}
       </div>
 
-      {/* Community — single row, triggers liquid-glass sheet */}
+      {/* Community — single row, triggers sheet — hut12 theme-aware */}
       <button
         type="button"
         onClick={() => setShowCommunitySheet(true)}
-        className="w-full flex items-center gap-3 rounded-[var(--theme-radius)] bg-white/60 backdrop-blur-xl border border-white/30 p-3 active:scale-[0.99] transition-all group text-left cursor-pointer shadow-sm"
-        style={{
-          backdropFilter: "blur(16px) saturate(160%)",
-          WebkitBackdropFilter: "blur(16px) saturate(160%)",
-        }}
+        className="w-full flex items-center gap-3 rounded-[var(--theme-radius)] bg-[var(--theme-card-bg)]/60 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 p-3 active:scale-[0.99] transition-colors group text-left cursor-pointer shadow-sm"
       >
         <img src="/telegram.svg" alt="Telegram" className="w-9 h-9 rounded-xl shrink-0 shadow-sm object-contain" />
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-display font-black text-slate-700 leading-none">Community • Official</p>
-          <p className="text-[10.5px] font-sans font-bold text-slate-500 leading-none mt-1 truncate">Tap to open • {siteConfig?.telegramLink && siteConfig?.whatsappLink ? "Telegram & WhatsApp" : siteConfig?.telegramLink ? "Telegram" : siteConfig?.whatsappLink ? "WhatsApp" : "2.4k online"}</p>
+          <p className="text-xs font-display font-black text-[var(--theme-text)] leading-none">Community • Official</p>
+          <p className="text-[10.5px] font-sans font-bold text-[var(--theme-text)] opacity-60 leading-none mt-1 truncate">Tap to open • {siteConfig?.telegramLink && siteConfig?.whatsappLink ? "Telegram & WhatsApp" : siteConfig?.telegramLink ? "Telegram" : siteConfig?.whatsappLink ? "WhatsApp" : "2.4k online"}</p>
         </div>
-        <ChevronRight className="w-4 h-4 text-slate-500 opacity-40 group-hover:opacity-60 transition-opacity shrink-0" />
+        <ChevronRight className="w-4 h-4 text-[var(--theme-text)] opacity-40 group-hover:opacity-60 transition-opacity shrink-0" />
       </button>
 
       {/* Quick Actions — docked bar */}
-      <div className="theme-card border-2 border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] rounded-[var(--theme-radius)] p-1.5 grid grid-cols-2 gap-1.5 shadow-sm">
+      <div className="theme-card border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)]/60 backdrop-blur-[20px] backdrop-saturate-[180%] rounded-[var(--theme-radius)] p-1.5 grid grid-cols-2 gap-1.5 shadow-sm">
         <button
           onClick={onNavigateToDeposit}
           className="btn-3d-primary text-white font-display font-black text-xs uppercase tracking-wider py-3 rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer shadow-[0_3px_0_0_var(--theme-primary-shadow)]"
@@ -430,46 +437,40 @@ export default function DashboardView({
               animate={{ y: 0, opacity: 1, scale: 1 }}
               exit={{ y: 40, opacity: 0, scale: 0.97 }}
               transition={{ type: "spring", damping: 26, stiffness: 340 }}
-              className="relative w-full max-w-sm rounded-[28px] overflow-hidden border border-white/20 shadow-[0_20px_60px_rgba(0,0,0,0.3)]"
-              style={{
-                background: "linear-gradient(135deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.65) 100%)",
-                backdropFilter: "blur(24px) saturate(180%)",
-                WebkitBackdropFilter: "blur(24px) saturate(180%)",
-              }}
+              className="relative w-full max-w-sm rounded-[28px] overflow-hidden border border-[var(--theme-card-border)] shadow-[0_20px_60px_rgba(0,0,0,0.3)] bg-[var(--theme-card-bg)]"
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-[var(--theme-primary)]/10 pointer-events-none" />
               <div className="relative p-5 pb-6">
-                <div className="w-10 h-1 rounded-full bg-black/15 mx-auto mb-4" />
+                <div className="w-10 h-1 rounded-full bg-[var(--theme-card-border)] mx-auto mb-4" />
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-700">Join our community</h3>
-                  <button onClick={() => setShowCommunitySheet(false)} className="w-8 h-8 rounded-full bg-black/10 hover:bg-black/15 flex items-center justify-center text-slate-600 transition-colors">
+                  <h3 className="text-[11px] font-black uppercase tracking-[0.14em] text-[var(--theme-text)] opacity-70">Join our community</h3>
+                  <button onClick={() => setShowCommunitySheet(false)} className="w-8 h-8 rounded-full bg-[var(--theme-bg)] hover:opacity-80 flex items-center justify-center text-[var(--theme-text)] opacity-60 transition-colors border border-[var(--theme-card-border)]">
                     <X className="w-4 h-4" />
                   </button>
                 </div>
 
                 <div className="space-y-2.5">
                   {siteConfig?.whatsappLink && (
-                    <a href={siteConfig.whatsappLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-colors group">
+                    <a href={siteConfig.whatsappLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] hover:opacity-80 transition-colors group">
                       <img src="/whatsapp.svg" alt="WhatsApp" className="w-10 h-10 rounded-xl shrink-0 shadow-sm object-contain bg-white p-1" />
                       <span className="flex-1 min-w-0">
-                        <span className="block text-[13px] font-black text-slate-800 leading-none">WhatsApp Support</span>
-                        <span className="block text-[11px] font-bold text-slate-500 leading-none mt-1 truncate">{siteConfig.whatsappLink}</span>
+                        <span className="block text-[13px] font-black text-[var(--theme-text)] leading-none">WhatsApp Support</span>
+                        <span className="block text-[11px] font-bold text-[var(--theme-text)] opacity-60 leading-none mt-1 truncate">{siteConfig.whatsappLink}</span>
                       </span>
-                      <ExternalLink className="w-4 h-4 text-slate-400 group-hover:text-slate-600 shrink-0" />
+                      <ExternalLink className="w-4 h-4 text-[var(--theme-text)] opacity-40 group-hover:opacity-60 shrink-0" />
                     </a>
                   )}
                   {siteConfig?.telegramLink && (
-                    <a href={siteConfig.telegramLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-colors group">
+                    <a href={siteConfig.telegramLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] hover:opacity-80 transition-colors group">
                       <img src="/telegram.svg" alt="Telegram" className="w-10 h-10 rounded-xl shrink-0 shadow-sm object-contain bg-white p-1" />
                       <span className="flex-1 min-w-0">
-                        <span className="block text-[13px] font-black text-slate-800 leading-none">Telegram Channel</span>
-                        <span className="block text-[11px] font-bold text-slate-500 leading-none mt-1 truncate">{siteConfig.telegramLink}</span>
+                        <span className="block text-[13px] font-black text-[var(--theme-text)] leading-none">Telegram Channel</span>
+                        <span className="block text-[11px] font-bold text-[var(--theme-text)] opacity-60 leading-none mt-1 truncate">{siteConfig.telegramLink}</span>
                       </span>
-                      <ExternalLink className="w-4 h-4 text-slate-400 group-hover:text-slate-600 shrink-0" />
+                      <ExternalLink className="w-4 h-4 text-[var(--theme-text)] opacity-40 group-hover:opacity-60 shrink-0" />
                     </a>
                   )}
                   {!siteConfig?.telegramLink && !siteConfig?.whatsappLink && (
-                    <p className="text-center text-sm font-bold text-slate-500 py-6">No community links configured yet.</p>
+                    <p className="text-center text-sm font-bold text-[var(--theme-text)] opacity-60 py-6">No community links configured yet.</p>
                   )}
                 </div>
               </div>

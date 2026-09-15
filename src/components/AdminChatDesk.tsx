@@ -476,7 +476,7 @@ export default function AdminChatDesk({ usersList }: AdminChatDeskProps) {
             grouped.map((group) => (
               <div key={group.day} className="space-y-1">
                 <div className="text-center">
-                  <span className="inline-block px-3 py-1 bg-[var(--theme-bg)] border border-[var(--theme-card-border)] text-[11px] font-bold text-[var(--theme-text)] opacity-70 rounded-full">
+                  <span className="inline-block px-3 py-1 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] text-[11px] font-bold text-[var(--theme-text)] opacity-70 rounded-full">
                     {group.day}
                   </span>
                 </div>

@@ -166,7 +166,7 @@ export default function WithdrawView({
               {withdrawalMode === "manual" ? "pending approval (5–15 min)" : "awaiting confirmation"}
             </p>
           </div>
-          <div className="rounded-xl bg-[var(--theme-bg)] border border-[var(--theme-card-border)] p-4 max-w-xs mx-auto text-left space-y-2 text-xs font-bold">
+          <div className="rounded-xl bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] p-4 max-w-xs mx-auto text-left space-y-2 text-xs font-bold">
             <div className="flex justify-between">
               <span className="opacity-60">Requested</span>
               <span>{formatCurrency(lastPayout)}</span>
@@ -264,12 +264,12 @@ export default function WithdrawView({
             </span>
             <span className="opacity-30">—</span>
             <span className="inline-flex items-center gap-1.5">
-              <span className="w-5 h-5 rounded-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] flex items-center justify-center text-[10px] font-black">2</span>{" "}
+              <span className="w-5 h-5 rounded-full bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] flex items-center justify-center text-[10px] font-black">2</span>{" "}
               Amount
             </span>
             <span className="opacity-30">—</span>
             <span className="inline-flex items-center gap-1.5 opacity-70">
-              <span className="w-5 h-5 rounded-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] flex items-center justify-center text-[10px] font-black">3</span>{" "}
+              <span className="w-5 h-5 rounded-full bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] flex items-center justify-center text-[10px] font-black">3</span>{" "}
               Confirm
             </span>
           </div>
@@ -291,7 +291,7 @@ export default function WithdrawView({
                 onChange={(e) => {
                   if (withdrawOperator === "USDT") setUsdtAddress(e.target.value);
                 }}
-                className={`w-full ${withdrawOperator === "USDT" ? "px-4" : "pl-9 pr-4"} py-3.5 bg-[var(--theme-bg)] border border-[var(--theme-card-border)] text-[var(--theme-text)] text-sm rounded-full outline-none font-bold focus:border-[var(--theme-primary)] transition-all disabled:opacity-60`}
+                className={`w-full ${withdrawOperator === "USDT" ? "px-4" : "pl-9 pr-4"} py-3.5 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] text-[var(--theme-text)] text-sm rounded-full outline-none font-bold focus:border-[var(--theme-primary)] transition-all disabled:opacity-60`}
                 placeholder={withdrawOperator === "USDT" ? "T..." : "07XXXXXXXX"}
               />
             </div>
@@ -309,7 +309,7 @@ export default function WithdrawView({
                 placeholder={`Min ${minimumWithdrawal.toLocaleString()}${maximumWithdrawal > 0 ? ` - Max ${maximumWithdrawal.toLocaleString()}` : ""}`}
                 value={pointsToWithdraw || ""}
                 onChange={(e) => setPointsToWithdraw(parseInt(e.target.value.replace(/[^0-9]/g, "")) || 0)}
-                className="w-full px-4 py-3.5 bg-[var(--theme-bg)] border border-[var(--theme-card-border)] text-[var(--theme-text)] text-sm rounded-full outline-none font-bold focus:border-[var(--theme-primary)] transition-all pr-20"
+                className="w-full px-4 py-3.5 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] text-[var(--theme-text)] text-sm rounded-full outline-none font-bold focus:border-[var(--theme-primary)] transition-all pr-20"
               />
               <button
                 type="button"
@@ -338,7 +338,7 @@ export default function WithdrawView({
             )}
           </div>
 
-          <div className="space-y-2.5 p-3 rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border border-[var(--theme-card-border)]">
+          <div className="space-y-2.5 p-3 rounded-[var(--theme-radius)] bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)]">
             <div className="flex justify-between items-center text-xs font-bold">
               <span className="opacity-60 uppercase tracking-wider text-[11px]">Withdraw fee</span>
               <span className="px-2.5 py-0.5 bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] rounded-full text-xs font-black">
@@ -368,7 +368,7 @@ export default function WithdrawView({
             </div>
           </div>
 
-          <div className="space-y-3 p-3 rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border border-[var(--theme-card-border)]">
+          <div className="space-y-3 p-3 rounded-[var(--theme-radius)] bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)]">
             <div className="flex gap-2.5 items-start text-[11px] opacity-80 font-bold">
               <Info className="w-3.5 h-3.5 text-[var(--theme-primary)] shrink-0 mt-0.5" />
               <div>
