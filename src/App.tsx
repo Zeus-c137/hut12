@@ -1051,49 +1051,49 @@ export default function App() {
 
         {/* Bottom Tab Bar — First stab: angular, chunky, Duolingo-playful, not a pill */}
         <div className="w-full px-0 pb-0 pt-0 bg-transparent shrink-0 z-40 select-none">
-          <nav className="w-full max-w-xl mx-auto bg-[var(--theme-card-bg)] border-t-[3px] border-[var(--theme-card-border)] rounded-t-[28px] shadow-[0_-10px_40px_rgba(0,0,0,0.08)] px-1.5 sm:px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] flex items-center justify-between gap-1">
+          <nav className="w-full max-w-xl mx-auto bg-[var(--theme-card-bg)]/70 backdrop-blur-xl border-0 rounded-t-[28px] shadow-[0_-10px_40px_rgba(0,0,0,0.08)] px-1.5 sm:px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] flex items-center justify-between gap-1">
             {/* Home */}
             <button
               onClick={() => setActiveTab("dashboard")}
-              className={`flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-2xl border-2 transition-colors active:scale-[0.97] ${activeTab === "dashboard" ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white shadow-[0_3px_0_0_var(--theme-primary-shadow)] -translate-y-0.5" : "bg-[var(--theme-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
+              className={`flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-2xl border-0 transition-colors active:scale-[0.97] ${activeTab === "dashboard" ? "bg-[var(--theme-primary)] text-white shadow-[0_3px_0_0_var(--theme-primary-shadow)] -translate-y-0.5" : "bg-transparent text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
             >
-              <img src={navHome3d} alt="" className="w-8 h-8 object-contain shrink-0 drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" />
+              <span className="w-9 h-9 rounded-xl bg-[var(--theme-card-bg)]/35 backdrop-blur-xl flex items-center justify-center shrink-0"><img src={navHome3d} alt="" className="w-8 h-8 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" /></span>
               <span className="text-[9px] sm:text-[10px] font-display font-black uppercase tracking-wide leading-none">Home</span>
             </button>
 
             {/* Products */}
             <button
               onClick={() => setActiveTab("catalog")}
-              className={`flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-2xl border-2 transition-colors active:scale-[0.97] ${activeTab === "catalog" ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white shadow-[0_3px_0_0_var(--theme-primary-shadow)] -translate-y-0.5" : "bg-[var(--theme-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
+              className={`flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-2xl border-0 transition-colors active:scale-[0.97] ${activeTab === "catalog" ? "bg-[var(--theme-primary)] text-white shadow-[0_3px_0_0_var(--theme-primary-shadow)] -translate-y-0.5" : "bg-transparent text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
             >
-              <img src={navProducts3d} alt="" className="w-8 h-8 object-contain shrink-0 drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" />
+              <span className="w-9 h-9 rounded-xl bg-[var(--theme-card-bg)]/35 backdrop-blur-xl flex items-center justify-center shrink-0"><img src={navProducts3d} alt="" className="w-8 h-8 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" /></span>
               <span className="text-[9px] sm:text-[10px] font-display font-black uppercase tracking-wide leading-none">Products</span>
             </button>
 
             {/* Income */}
             <button
               onClick={() => setActiveTab("income")}
-              className={`flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-2xl border-2 transition-colors active:scale-[0.97] ${activeTab === "income" ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white shadow-[0_3px_0_0_var(--theme-primary-shadow)] -translate-y-0.5" : "bg-[var(--theme-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
+              className={`flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-2xl border-0 transition-colors active:scale-[0.97] ${activeTab === "income" ? "bg-[var(--theme-primary)] text-white shadow-[0_3px_0_0_var(--theme-primary-shadow)] -translate-y-0.5" : "bg-transparent text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
             >
-              <img src={navIncome3d} alt="" className="w-8 h-8 object-contain shrink-0 drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" />
+              <span className="w-9 h-9 rounded-xl bg-[var(--theme-card-bg)]/35 backdrop-blur-xl flex items-center justify-center shrink-0"><img src={navIncome3d} alt="" className="w-8 h-8 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" /></span>
               <span className="text-[9px] sm:text-[10px] font-display font-black uppercase tracking-wide leading-none">Income</span>
             </button>
 
             {/* History — NEW */}
             <button
               onClick={() => setActiveTab("history")}
-              className={`flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-2xl border-2 transition-colors active:scale-[0.97] ${activeTab === "history" ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white shadow-[0_3px_0_0_var(--theme-primary-shadow)] -translate-y-0.5" : "bg-[var(--theme-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
+              className={`flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-2xl border-0 transition-colors active:scale-[0.97] ${activeTab === "history" ? "bg-[var(--theme-primary)] text-white shadow-[0_3px_0_0_var(--theme-primary-shadow)] -translate-y-0.5" : "bg-transparent text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
             >
-              <img src={navHistory3d} alt="" className="w-8 h-8 object-contain shrink-0 drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" />
+              <span className="w-9 h-9 rounded-xl bg-[var(--theme-card-bg)]/35 backdrop-blur-xl flex items-center justify-center shrink-0"><img src={navHistory3d} alt="" className="w-8 h-8 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" /></span>
               <span className="text-[9px] sm:text-[10px] font-display font-black uppercase tracking-wide leading-none">History</span>
             </button>
 
             {/* Chat */}
             <button
               onClick={() => setActiveTab("chat")}
-              className={`relative flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-2xl border-2 transition-colors active:scale-[0.97] ${activeTab === "chat" ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white shadow-[0_3px_0_0_var(--theme-primary-shadow)] -translate-y-0.5" : "bg-[var(--theme-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
+              className={`relative flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-2xl border-0 transition-colors active:scale-[0.97] ${activeTab === "chat" ? "bg-[var(--theme-primary)] text-white shadow-[0_3px_0_0_var(--theme-primary-shadow)] -translate-y-0.5" : "bg-transparent text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
             >
-              <img src={navChat3d} alt="" className="w-8 h-8 object-contain shrink-0 drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" />
+              <span className="w-9 h-9 rounded-xl bg-[var(--theme-card-bg)]/35 backdrop-blur-xl flex items-center justify-center shrink-0"><img src={navChat3d} alt="" className="w-8 h-8 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" /></span>
               {chatUnread > 0 && (
                 <span className="absolute top-1 right-1 min-w-5 h-5 px-1 rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center border-2 border-[var(--theme-bg)]">
                   {chatUnread > 99 ? "99+" : chatUnread}
@@ -1105,9 +1105,9 @@ export default function App() {
             {/* Profile */}
             <button
               onClick={() => setActiveTab("profile")}
-              className={`flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-2xl border-2 transition-colors active:scale-[0.97] ${activeTab === "profile" ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white shadow-[0_3px_0_0_var(--theme-primary-shadow)] -translate-y-0.5" : "bg-[var(--theme-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
+              className={`flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-2xl border-0 transition-colors active:scale-[0.97] ${activeTab === "profile" ? "bg-[var(--theme-primary)] text-white shadow-[0_3px_0_0_var(--theme-primary-shadow)] -translate-y-0.5" : "bg-transparent text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
             >
-              <img src={navProfile3d} alt="" className="w-8 h-8 object-contain shrink-0 drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" />
+              <span className="w-9 h-9 rounded-xl bg-[var(--theme-card-bg)]/35 backdrop-blur-xl flex items-center justify-center shrink-0"><img src={navProfile3d} alt="" className="w-8 h-8 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" /></span>
               <span className="text-[9px] sm:text-[10px] font-display font-black uppercase tracking-wide leading-none">Profile</span>
             </button>
           </nav>
