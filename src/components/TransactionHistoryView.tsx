@@ -65,19 +65,19 @@ export default function TransactionHistoryView({ phone, siteConfig, onBack }: Pr
   // Double-checked against src/db/schema.ts: 'deposit'|'withdrawal'|'yield'|'referral'|'vip_task'|'gpu_activation'|'checkin'|'gift' plus legacy variants balance/manual/subscription/gpu/checkin_bonus/register/daily accumulation/voucher/reward
   const getMeta = (t: string) => {
     const lower = (t||"").toLowerCase();
-    if (["deposit","balance","manual"].includes(lower)) return { label: "Recharge", icon3d: dollar3d, card: "border-white/10 bg-transparent" };
-    if (["withdrawal","withdraw"].includes(lower)) return { label: "Withdrawal", icon3d: wallet3d, card: "border-white/10 bg-transparent" };
-    if (["gpu","subscription","gpu_activation"].includes(lower)) return { label: "Product", icon3d: bag3d, card: "border-white/10 bg-transparent" };
-    if (["checkin","daily accumulation","yield","daily"].includes(lower)) return { label: "Check-in", icon3d: fire3d, card: "border-white/10 bg-transparent" };
-    if (lower === "referral") return { label: "Referral", icon3d: money3d, card: "border-white/10 bg-transparent" };
-    if (lower === "voucher") return { label: "Voucher", icon3d: giftBox3d, card: "border-white/10 bg-transparent" };
-    if (["checkin_bonus","register","bonus","gift","reward"].includes(lower)) return { label: "Bonus", icon3d: medal3d, card: "border-white/10 bg-transparent" };
-    if (lower === "vip_task") return { label: "VIP Task", icon3d: trophy3d, card: "border-white/10 bg-transparent" };
-    return { label: "Transaction", icon3d: bell3d, card: "border-white/10 bg-transparent" };
+    if (["deposit","balance","manual"].includes(lower)) return { label: "Recharge", icon3d: dollar3d, card: "border-0 bg-transparent" };
+    if (["withdrawal","withdraw"].includes(lower)) return { label: "Withdrawal", icon3d: wallet3d, card: "border-0 bg-transparent" };
+    if (["gpu","subscription","gpu_activation"].includes(lower)) return { label: "Product", icon3d: bag3d, card: "border-0 bg-transparent" };
+    if (["checkin","daily accumulation","yield","daily"].includes(lower)) return { label: "Check-in", icon3d: fire3d, card: "border-0 bg-transparent" };
+    if (lower === "referral") return { label: "Referral", icon3d: money3d, card: "border-0 bg-transparent" };
+    if (lower === "voucher") return { label: "Voucher", icon3d: giftBox3d, card: "border-0 bg-transparent" };
+    if (["checkin_bonus","register","bonus","gift","reward"].includes(lower)) return { label: "Bonus", icon3d: medal3d, card: "border-0 bg-transparent" };
+    if (lower === "vip_task") return { label: "VIP Task", icon3d: trophy3d, card: "border-0 bg-transparent" };
+    return { label: "Transaction", icon3d: bell3d, card: "border-0 bg-transparent" };
   };
 
   return (
-    <div className="w-full flex-1 flex flex-col min-h-0 bg-transparent p-0 select-none">
+    <div className="w-full flex-1 flex flex-col min-h-0 bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] border-0 rounded-none p-0 select-none">
       {/* Header like deposit/withdraw but no back */}
       <div className="flex items-center justify-center py-3 shrink-0">
         <h1 className="text-sm font-display font-black uppercase tracking-wider text-[var(--theme-text)]">Transaction History</h1>
@@ -134,20 +134,20 @@ export default function TransactionHistoryView({ phone, siteConfig, onBack }: Pr
             const payout = Number(metadata.payoutAmount ?? tx.amount ?? 0);
             const amount = (t==="withdrawal"||t==="withdraw") ? payout : (tx.amount||0);
             return (
-              <div key={tx.id} className={`rounded-[20px] border border-white/10 p-3.5 flex items-center gap-3 bg-transparent ${meta.card}`}>
+              <div key={tx.id} className={`rounded-[20px] border-0 p-3.5 flex items-center gap-3 bg-transparent ${meta.card}`}>
                 <div className="w-11 h-11 rounded-xl bg-transparent border-0 flex items-center justify-center shrink-0">
                   <img src={meta.icon3d} alt="" className="w-11 h-11 object-contain" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-[11px] font-display font-black uppercase tracking-wide text-[var(--theme-text)]">{meta.label}</span>
-                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full border ${status==="SUCCESSFUL"||status==="COMPLETED" ? "bg-emerald-700/15 text-emerald-700 border-emerald-700/20" : status==="PENDING"?"bg-amber-500/15 text-amber-600 border-amber-500/20 animate-pulse":"bg-rose-500/15 text-rose-600 border-rose-500/20"}`}>{status}</span>
+                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full border ${status==="SUCCESSFUL"||status==="COMPLETED" ? "bg-emerald-800/15 text-emerald-800 border-emerald-800/20" : status==="PENDING"?"bg-amber-500/15 text-amber-600 border-amber-500/20 animate-pulse":"bg-rose-500/15 text-rose-600 border-rose-500/20"}`}>{status}</span>
                   </div>
                   <p className="text-[11px] font-sans font-bold text-[var(--theme-text)] opacity-60 truncate mt-0.5">{new Date(tx.createdAt||tx.timestamp||Date.now()).toLocaleDateString()} • {new Date(tx.createdAt||tx.timestamp||Date.now()).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})} {tx.operator ? `• ${tx.operator}` : ""}</p>
                   {(t==="withdrawal"||t==="withdraw") && fee>0 && <p className="text-[10px] font-bold text-[var(--theme-text)] opacity-50">Fee {formatCurrency(fee)}</p>}
                 </div>
                 <div className="text-right shrink-0">
-                  <p className={`text-sm font-display font-black tracking-tight ${isPositive?"text-emerald-700":"text-[var(--theme-text)]"}`}>{isPositive?"+":"-"} {formatCurrency(amount)}</p>
+                  <p className={`text-sm font-display font-black tracking-tight ${isPositive?"text-emerald-800":"text-[var(--theme-text)]"}`}>{isPositive?"+":"-"} {formatCurrency(amount)}</p>
                   {siteConfig?.usdtRate && (tx.operator==="USDT"||String(tx.senderPhone||"").startsWith("T")) && <p className="text-[11px] font-black text-[var(--theme-primary)]">≈ ${(amount/ siteConfig.usdtRate).toFixed(2)}</p>}
                 </div>
               </div>
