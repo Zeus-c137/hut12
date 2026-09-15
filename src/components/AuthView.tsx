@@ -209,7 +209,7 @@ export default function AuthView({ onAuthSuccess, siteConfig }: AuthViewProps) {
                       placeholder="e.g. 0770000000"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 bg-[var(--theme-bg)] border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] text-[var(--theme-text)] text-sm rounded-[var(--theme-radius)] outline-none transition-colors"
+                      className="w-full pl-10 pr-4 py-3 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] text-[var(--theme-text)] placeholder:text-[var(--theme-text-muted)] text-sm rounded-[var(--theme-radius)] outline-none transition-colors"
                     />
                   </div>
                 </div>
@@ -224,7 +224,7 @@ export default function AuthView({ onAuthSuccess, siteConfig }: AuthViewProps) {
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full pl-10 pr-10 py-3 bg-[var(--theme-bg)] border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] text-[var(--theme-text)] text-sm rounded-[var(--theme-radius)] outline-none transition-colors"
+                      className="w-full pl-10 pr-10 py-3 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] text-[var(--theme-text)] placeholder:text-[var(--theme-text-muted)] text-sm rounded-[var(--theme-radius)] outline-none transition-colors"
                     />
                     <button
                       type="button"
@@ -248,7 +248,7 @@ export default function AuthView({ onAuthSuccess, siteConfig }: AuthViewProps) {
                           placeholder="••••••••"
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
-                          className="w-full pl-10 pr-10 py-3 bg-[var(--theme-bg)] border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] text-[var(--theme-text)] text-sm rounded-[var(--theme-radius)] outline-none transition-colors"
+                          className="w-full pl-10 pr-10 py-3 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] text-[var(--theme-text)] placeholder:text-[var(--theme-text-muted)] text-sm rounded-[var(--theme-radius)] outline-none transition-colors"
                         />
                         <button
                           type="button"
@@ -272,7 +272,7 @@ export default function AuthView({ onAuthSuccess, siteConfig }: AuthViewProps) {
                           placeholder="REFERRAL CODE"
                           value={inviteCode}
                           onChange={(e) => setInviteCode(e.target.value)}
-                          className="w-full pl-10 pr-4 py-3 bg-[var(--theme-bg)] border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] text-[var(--theme-text)] text-sm rounded-[var(--theme-radius)] outline-none transition-colors uppercase font-mono"
+                          className="w-full pl-10 pr-4 py-3 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] text-[var(--theme-text)] text-sm rounded-[var(--theme-radius)] outline-none transition-colors uppercase font-mono"
                         />
                       </div>
                     </div>

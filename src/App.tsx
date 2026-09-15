@@ -58,6 +58,7 @@ import navChat3d from "@/src/assets/3d/3dicons-chat-bubble-iso-premium.png";
 import navProfile3d from "@/src/assets/3d/3dicons-setting-iso-premium.png";
 import headerAi3d from "@/src/assets/3d/3dicons-puzzle-iso-premium.png";
 import headerBell3d from "@/src/assets/3d/3dicons-bell-iso-premium.png";
+import headerBoy3d from "@/src/assets/3d/3dicons-boy-iso-premium.png";
 import { motion, AnimatePresence } from "motion/react";
 
 import { ThemeProvider } from "./context/ThemeContext";
@@ -664,11 +665,9 @@ export default function App() {
       >
         
         {/* Top Premium navigation Header ribbon */}
-        <header className="sticky top-0 z-40 bg-transparent border-0 h-16 flex items-center justify-between px-3.5 sm:px-4.5 shrink-0">
+        <header className="sticky top-0 z-40 bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] border-b border-white/10 supports-[backdrop-filter]:bg-[var(--theme-card-bg)]/40 h-16 flex items-center justify-between px-3.5 sm:px-4.5 shrink-0 will-change-[backdrop-filter]">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 flex items-center justify-center shrink-0">
-              <BrandLogo siteConfig={siteConfig} className="w-8 h-8 mx-auto block" />
-            </div>
+            <img src={headerBoy3d} alt="Hut12" className="w-10 h-10 object-contain drop-shadow-sm shrink-0" />
             <div>
               <span className="font-display font-black text-sm tracking-tight text-[var(--theme-text)] block leading-none mb-1">
                 Hi, {userProfile.username || "Miner"}
@@ -692,7 +691,7 @@ export default function App() {
                 if (activeTab !== "ai") setPreviousTab(activeTab as any);
                 setActiveTab("ai");
               }}
-              className={`relative p-1 flex items-center justify-center border-0 transition-colors cursor-pointer outline-none h-9 w-9 shrink-0 bg-transparent active:scale-[0.97] ${activeTab==="ai" ? "opacity-100" : "opacity-90 hover:opacity-100"}`}
+              className={`relative p-1 flex items-center justify-center border-0 transition-[transform,opacity] duration-100 cursor-pointer outline-none h-9 w-9 shrink-0 bg-transparent active:scale-[0.97] will-change-transform ${activeTab==="ai" ? "opacity-100" : "opacity-80 hover:opacity-100"}`}
               title="AI Assistant"
             >
               <img src={headerAi3d} alt="" className="w-7 h-7 object-contain shrink-0 drop-shadow-sm" />
@@ -709,7 +708,7 @@ export default function App() {
                 setPreviousTab(activeTab as any);
                 setActiveTab("alerts");
               }}
-              className="relative p-1 flex items-center justify-center border-0 transition-colors cursor-pointer outline-none h-9 w-9 shrink-0 bg-transparent active:scale-[0.97]"
+              className="relative p-1 flex items-center justify-center border-0 transition-[transform,opacity] duration-100 cursor-pointer outline-none h-9 w-9 shrink-0 bg-transparent active:scale-[0.97] will-change-transform opacity-80 hover:opacity-100"
               title="View Alerts & Notifications"
             >
               <img src={headerBell3d} alt="" className="w-7 h-7 object-contain shrink-0 drop-shadow-sm" />

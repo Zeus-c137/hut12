@@ -78,11 +78,11 @@ export default function FeaturedProducts({ items, onBrowseProducts }: FeaturedPr
             <div className="p-2.5 flex flex-col gap-1.5 flex-1">
               <div className="flex items-center justify-between gap-2">
                 <h3 className="text-[13px] font-black text-[var(--theme-text)] leading-tight line-clamp-1 flex-1 min-w-0">{item.name}</h3>
-                <span className="shrink-0 rounded-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] px-2 py-0.5 text-[10px] font-black text-[var(--theme-text)] opacity-60">
+                <span className="shrink-0 rounded-full bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] px-2 py-0.5 text-[10px] font-black text-[var(--theme-text)] opacity-60">
                   {item.duration} days
                 </span>
               </div>
-              <div className="rounded-[calc(var(--theme-radius)-4px)] bg-[var(--theme-bg)] border border-[var(--theme-card-border)]/60 px-2.5 py-2">
+              <div className="rounded-[calc(var(--theme-radius)-4px)] bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)]/60 px-2.5 py-2">
                 <p className="text-[8px] font-black uppercase tracking-widest opacity-50 leading-none">You earn</p>
                 <p className="text-[12px] font-black text-[var(--theme-primary)] leading-none mt-1 truncate">{formatCurrency(item.dailyYield)}<span className="font-bold opacity-70"> / day</span></p>
               </div>

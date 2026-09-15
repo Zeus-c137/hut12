@@ -175,20 +175,43 @@ body {
   box-shadow: 0 2px 8px 0 rgba(0, 0, 0, 0.08) !important;
 }
 
-/* Universal Form Input Styling */
+/* Universal Form Input Styling — hut12 light/dark aware + apple frost */
 .theme-input,
 input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]),
 select,
 textarea {
-  border-color: var(--theme-input-border, var(--theme-card-border));
+  background-color: color-mix(in srgb, var(--theme-card-bg) 92%, var(--theme-bg));
+  border: 1px solid var(--theme-card-border);
+  color: var(--theme-text);
+  border-radius: var(--theme-radius);
 }
-
+.theme-input::placeholder,
+input::placeholder,
+textarea::placeholder {
+  color: var(--theme-text-muted);
+  opacity: 0.9;
+}
 .theme-input:focus,
 input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):focus,
 select:focus,
 textarea:focus {
   border-color: var(--theme-primary) !important;
-  box-shadow: 0 0 0 2px var(--theme-primary-shadow);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-primary) 20%, transparent);
+  outline: none;
+}
+/* autofill both modes */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--theme-text) !important;
+  caret-color: var(--theme-text);
+  transition: background-color 5000s ease-in-out 0s;
+}
+.dark input:-webkit-autofill,
+.dark input:-webkit-autofill:hover,
+.dark input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0px 1000px rgba(255,255,255,0.07) inset !important;
+  box-shadow: 0 0 0px 1000px rgba(255,255,255,0.07) inset !important;
 }
 
 /* Dynamic Adaptive Card Utilities */

@@ -543,7 +543,7 @@ export default function ChatView({ userProfile, initialRoom = "shared", canUploa
                   e.currentTarget.form?.requestSubmit();
                 }
               }}
-              className="w-full px-4 py-3 max-h-[120px] bg-[var(--theme-bg)] border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] text-[var(--theme-text)] text-xs rounded-[var(--theme-radius)] outline-none transition-all font-sans placeholder:opacity-50 resize-none overflow-y-auto"
+              className="w-full px-4 py-3 max-h-[120px] bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] text-[var(--theme-text)] text-xs rounded-[var(--theme-radius)] outline-none transition-all font-sans placeholder:opacity-50 resize-none overflow-y-auto"
             />
 
             <button

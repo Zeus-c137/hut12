@@ -1410,7 +1410,7 @@ export default function AdminView() {
                 required
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="w-full px-4 py-2.5 bg-[var(--theme-bg)] border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm outline-none transition-colors"
+                className="w-full px-4 py-2.5 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm outline-none transition-colors"
                 placeholder="Enter identifier"
               />
             </div>
@@ -1423,7 +1423,7 @@ export default function AdminView() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-[var(--theme-bg)] border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm outline-none transition-colors pr-10"
+                  className="w-full px-4 py-2.5 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm outline-none transition-colors pr-10"
                   placeholder="• • • • • • • •"
                 />
                 <button
@@ -2887,7 +2887,7 @@ export default function AdminView() {
                           ) : (
                             <div className="space-y-2">
                               {getVipTasks().map((task) => (
-                                <div key={task.id} className="rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border border-[var(--theme-card-border)] p-3 flex items-center gap-3">
+                                <div key={task.id} className="rounded-[var(--theme-radius)] bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] p-3 flex items-center gap-3">
                                   <div className="min-w-0 flex-1"><div className="flex items-center gap-2 flex-wrap"><span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-[var(--theme-primary)]/10 text-[var(--theme-primary)]">{task.category}</span><span className="text-sm font-bold truncate">{task.title}</span></div><p className="text-[11px] opacity-60 mt-1">Unlock at {formatCurrency(task.requiredBonus)} · Reward {formatCurrency(task.reward)}</p></div>
                                   <button type="button" onClick={() => handleToggleVipTask(task.id)} className={`text-[10px] font-black px-2.5 py-1.5 rounded-full border cursor-pointer ${task.active === false ? "opacity-50 border-[var(--theme-card-border)]" : "text-emerald-500 border-emerald-500/30 bg-emerald-500/10"}`}>{task.active === false ? "INACTIVE" : "ACTIVE"}</button>
                                   <button type="button" onClick={() => handleRemoveVipTask(task.id)} aria-label={`Remove ${task.title}`} className="p-2 rounded-lg text-rose-500 hover:bg-rose-500/10 cursor-pointer"><Trash2 className="w-4 h-4" /></button>
@@ -2957,7 +2957,7 @@ export default function AdminView() {
                         ) : (
                           <div className="space-y-2">
                             {getVipTasks().map((task) => (
-                              <div key={task.id} className="rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border border-[var(--theme-card-border)] p-3 flex items-center gap-3">
+                              <div key={task.id} className="rounded-[var(--theme-radius)] bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] p-3 flex items-center gap-3">
                                 <div className="min-w-0 flex-1"><div className="flex items-center gap-2 flex-wrap"><span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-[var(--theme-primary)]/10 text-[var(--theme-primary)]">{task.category}</span><span className="text-sm font-bold truncate">{task.title}</span></div><p className="text-[11px] opacity-60 mt-1">Unlock at {formatCurrency(task.requiredBonus)} · Reward {formatCurrency(task.reward)}</p></div>
                                 <button type="button" onClick={() => handleToggleVipTask(task.id)} className={`text-[10px] font-black px-2.5 py-1.5 rounded-full border cursor-pointer ${task.active === false ? "opacity-50 border-[var(--theme-card-border)]" : "text-emerald-500 border-emerald-500/30 bg-emerald-500/10"}`}>{task.active === false ? "INACTIVE" : "ACTIVE"}</button>
                                 <button type="button" onClick={() => handleRemoveVipTask(task.id)} aria-label={`Remove ${task.title}`} className="p-2 rounded-lg text-rose-500 hover:bg-rose-500/10 cursor-pointer"><Trash2 className="w-4 h-4" /></button>
@@ -3113,7 +3113,7 @@ export default function AdminView() {
                       <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[var(--theme-card-border)]"><div><h3 className="text-base font-black">VIP categories</h3><p className="text-xs opacity-60 mt-1">Create reusable labels for task tiers.</p></div><button type="button" onClick={() => setIsVipCategoryModalOpen(false)} className="p-2 rounded-full hover:bg-[var(--theme-bg)] cursor-pointer opacity-70 hover:opacity-100"><X className="w-4 h-4" /></button></div>
                       <div className="p-5 space-y-4">
                         <div className="flex gap-2"><input type="text" value={newVipCategory} onChange={(event) => setNewVipCategory(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void handleAddVipCategory(); } }} placeholder="e.g. Bronze" className="theme-input min-w-0 flex-1 px-3 py-2.5 text-sm" /><button type="button" onClick={() => void handleAddVipCategory()} disabled={isLoading} className="btn-3d-primary text-white px-3.5 text-xs font-black cursor-pointer disabled:opacity-50"><Plus className="w-4 h-4" /></button></div>
-                        <div className="space-y-2 max-h-56 overflow-y-auto">{getVipTaskCategories().length === 0 ? <p className="text-xs opacity-60 text-center py-5">No categories yet. Add your first tier above.</p> : getVipTaskCategories().map((category) => <div key={category} className="flex items-center justify-between gap-3 rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border border-[var(--theme-card-border)] px-3 py-2.5"><span className="text-sm font-bold">{category}</span><button type="button" onClick={() => void handleRemoveVipCategory(category)} className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded cursor-pointer"><Trash2 className="w-3.5 h-3.5" /></button></div>)}</div>
+                        <div className="space-y-2 max-h-56 overflow-y-auto">{getVipTaskCategories().length === 0 ? <p className="text-xs opacity-60 text-center py-5">No categories yet. Add your first tier above.</p> : getVipTaskCategories().map((category) => <div key={category} className="flex items-center justify-between gap-3 rounded-[var(--theme-radius)] bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] px-3 py-2.5"><span className="text-sm font-bold">{category}</span><button type="button" onClick={() => void handleRemoveVipCategory(category)} className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded cursor-pointer"><Trash2 className="w-3.5 h-3.5" /></button></div>)}</div>
                       </div>
                     </motion.div>
                   </div>
@@ -3175,7 +3175,7 @@ export default function AdminView() {
                                 <div className="absolute -top-[1px] left-4 h-[3px] w-12 bg-amber-500 rounded-b-md shadow-sm group-hover:bg-amber-400 transition-colors" />
                                 
                                 <div className="flex justify-between items-start">
-                                  <div className="p-2 rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border border-[var(--theme-card-border)] group-hover:border-[var(--theme-primary)] transition-colors">
+                                  <div className="p-2 rounded-[var(--theme-radius)] bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] group-hover:border-[var(--theme-primary)] transition-colors">
                                     <Gift className={`w-4 h-4 ${isActive ? 'text-[var(--theme-primary)]' : 'text-[var(--theme-text)] opacity-40'}`} />
                                   </div>
                                   <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
@@ -3225,7 +3225,7 @@ export default function AdminView() {
                               {/* Header */}
                               <div className="flex justify-between items-start mb-6">
                                 <div className="flex items-center gap-2.5">
-                                  <div className="p-2 rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border border-[var(--theme-card-border)] text-[var(--theme-primary)]">
+                                  <div className="p-2 rounded-[var(--theme-radius)] bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] text-[var(--theme-primary)]">
                                     <Gift className="w-5 h-5" />
                                   </div>
                                   <div>
@@ -3254,7 +3254,7 @@ export default function AdminView() {
                                     placeholder="e.g. SPECIAL777"
                                     required
                                     disabled={isCreatingGiftCode}
-                                    className="w-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] px-3 py-2 text-sm text-[var(--theme-text)] outline-none focus:border-[var(--theme-primary)] transition-colors uppercase font-mono"
+                                    className="w-full bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] px-3 py-2 text-sm text-[var(--theme-text)] outline-none focus:border-[var(--theme-primary)] transition-colors uppercase font-mono"
                                   />
                                 </div>
 
@@ -3269,7 +3269,7 @@ export default function AdminView() {
                                       min={1}
                                       required
                                       disabled={isCreatingGiftCode}
-                                      className="w-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] px-3 py-2 text-sm text-[var(--theme-text)] outline-none focus:border-[var(--theme-primary)] transition-colors"
+                                      className="w-full bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] px-3 py-2 text-sm text-[var(--theme-text)] outline-none focus:border-[var(--theme-primary)] transition-colors"
                                     />
                                   </div>
                                   <div>
@@ -3282,7 +3282,7 @@ export default function AdminView() {
                                       min={1}
                                       required
                                       disabled={isCreatingGiftCode}
-                                      className="w-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] px-3 py-2 text-sm text-[var(--theme-text)] outline-none focus:border-[var(--theme-primary)] transition-colors"
+                                      className="w-full bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] px-3 py-2 text-sm text-[var(--theme-text)] outline-none focus:border-[var(--theme-primary)] transition-colors"
                                     />
                                   </div>
                                 </div>
@@ -3298,7 +3298,7 @@ export default function AdminView() {
                                     onChange={(e) => setNewGiftCodeExpiryDateTime(e.target.value)}
                                     required
                                     disabled={isCreatingGiftCode}
-                                    className="w-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] px-3 py-2 text-sm text-[var(--theme-text)] outline-none focus:border-[var(--theme-primary)] transition-colors"
+                                    className="w-full bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] px-3 py-2 text-sm text-[var(--theme-text)] outline-none focus:border-[var(--theme-primary)] transition-colors"
                                   />
                                 </div>
 
@@ -3359,7 +3359,7 @@ export default function AdminView() {
                               {/* Header */}
                               <div className="flex justify-between items-start mb-5">
                                 <div className="flex items-center gap-2.5">
-                                  <div className="p-2 rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border border-[var(--theme-card-border)] text-[var(--theme-primary)]">
+                                  <div className="p-2 rounded-[var(--theme-radius)] bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] text-[var(--theme-primary)]">
                                     <Folder className="w-5 h-5 fill-[var(--theme-primary)]/10" />
                                   </div>
                                   <div>
@@ -3381,7 +3381,7 @@ export default function AdminView() {
                               {/* Inner Content */}
                               <div className="space-y-4">
                                 {/* Code Copy Row */}
-                                <div className="flex items-center justify-between p-2.5 rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border border-[var(--theme-card-border)]/55">
+                                <div className="flex items-center justify-between p-2.5 rounded-[var(--theme-radius)] bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)]/55">
                                   <span className="text-xs font-mono font-bold text-[var(--theme-text)] pl-1">{selectedGiftCode.code}</span>
                                   <button
                                     type="button"
@@ -3398,11 +3398,11 @@ export default function AdminView() {
 
                                 {/* Information stats list */}
                                 <div className="grid grid-cols-2 gap-3">
-                                  <div className="p-3 bg-[var(--theme-bg)] border border-[var(--theme-card-border)]/30 rounded-[var(--theme-radius)]">
+                                  <div className="p-3 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)]/30 rounded-[var(--theme-radius)]">
                                     <span className="text-[12px] text-[var(--theme-text)] opacity-60 block mb-0.5">Bonus Amount</span>
                                     <span className="text-sm font-bold text-[var(--theme-text)]">{formatCurrency(selectedGiftCode.amount)}</span>
                                   </div>
-                                  <div className="p-3 bg-[var(--theme-bg)] border border-[var(--theme-card-border)]/30 rounded-[var(--theme-radius)]">
+                                  <div className="p-3 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)]/30 rounded-[var(--theme-radius)]">
                                     <span className="text-[12px] text-[var(--theme-text)] opacity-60 block mb-0.5">Folder Status</span>
                                     <span className={`text-[12px] font-bold px-2 py-0.5 rounded-full inline-block mt-0.5 uppercase ${
                                       selectedGiftCode.status === 'active' && new Date(selectedGiftCode.expiryDate).getTime() > Date.now()
@@ -3423,7 +3423,7 @@ export default function AdminView() {
                                 </div>
 
                                 {/* Claims progress bar */}
-                                <div className="p-3.5 bg-[var(--theme-bg)] border border-[var(--theme-card-border)]/30 rounded-[var(--theme-radius)] space-y-2">
+                                <div className="p-3.5 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)]/30 rounded-[var(--theme-radius)] space-y-2">
                                   <div className="flex justify-between items-center text-xs">
                                     <span className="text-[var(--theme-text)] opacity-70 font-medium">Claims Redeemed</span>
                                     <span className="font-mono font-semibold text-[var(--theme-text)]">
@@ -3957,15 +3957,15 @@ export default function AdminView() {
                 <form id="ann-form" onSubmit={handleSaveAnnouncement} className="space-y-4">
                   <div className="space-y-1.5">
                     <label className="text-xs text-[var(--theme-text)] opacity-80 font-bold uppercase tracking-wider block">Title</label>
-                    <input type="text" required value={annTitle} onChange={(e) => setAnnTitle(e.target.value)} className="w-full px-3.5 py-2.5 bg-[var(--theme-bg)] border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm outline-none focus:border-[var(--theme-primary)] transition-colors" placeholder="e.g. System Maintenance" />
+                    <input type="text" required value={annTitle} onChange={(e) => setAnnTitle(e.target.value)} className="w-full px-3.5 py-2.5 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm outline-none focus:border-[var(--theme-primary)] transition-colors" placeholder="e.g. System Maintenance" />
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs text-[var(--theme-text)] opacity-80 font-bold uppercase tracking-wider block">Message</label>
-                    <textarea required value={annMessage} onChange={(e) => setAnnMessage(e.target.value)} rows={4} className="w-full px-3.5 py-2.5 bg-[var(--theme-bg)] border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm outline-none focus:border-[var(--theme-primary)] transition-colors resize-none" placeholder="Details of the announcement..." />
+                    <textarea required value={annMessage} onChange={(e) => setAnnMessage(e.target.value)} rows={4} className="w-full px-3.5 py-2.5 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm outline-none focus:border-[var(--theme-primary)] transition-colors resize-none" placeholder="Details of the announcement..." />
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs text-[var(--theme-text)] opacity-80 font-bold uppercase tracking-wider block">Category</label>
-                    <select value={annCategory} onChange={(e) => setAnnCategory(e.target.value)} className="w-full px-3.5 py-2.5 bg-[var(--theme-bg)] border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm outline-none focus:border-[var(--theme-primary)] transition-colors">
+                    <select value={annCategory} onChange={(e) => setAnnCategory(e.target.value)} className="w-full px-3.5 py-2.5 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm outline-none focus:border-[var(--theme-primary)] transition-colors">
                       <option value="announcement">Announcement (Alerts)</option>
                       <option value="news">News (Dashboard Carousel)</option>
                     </select>
@@ -3974,11 +3974,11 @@ export default function AdminView() {
                     <>
                       <div className="space-y-1.5">
                         <label className="text-xs text-[var(--theme-text)] opacity-80 font-bold uppercase tracking-wider block">Image URL (For News)</label>
-                        <input type="url" value={annImageUrl} onChange={(e) => setAnnImageUrl(e.target.value)} className="w-full px-3.5 py-2.5 bg-[var(--theme-bg)] border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm outline-none focus:border-[var(--theme-primary)] transition-colors" placeholder="https://images.unsplash.com/..." />
+                        <input type="url" value={annImageUrl} onChange={(e) => setAnnImageUrl(e.target.value)} className="w-full px-3.5 py-2.5 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm outline-none focus:border-[var(--theme-primary)] transition-colors" placeholder="https://images.unsplash.com/..." />
                       </div>
                       <div className="space-y-1.5">
                         <label className="text-xs text-[var(--theme-text)] opacity-80 font-bold uppercase tracking-wider block">Tag (For News)</label>
-                        <input type="text" value={annTag} onChange={(e) => setAnnTag(e.target.value)} className="w-full px-3.5 py-2.5 bg-[var(--theme-bg)] border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm outline-none focus:border-[var(--theme-primary)] transition-colors" placeholder="e.g. GRID OPTIMIZATION" />
+                        <input type="text" value={annTag} onChange={(e) => setAnnTag(e.target.value)} className="w-full px-3.5 py-2.5 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm outline-none focus:border-[var(--theme-primary)] transition-colors" placeholder="e.g. GRID OPTIMIZATION" />
                       </div>
                       <div className="flex items-center gap-2 pt-1 pb-1">
                         <input
@@ -3996,7 +3996,7 @@ export default function AdminView() {
                   )}
                   <div className="space-y-1.5">
                     <label className="text-xs text-[var(--theme-text)] opacity-80 font-bold uppercase tracking-wider block">Read More URL (optional)</label>
-                    <input type="url" value={annLink} onChange={(e) => setAnnLink(e.target.value)} className="w-full px-3.5 py-2.5 bg-[var(--theme-bg)] border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm outline-none focus:border-[var(--theme-primary)] transition-colors" placeholder="https://..." />
+                    <input type="url" value={annLink} onChange={(e) => setAnnLink(e.target.value)} className="w-full px-3.5 py-2.5 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm outline-none focus:border-[var(--theme-primary)] transition-colors" placeholder="https://..." />
                   </div>
                 </form>
               </div>
@@ -4041,7 +4041,7 @@ export default function AdminView() {
                   <div className="flex flex-col sm:flex-row gap-5">
                     {/* Left Column: Image Preview + URL */}
                     <div className="sm:w-1/3 flex flex-col gap-3">
-                      <div className="w-full aspect-square bg-[var(--theme-bg)] border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] flex items-center justify-center overflow-hidden relative group">
+                      <div className="w-full aspect-square bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] flex items-center justify-center overflow-hidden relative group">
                         {nodeImageUrl ? (
                           <img src={nodeImageUrl} alt="Product Preview" className="w-full h-full object-cover" />
                         ) : (
@@ -4051,7 +4051,7 @@ export default function AdminView() {
                       </div>
                       <div className="space-y-1.5">
                         <label className="text-xs text-[var(--theme-text)] font-bold opacity-80 uppercase tracking-wider block">Image URL</label>
-                        <input type="text" placeholder="https://..." value={nodeImageUrl} onChange={(e) => setNodeImageUrl(e.target.value)} className="w-full px-3 py-2 bg-[var(--theme-bg)] border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm focus:border-[var(--theme-primary)] outline-none" />
+                        <input type="text" placeholder="https://..." value={nodeImageUrl} onChange={(e) => setNodeImageUrl(e.target.value)} className="w-full px-3 py-2 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm focus:border-[var(--theme-primary)] outline-none" />
                       </div>
                     </div>
 
@@ -4060,11 +4060,11 @@ export default function AdminView() {
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1.5">
                           <label className="text-xs text-[var(--theme-text)] font-bold opacity-80 uppercase tracking-wider block">Product ID</label>
-                          <input type="text" required disabled={!isCreatingNode} value={nodeId} onChange={(e) => setNodeId(e.target.value)} className="w-full px-3 py-2 bg-[var(--theme-bg)] border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm disabled:opacity-50" />
+                          <input type="text" required disabled={!isCreatingNode} value={nodeId} onChange={(e) => setNodeId(e.target.value)} className="w-full px-3 py-2 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm disabled:opacity-50" />
                         </div>
                         <div className="space-y-1.5">
                           <label className="text-xs text-[var(--theme-text)] font-bold opacity-80 uppercase tracking-wider block">Name</label>
-                          <input type="text" required value={nodeName} onChange={(e) => setNodeName(e.target.value)} className="w-full px-3 py-2 bg-[var(--theme-bg)] border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm focus:border-[var(--theme-primary)] outline-none" />
+                          <input type="text" required value={nodeName} onChange={(e) => setNodeName(e.target.value)} className="w-full px-3 py-2 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm focus:border-[var(--theme-primary)] outline-none" />
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
@@ -4082,7 +4082,7 @@ export default function AdminView() {
                           <select 
                             value={nodeCategory} 
                             onChange={(e) => setNodeCategory(e.target.value)} 
-                            className="w-full px-3 py-2 bg-[var(--theme-bg)] border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm outline-none focus:border-[var(--theme-primary)]"
+                            className="w-full px-3 py-2 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm outline-none focus:border-[var(--theme-primary)]"
                           >
                             {Array.from(new Set([
                               ...(siteConfig?.categories || []),
@@ -4095,17 +4095,17 @@ export default function AdminView() {
                         </div>
                         <div className="space-y-1.5">
                           <label className="text-xs text-[var(--theme-text)] font-bold opacity-80 uppercase tracking-wider block">Cost</label>
-                          <input type="text" inputMode="numeric" required value={nodeAmount} onChange={(e) => setNodeAmount(parseInt(e.target.value, 10) || 0)} className="w-full px-3 py-2 bg-[var(--theme-bg)] border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm focus:border-[var(--theme-primary)] outline-none" />
+                          <input type="text" inputMode="numeric" required value={nodeAmount} onChange={(e) => setNodeAmount(parseInt(e.target.value, 10) || 0)} className="w-full px-3 py-2 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm focus:border-[var(--theme-primary)] outline-none" />
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1.5">
                           <label className="text-xs text-[var(--theme-text)] font-bold opacity-80 uppercase tracking-wider block">Daily Profits (%)</label>
-                          <input type="text" inputMode="decimal" required value={nodeDailyProfitPct} onChange={(e) => setNodeDailyProfitPct(parseFloat(e.target.value) || 0)} className="w-full px-3 py-2 bg-[var(--theme-bg)] border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm focus:border-[var(--theme-primary)] outline-none" />
+                          <input type="text" inputMode="decimal" required value={nodeDailyProfitPct} onChange={(e) => setNodeDailyProfitPct(parseFloat(e.target.value) || 0)} className="w-full px-3 py-2 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm focus:border-[var(--theme-primary)] outline-none" />
                         </div>
                         <div className="space-y-1.5">
                           <label className="text-xs text-[var(--theme-text)] font-bold opacity-80 uppercase tracking-wider block">Duration (Days)</label>
-                          <input type="text" inputMode="numeric" required value={nodeDuration} onChange={(e) => setNodeDuration(parseInt(e.target.value, 10) || 0)} className="w-full px-3 py-2 bg-[var(--theme-bg)] border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm focus:border-[var(--theme-primary)] outline-none" />
+                          <input type="text" inputMode="numeric" required value={nodeDuration} onChange={(e) => setNodeDuration(parseInt(e.target.value, 10) || 0)} className="w-full px-3 py-2 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm focus:border-[var(--theme-primary)] outline-none" />
                         </div>
                       </div>
                       
@@ -4178,7 +4178,7 @@ export default function AdminView() {
                 <form id="pass-form" onSubmit={handleOverrideUserPassword} className="space-y-4">
                   <div className="space-y-1.5">
                     <label className="text-xs text-[var(--theme-text)] font-bold opacity-80 uppercase tracking-wider block">New Password</label>
-                    <input type="text" required value={newOverridePassword} onChange={(e) => setNewOverridePassword(e.target.value)} className="w-full px-3 py-2 bg-[var(--theme-bg)] border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm outline-none focus:border-[var(--theme-primary)]" placeholder="e.g. 123456" />
+                    <input type="text" required value={newOverridePassword} onChange={(e) => setNewOverridePassword(e.target.value)} className="w-full px-3 py-2 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm outline-none focus:border-[var(--theme-primary)]" placeholder="e.g. 123456" />
                   </div>
                 </form>
               </div>
@@ -4267,7 +4267,7 @@ export default function AdminView() {
                     placeholder="e.g. GS Series, AS Series, U Series"
                     value={newCategoryInput}
                     onChange={(e) => setNewCategoryInput(e.target.value)}
-                    className="flex-1 bg-[var(--theme-bg)] border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] px-4 py-2.5 text-sm text-[var(--theme-text)] outline-none focus:border-[var(--theme-primary)] transition-colors"
+                    className="flex-1 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] px-4 py-2.5 text-sm text-[var(--theme-text)] outline-none focus:border-[var(--theme-primary)] transition-colors"
                   />
                   <button
                     onClick={handleAddCategory}
@@ -4287,7 +4287,7 @@ export default function AdminView() {
                       return (
                         <div
                           key={cat}
-                          className="flex items-center gap-2 px-3 py-1.5 bg-[var(--theme-bg)] border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-xs font-bold text-[var(--theme-text)] group"
+                          className="flex items-center gap-2 px-3 py-1.5 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-xs font-bold text-[var(--theme-text)] group"
                         >
                           <span className="font-mono text-[var(--theme-primary)] uppercase">{cat}</span>
                           <button

@@ -447,7 +447,7 @@ export default function DashboardView({
 
                 <div className="space-y-2.5">
                   {siteConfig?.whatsappLink && (
-                    <a href={siteConfig.whatsappLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--theme-bg)] border border-[var(--theme-card-border)] hover:opacity-80 transition-colors group">
+                    <a href={siteConfig.whatsappLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] hover:opacity-80 transition-colors group">
                       <img src="/whatsapp.svg" alt="WhatsApp" className="w-10 h-10 rounded-xl shrink-0 shadow-sm object-contain bg-white p-1" />
                       <span className="flex-1 min-w-0">
                         <span className="block text-[13px] font-black text-[var(--theme-text)] leading-none">WhatsApp Support</span>
@@ -457,7 +457,7 @@ export default function DashboardView({
                     </a>
                   )}
                   {siteConfig?.telegramLink && (
-                    <a href={siteConfig.telegramLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--theme-bg)] border border-[var(--theme-card-border)] hover:opacity-80 transition-colors group">
+                    <a href={siteConfig.telegramLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] hover:opacity-80 transition-colors group">
                       <img src="/telegram.svg" alt="Telegram" className="w-10 h-10 rounded-xl shrink-0 shadow-sm object-contain bg-white p-1" />
                       <span className="flex-1 min-w-0">
                         <span className="block text-[13px] font-black text-[var(--theme-text)] leading-none">Telegram Channel</span>
