@@ -50,6 +50,14 @@ import {
   ShoppingCartIcon,
   DollarSignIcon
 } from "lucide-react";
+import navHome3d from "@/src/assets/3d/3dicons-star-iso-premium.png";
+import navProducts3d from "@/src/assets/3d/3dicons-bag-iso-premium.png";
+import navIncome3d from "@/src/assets/3d/3dicons-chart-iso-premium.png";
+import navHistory3d from "@/src/assets/3d/3dicons-calender-iso-premium.png";
+import navChat3d from "@/src/assets/3d/3dicons-chat-bubble-iso-premium.png";
+import navProfile3d from "@/src/assets/3d/3dicons-boy-iso-premium.png";
+import headerAi3d from "@/src/assets/3d/3dicons-puzzle-iso-premium.png";
+import headerBell3d from "@/src/assets/3d/3dicons-bell-iso-premium.png";
 import { motion, AnimatePresence } from "motion/react";
 
 import { ThemeProvider } from "./context/ThemeContext";
@@ -684,10 +692,10 @@ export default function App() {
                 if (activeTab !== "ai") setPreviousTab(activeTab as any);
                 setActiveTab("ai");
               }}
-              className={`relative p-2 rounded-xl text-xs font-sans font-bold flex items-center justify-center border-2 transition-all cursor-pointer outline-none h-9 w-9 shrink-0 shadow-sm active:scale-95 ${activeTab==="ai" ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white shadow-[0_4px_0_0_var(--theme-primary-shadow)]" : "bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-primary)] hover:brightness-105"}`}
+              className={`relative p-1.5 rounded-xl text-xs font-sans font-bold flex items-center justify-center border-2 transition-colors cursor-pointer outline-none h-9 w-9 shrink-0 shadow-sm active:scale-[0.97] ${activeTab==="ai" ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] shadow-[0_3px_0_0_var(--theme-primary-shadow)]" : "bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] hover:brightness-105"}`}
               title="AI Assistant"
             >
-              <Bot className={`w-4.5 h-4.5 ${activeTab==="ai" ? "text-white" : "text-[var(--theme-primary)]"}`} />
+              <span className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${activeTab==="ai" ? "bg-white shadow-sm border border-white" : ""}`}><img src={headerAi3d} alt="" className="w-5 h-5 object-contain" /></span>
               <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span>
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 border-2 border-[var(--theme-card-bg)]"></span>
@@ -701,10 +709,10 @@ export default function App() {
                 setPreviousTab(activeTab as any);
                 setActiveTab("alerts");
               }}
-              className="relative p-2 rounded-xl text-xs font-sans font-bold flex items-center justify-center border-2 transition-all cursor-pointer outline-none h-9 w-9 shrink-0 bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] hover:brightness-105 active:scale-95 shadow-sm"
+              className="relative p-1.5 rounded-xl text-xs font-sans font-bold flex items-center justify-center border-2 transition-colors cursor-pointer outline-none h-9 w-9 shrink-0 bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] hover:brightness-105 active:scale-[0.97] shadow-sm"
               title="View Alerts & Notifications"
             >
-              <Bell className="w-4 h-4 text-[var(--theme-primary)]" />
+              <img src={headerBell3d} alt="" className="w-5 h-5 object-contain" />
               {userNotifications.filter(n => new Date(n.timestamp).getTime() > Number(localStorage.getItem("lastViewedAlertsTime") || 0)).length > 0 && (
                 <>
                   <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-rose-500 text-white text-[9px] font-black rounded-full flex items-center justify-center border-2 border-[var(--theme-card-bg)] shadow-xs animate-bounce">
@@ -720,7 +728,7 @@ export default function App() {
         </header>
 
         {/* Main interactive tabs content view block */}
-        <main className={`flex-1 relative min-h-0 flex flex-col ${activeTab === "chat" ? "p-0 overflow-hidden h-full" : "px-1.5 sm:px-2 py-3 overflow-y-auto overscroll-contain"}`}
+        <main className={`flex-1 relative min-h-0 flex flex-col isolate ${activeTab === "chat" ? "p-0 overflow-hidden h-full" : "px-1.5 sm:px-2 py-3 overflow-y-auto overscroll-y-contain"}`}
               style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
           <AnimatePresence mode="wait">
             {(activeTab === "dashboard" || (activeTab === "alerts" && previousTab === "dashboard")) && (
@@ -1047,45 +1055,45 @@ export default function App() {
             {/* Home */}
             <button
               onClick={() => setActiveTab("dashboard")}
-              className={`flex-1 flex flex-col items-center gap-1 py-2.5 px-1 rounded-2xl border-2 transition-all active:scale-95 ${activeTab === "dashboard" ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white shadow-[0_4px_0_0_var(--theme-primary-shadow)] -translate-y-1" : "bg-[var(--theme-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
+              className={`flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-2xl border-2 transition-colors active:scale-[0.97] ${activeTab === "dashboard" ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white shadow-[0_3px_0_0_var(--theme-primary-shadow)] -translate-y-0.5" : "bg-[var(--theme-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
             >
-              <Home className="w-5 h-5 shrink-0" />
+              <span className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${activeTab === "dashboard" ? "bg-white shadow-sm border border-white/60" : ""}`}><img src={navHome3d} alt="" className="w-6 h-6 object-contain" /></span>
               <span className="text-[9px] sm:text-[10px] font-display font-black uppercase tracking-wide leading-none">Home</span>
             </button>
 
             {/* Products */}
             <button
               onClick={() => setActiveTab("catalog")}
-              className={`flex-1 flex flex-col items-center gap-1 py-2.5 px-1 rounded-2xl border-2 transition-all active:scale-95 ${activeTab === "catalog" ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white shadow-[0_4px_0_0_var(--theme-primary-shadow)] -translate-y-1" : "bg-[var(--theme-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
+              className={`flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-2xl border-2 transition-colors active:scale-[0.97] ${activeTab === "catalog" ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white shadow-[0_3px_0_0_var(--theme-primary-shadow)] -translate-y-0.5" : "bg-[var(--theme-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
             >
-              <ShoppingCartIcon className="w-5 h-5 shrink-0" />
+              <span className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${activeTab === "catalog" ? "bg-white shadow-sm border border-white/60" : ""}`}><img src={navProducts3d} alt="" className="w-6 h-6 object-contain" /></span>
               <span className="text-[9px] sm:text-[10px] font-display font-black uppercase tracking-wide leading-none">Products</span>
             </button>
 
             {/* Income */}
             <button
               onClick={() => setActiveTab("income")}
-              className={`flex-1 flex flex-col items-center gap-1 py-2.5 px-1 rounded-2xl border-2 transition-all active:scale-95 ${activeTab === "income" ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white shadow-[0_4px_0_0_var(--theme-primary-shadow)] -translate-y-1" : "bg-[var(--theme-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
+              className={`flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-2xl border-2 transition-colors active:scale-[0.97] ${activeTab === "income" ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white shadow-[0_3px_0_0_var(--theme-primary-shadow)] -translate-y-0.5" : "bg-[var(--theme-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
             >
-              <Wallet className="w-5 h-5 shrink-0" />
+              <span className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${activeTab === "income" ? "bg-white shadow-sm border border-white/60" : ""}`}><img src={navIncome3d} alt="" className="w-6 h-6 object-contain" /></span>
               <span className="text-[9px] sm:text-[10px] font-display font-black uppercase tracking-wide leading-none">Income</span>
             </button>
 
             {/* History — NEW */}
             <button
               onClick={() => setActiveTab("history")}
-              className={`flex-1 flex flex-col items-center gap-1 py-2.5 px-1 rounded-2xl border-2 transition-all active:scale-95 ${activeTab === "history" ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white shadow-[0_4px_0_0_var(--theme-primary-shadow)] -translate-y-1" : "bg-[var(--theme-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
+              className={`flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-2xl border-2 transition-colors active:scale-[0.97] ${activeTab === "history" ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white shadow-[0_3px_0_0_var(--theme-primary-shadow)] -translate-y-0.5" : "bg-[var(--theme-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
             >
-              <History className="w-5 h-5 shrink-0" />
+              <span className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${activeTab === "history" ? "bg-white shadow-sm border border-white/60" : ""}`}><img src={navHistory3d} alt="" className="w-6 h-6 object-contain" /></span>
               <span className="text-[9px] sm:text-[10px] font-display font-black uppercase tracking-wide leading-none">History</span>
             </button>
 
             {/* Chat */}
             <button
               onClick={() => setActiveTab("chat")}
-              className={`relative flex-1 flex flex-col items-center gap-1 py-2.5 px-1 rounded-2xl border-2 transition-all active:scale-95 ${activeTab === "chat" ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white shadow-[0_4px_0_0_var(--theme-primary-shadow)] -translate-y-1" : "bg-[var(--theme-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
+              className={`relative flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-2xl border-2 transition-colors active:scale-[0.97] ${activeTab === "chat" ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white shadow-[0_3px_0_0_var(--theme-primary-shadow)] -translate-y-0.5" : "bg-[var(--theme-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
             >
-              <MessageCircleMore className="w-5 h-5 shrink-0" />
+              <span className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${activeTab === "chat" ? "bg-white shadow-sm border border-white/60" : ""}`}><img src={navChat3d} alt="" className="w-6 h-6 object-contain" /></span>
               {chatUnread > 0 && (
                 <span className="absolute top-1 right-1 min-w-5 h-5 px-1 rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center border-2 border-[var(--theme-bg)]">
                   {chatUnread > 99 ? "99+" : chatUnread}
@@ -1097,9 +1105,9 @@ export default function App() {
             {/* Profile */}
             <button
               onClick={() => setActiveTab("profile")}
-              className={`flex-1 flex flex-col items-center gap-1 py-2.5 px-1 rounded-2xl border-2 transition-all active:scale-95 ${activeTab === "profile" ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white shadow-[0_4px_0_0_var(--theme-primary-shadow)] -translate-y-1" : "bg-[var(--theme-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
+              className={`flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-2xl border-2 transition-colors active:scale-[0.97] ${activeTab === "profile" ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white shadow-[0_3px_0_0_var(--theme-primary-shadow)] -translate-y-0.5" : "bg-[var(--theme-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70 hover:opacity-100"}`}
             >
-              <User className="w-5 h-5 shrink-0" />
+              <span className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${activeTab === "profile" ? "bg-white shadow-sm border border-white/60" : ""}`}><img src={navProfile3d} alt="" className="w-6 h-6 object-contain" /></span>
               <span className="text-[9px] sm:text-[10px] font-display font-black uppercase tracking-wide leading-none">Profile</span>
             </button>
           </nav>

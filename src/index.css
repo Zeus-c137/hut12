@@ -24,10 +24,10 @@
   --theme-font-base: 16px;
   --theme-primary: #c27a2e;
   --theme-primary-shadow: #92400e;
-  --theme-accent: #f59e0b;
-  --theme-accent-shadow: #b45309;
-  --theme-secondary: #0ea5e9;
-  --theme-secondary-shadow: #0369a1;
+  --theme-accent: #c27a2e;
+  --theme-accent-shadow: #92400e;
+  --theme-secondary: #c27a2e;
+  --theme-secondary-shadow: #92400e;
   --theme-bg: #faf6f0;
   --theme-card-bg: #ffffff;
   --theme-card-border: #e7e5e4;
@@ -212,9 +212,8 @@ textarea:focus {
 [data-card-style="glass"] .theme-card,
 [data-card-style="glass"] .card-playful-3d,
 [data-card-style="glass"] .card-style-glass {
-  backdrop-filter: blur(16px) saturate(180%);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
   border: 1px solid var(--theme-card-border);
+  background-color: var(--theme-card-bg);
 }
 
 /* Chat bubbles — flat translucent tint, identical for every sender */

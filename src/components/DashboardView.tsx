@@ -216,7 +216,7 @@ export default function DashboardView({
   }, [HUT8_NEWS_FEED.length]);
 
   return (
-    <div className="space-y-6 select-none bg-transparent text-[var(--theme-text)] p-1 rounded-2xl relative">
+    <div className="space-y-6 bg-transparent isolate text-[var(--theme-text)] p-1 rounded-2xl relative">
       
       {/* Dynamic Grid for Miner Stats - hut12 bento: 2 hero + 4 compact matching banner bg */}
       <div className="grid grid-cols-2 gap-3">

@@ -37,13 +37,13 @@ export default function MetricCard({ title, value, subtitle, isLoading, titleCol
   const cardBase = isMuted
     ? "bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] shadow-none"
     : cardStyle === "glass"
-    ? "bg-[var(--theme-card-bg)]/80 backdrop-blur-xl border border-[var(--theme-card-border)] shadow-lg"
+    ? "bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] shadow-sm"
     : "bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] shadow-[0_4px_0_0_var(--theme-card-shadow)]";
 
   const heightClass = isMuted ? "h-[96px]" : "h-[112px]";
 
   return (
-    <div className={`relative overflow-hidden theme-card rounded-[var(--theme-radius)] p-3.5 ${heightClass} flex flex-col justify-between ${cardBase}`}>
+    <div style={{ transform: "translateZ(0)" }} className={`relative overflow-hidden theme-card rounded-[var(--theme-radius)] p-3.5 ${heightClass} flex flex-col justify-between ${cardBase} isolate`}>
       
       <div className="flex items-start justify-between gap-2">
         <span
@@ -55,7 +55,7 @@ export default function MetricCard({ title, value, subtitle, isLoading, titleCol
         {icon && (
           isImageIcon ? (
             <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 overflow-hidden">
-              <span className="w-9 h-9 flex items-center justify-center [&>img]:w-9 [&>img]:h-9 [&>img]:object-contain drop-shadow-sm">{icon}</span>
+              <span className="w-9 h-9 flex items-center justify-center [&>img]:w-9 [&>img]:h-9 [&>img]:object-contain ">{icon}</span>
             </div>
           ) : (
           <div
