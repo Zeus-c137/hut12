@@ -14,8 +14,6 @@ interface MetricCardProps {
 
 export default function MetricCard({ title, value, subtitle, isLoading, titleColor, icon, variant = "hero" }: MetricCardProps) {
   const { cardStyle } = useTheme();
-  const isPlayful = cardStyle === "playful-3d";
-  const isGlass = cardStyle === "glass" || cardStyle === "liquid-glass";
   const isMuted = variant === "muted";
 
   let accent: { bg: string; shadow: string; text: string } = { bg: "var(--theme-card-border)", shadow: "var(--theme-card-shadow)", text: "var(--theme-text)" };
@@ -37,11 +35,9 @@ export default function MetricCard({ title, value, subtitle, isLoading, titleCol
 
   const cardBase = isMuted
     ? "bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] shadow-none opacity-95"
-    : isGlass
+    : cardStyle === "glass"
     ? "bg-[var(--theme-card-bg)]/80 backdrop-blur-xl border-white/20 shadow-lg"
-    : isPlayful
-    ? "bg-[var(--theme-card-bg)] border-2 border-[var(--theme-card-border)] shadow-[0_5px_0_0_var(--theme-card-shadow)]"
-    : "bg-[var(--theme-card-bg)] border-2 border-[var(--theme-card-border)] shadow-md";
+    : "bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] shadow-[0_4px_0_0_var(--theme-card-shadow)]";
 
   const heightClass = isMuted ? "h-[96px]" : "h-[112px]";
 

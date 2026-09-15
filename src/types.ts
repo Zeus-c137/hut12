@@ -3,11 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export type ThemePreset = "duolingo-playful" | "emerald-farm" | "cyber-arcade" | "sunset-gold" | "royal-violet" | "apple" | "terminal-hacker" | "8-bit-pixel" | "cyberpunk-neon" | "luxury-dark-gold" | "neumorphic" | "custom";
+// hut12 minimal — old presets purged 2026-09-15
+export type ThemePreset = "hut12-light" | "hut12-dark";
 export type ThemeMode = "light" | "dark" | "system";
-export type CardStyle = "playful-3d" | "glass" | "liquid-glass" | "solid" | "neo-brutalist" | "chunky-border" | "textured-wood" | "textured-metal";
-export type ButtonStyle = "playful-3d" | "pill-gradient" | "neo-brutalist" | "glass" | "minimal-solid";
-export type BorderRadiusStyle = "rounded-xl" | "rounded-2xl" | "rounded-3xl";
+export type CardStyle = "solid" | "glass";
+export type ButtonStyle = "pill-gradient";
+export type BorderRadiusStyle = "rounded-2xl";
 
 export interface SiteConfig {
   adminPhone?: string;

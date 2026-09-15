@@ -65,11 +65,13 @@ import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { useCurrency } from "../currency";
 import ParticleBg from "./ParticleBg";
-import { UserProfile, SubscriptionItem, ThemePreset, ThemeMode, CardStyle, ButtonStyle, BorderRadiusStyle, VipTaskConfig } from "../types";
+import { UserProfile, SubscriptionItem, ThemePreset, ThemeMode, VipTaskConfig } from "../types";
 import AdminChatDesk from "./AdminChatDesk";
 import AdminChart from "./AdminChart";
 import { BrandLogo } from "./BrandLogo";
-import { useTheme, THEME_PRESETS, THEME_PRESET_OPTIONS } from "../context/ThemeContext";
+import { useTheme } from "../context/ThemeContext";
+import { HUT12_PRESETS, HUT12_PRESET_OPTIONS } from "../utils/themeTokens";
+import { migrateCardStyle, sanitizeSiteConfig } from "../utils/themeTokens";
 import { fixGitHubImageUrl } from "../utils/imageUtils";
 import { readApiJson } from "../utils/api";
 
@@ -1071,7 +1073,8 @@ export default function AdminView() {
     }
     try {
       setIsLoading(true);
-      const payload = { ...siteConfig, updatedAt: Date.now() };
+      const sanitized = sanitizeSiteConfig({ ...siteConfig, updatedAt: Date.now() });
+      const payload = sanitized as any;
       const res = await fetch("/api/admin/config", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -2558,467 +2561,186 @@ export default function AdminView() {
                     </div>
                   )}
 
-                  {/* SUBTAB: THEME & AESTHETIC */}
+                  {/* SUBTAB: THEME & AESTHETIC — hut12 minimal (2 presets, fixed tokens) */}
                   {configSubTab === "theme" && (
                     <div className="py-2 space-y-6">
                       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                        
-                        {/* LEFT COLUMN: Clean Streamlined Settings Form */}
                         <div className="lg:col-span-7 space-y-5 text-[var(--theme-text)] font-sans">
-                          
-                          {/* 1. Theme Preset Engine */}
-                          <div className="space-y-1.5">
-                            <label className="text-xs font-bold text-[var(--theme-text)] uppercase tracking-wider flex items-center gap-2">
-                              <span>Theme Preset</span>
-                            </label>
-                            <select
-                              value={siteConfig.themePreset || "duolingo-playful"}
-                              onChange={(e) => {
-                                const selectedId = e.target.value as ThemePreset;
-                                const presetObj = THEME_PRESET_OPTIONS.find(p => p.id === selectedId);
-                                const presetDetails = THEME_PRESETS[selectedId];
-                                if (presetObj && presetDetails) {
-                                  const updated = {
-                                    ...siteConfig,
-                                    themePreset: selectedId,
-                                    primaryColor: presetObj.primary,
-                                    accentColor: presetObj.accent,
-                                    secondaryColor: presetObj.secondary,
-                                    bgColor: presetDetails.bg,
-                                    cardBgColor: presetDetails.cardBg,
-                                    cardStyle: presetObj.cardStyle,
-                                    borderRadius: presetObj.radius,
-                                    themeMode: (presetDetails.isDark ? "dark" : "light") as any,
-                                    textColor: presetDetails.textColor || ""
-                                  };
-                                  setSiteConfig(updated);
-                                } else {
-                                  const updated = { ...siteConfig, themePreset: selectedId };
-                                  setSiteConfig(updated);
-                                }
-                              }}
-                              className="theme-input w-full px-3.5 py-2.5 text-xs font-bold cursor-pointer"
-                            >
-                              {THEME_PRESET_OPTIONS.map((preset) => {
-                                const isActive = (siteConfig.themePreset || "duolingo-playful") === preset.id;
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold uppercase tracking-wider">Theme Preset</label>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {HUT12_PRESET_OPTIONS.map((preset) => {
+                                const isActive = (siteConfig.themePreset || "hut12-light") === preset.id;
                                 return (
-                                  <option key={preset.id} value={preset.id} className="bg-[var(--theme-card-bg)] text-[var(--theme-text)] font-bold">
-                                    {preset.name} — {preset.description}{isActive ? " ✓" : ""}
-                                  </option>
+                                  <button
+                                    key={preset.id}
+                                    type="button"
+                                    onClick={() => {
+                                      const details = HUT12_PRESETS[preset.id];
+                                      setSiteConfig({
+                                        ...siteConfig,
+                                        themePreset: preset.id,
+                                        primaryColor: details.primary,
+                                        accentColor: details.accent,
+                                        secondaryColor: details.secondary,
+                                        bgColor: details.bg,
+                                        cardBgColor: details.cardBg,
+                                        cardStyle: preset.cardStyle,
+                                        borderRadius: preset.radius,
+                                        themeMode: details.isDark ? "dark" : "light",
+                                        textColor: details.textColor || "",
+                                      });
+                                    }}
+                                    className={`p-4 rounded-[var(--theme-radius)] border text-left transition-all ${isActive ? "border-[var(--theme-primary)] bg-[var(--theme-primary)]/10" : "border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] hover:border-[var(--theme-primary)]/40"}`}
+                                  >
+                                    <div className="flex items-center gap-3">
+                                      <span className="text-lg">{preset.icon}</span>
+                                      <div>
+                                        <div className="text-sm font-bold">{preset.name}</div>
+                                        <div className="text-xs opacity-60">{preset.description}</div>
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-1.5 mt-3">
+                                      <span className="w-6 h-6 rounded-full border border-black/10" style={{ background: preset.primary }} />
+                                      <span className="w-6 h-6 rounded-full border border-black/10" style={{ background: preset.accent }} />
+                                      <span className="w-6 h-6 rounded-full border border-black/10" style={{ background: preset.secondary }} />
+                                    </div>
+                                  </button>
                                 );
                               })}
-                              <option value="custom" className="bg-[var(--theme-card-bg)] text-[var(--theme-text)] font-bold">
-                                Custom Hex Colors & Style{siteConfig.themePreset === "custom" ? " ✓" : ""}
-                              </option>
-                            </select>
-                          </div>
-
-                          {/* 2. Font Family & Text Size Controls */}
-                          <div className="space-y-1.5">
-                            <label className="text-xs font-bold text-[var(--theme-text)] uppercase tracking-wider flex items-center gap-2">
-                              <span>Typography & Scale</span>
-                            </label>
-                            
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              <div className="space-y-1">
-                                <span className="text-[11px] font-bold text-[var(--theme-text)] opacity-70 block">Font Family</span>
-                                <select
-                                  value={siteConfig.fontFamily || "Fredoka"}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    const next = { ...siteConfig, fontFamily: val };
-                                    setSiteConfig(next);
-                                    updateLocalThemeConfig(next);
-                                  }}
-                                  className="theme-input w-full px-3 py-2 text-xs font-bold cursor-pointer"
-                                >
-                                  {(() => {
-                                    const f = siteConfig.fontFamily || "Fredoka";
-                                    return (
-                                      <>
-                                        <option value="Fredoka">Fredoka (Playful 3D Gamified){f === "Fredoka" ? " ✓" : ""}</option>
-                                        <option value="Plus Jakarta Sans">Plus Jakarta Sans (Crisp Modern){f === "Plus Jakarta Sans" ? " ✓" : ""}</option>
-                                        <option value="Outfit">Outfit (Geometric Clean){f === "Outfit" ? " ✓" : ""}</option>
-                                        <option value="Space Grotesk">Space Grotesk (Cyber Arcade){f === "Space Grotesk" ? " ✓" : ""}</option>
-                                        <option value="Comfortaa">Comfortaa (Soft Rounded){f === "Comfortaa" ? " ✓" : ""}</option>
-                                        <option value="Lexend">Lexend (Hyper Legible){f === "Lexend" ? " ✓" : ""}</option>
-                                        <option value="Playfair Display">Playfair Display (Editorial){f === "Playfair Display" ? " ✓" : ""}</option>
-                                        <option value="Inter">Inter (Standard Sans){f === "Inter" ? " ✓" : ""}</option>
-                                      </>
-                                    );
-                                  })()}
-                                </select>
-                              </div>
-
-                              <div className="space-y-1">
-                                <span className="text-[11px] font-bold text-[var(--theme-text)] opacity-70 block">Base Text Size</span>
-                                <select
-                                  value={siteConfig.fontSizeScale || "md"}
-                                  onChange={(e) => {
-                                    const val = e.target.value as any;
-                                    setSiteConfig({ ...siteConfig, fontSizeScale: val });
-                                  }}
-                                  className="theme-input w-full px-3 py-2 text-xs font-bold cursor-pointer"
-                                >
-                                  {(() => {
-                                    const fs = siteConfig.fontSizeScale || "md";
-                                    return (
-                                      <>
-                                        <option value="sm">Small Text (14px){fs === "sm" ? " ✓" : ""}</option>
-                                        <option value="md">Medium Standard (16px){fs === "md" ? " ✓" : ""}</option>
-                                        <option value="lg">Large Reading (18px){fs === "lg" ? " ✓" : ""}</option>
-                                        <option value="xl">Extra Large (20px){fs === "xl" ? " ✓" : ""}</option>
-                                      </>
-                                    );
-                                  })()}
-                                </select>
-                              </div>
+                            </div>
+                            <div className="flex gap-2 mt-3 items-center">
+                              <span className="text-[11px] font-bold opacity-60">Mode</span>
+                              <select
+                                value={siteConfig.themeMode || "light"}
+                                onChange={(e) => setSiteConfig({ ...siteConfig, themeMode: e.target.value as ThemeMode })}
+                                className="theme-input px-3 py-1.5 text-xs font-bold"
+                              >
+                                <option value="light">light</option>
+                                <option value="dark">dark</option>
+                                <option value="system">system</option>
+                              </select>
                             </div>
                           </div>
-
-                          {/* 3. Interactive Card Style */}
-                          <div className="space-y-1.5">
-                            <label className="text-xs font-bold text-[var(--theme-text)] uppercase tracking-wider flex items-center gap-2">
-                              <span>Card Style & Shadows</span>
-                            </label>
-                            <select
-                              value={siteConfig.cardStyle || "playful-3d"}
-                              onChange={(e) => {
-                                const val = e.target.value as CardStyle;
-                                setSiteConfig({ ...siteConfig, cardStyle: val });
-                              }}
-                              className="theme-input w-full px-3.5 py-2 text-xs font-bold cursor-pointer"
-                            >
-                              {(() => {
-                                const cs = siteConfig.cardStyle || "playful-3d";
-                                return (
-                                  <>
-                                    <option value="playful-3d" className="bg-[var(--theme-card-bg)] text-[var(--theme-text)]">Playful 3D Extruded (Gamified bottom border shadows){cs === "playful-3d" ? " ✓" : ""}</option>
-                                    <option value="liquid-glass" className="bg-[var(--theme-card-bg)] text-[var(--theme-text)]">Liquid Glass (Ultra-transparent translucent glass & sheen){cs === "liquid-glass" ? " ✓" : ""}</option>
-                                    <option value="glass" className="bg-[var(--theme-card-bg)] text-[var(--theme-text)]">Soft Glassmorphism (Backdrop blur & ambient transparency){cs === "glass" ? " ✓" : ""}</option>
-                                    <option value="textured-wood" className="bg-[var(--theme-card-bg)] text-[var(--theme-text)]">Textured Wood (Organic woodgrain warm styling){cs === "textured-wood" ? " ✓" : ""}</option>
-                                    <option value="textured-metal" className="bg-[var(--theme-card-bg)] text-[var(--theme-text)]">Textured Metal (Brushed metallic industrial surface){cs === "textured-metal" ? " ✓" : ""}</option>
-                                    <option value="solid" className="bg-[var(--theme-card-bg)] text-[var(--theme-text)]">Clean Solid (Minimalist modern flat borders){cs === "solid" ? " ✓" : ""}</option>
-                                    <option value="neo-brutalist" className="bg-[var(--theme-card-bg)] text-[var(--theme-text)]">Neo-Brutalist (High contrast bold outline & solid shadow){cs === "neo-brutalist" ? " ✓" : ""}</option>
-                                    <option value="chunky-border" className="bg-[var(--theme-card-bg)] text-[var(--theme-text)]">Chunky Boarder (Double-bordered casual detailing){cs === "chunky-border" ? " ✓" : ""}</option>
-                                  </>
-                                );
-                              })()}
-                            </select>
-                          </div>
-
-                          {/* 4. Shapes & Corner Roundness */}
-                          <div className="space-y-1.5">
-                            <label className="text-xs font-bold text-[var(--theme-text)] uppercase tracking-wider flex items-center gap-2">
-                              <span>Button Style Variations</span>
-                            </label>
-                            <select
-                              value={siteConfig.buttonStyle || "playful-3d"}
-                              onChange={(e) => {
-                                const val = e.target.value as ButtonStyle;
-                                setSiteConfig({ ...siteConfig, buttonStyle: val });
-                              }}
-                              className="theme-input w-full px-3.5 py-2 text-xs font-bold cursor-pointer"
-                            >
-                              {(() => {
-                                const bs = siteConfig.buttonStyle || "playful-3d";
-                                return (
-                                  <>
-                                    <option value="playful-3d" className="bg-[var(--theme-card-bg)] text-[var(--theme-text)]">Playful 3D Extruded (Tactile bottom shadow pressable button){bs === "playful-3d" ? " ✓" : ""}</option>
-                                    <option value="pill-gradient" className="bg-[var(--theme-card-bg)] text-[var(--theme-text)]">Pill Gradient Glow (Smooth rounded pill with vibrant gradient & glow){bs === "pill-gradient" ? " ✓" : ""}</option>
-                                    <option value="neo-brutalist" className="bg-[var(--theme-card-bg)] text-[var(--theme-text)]">Neo-Brutalist (Bold solid outline & block shadow){bs === "neo-brutalist" ? " ✓" : ""}</option>
-                                    <option value="glass" className="bg-[var(--theme-card-bg)] text-[var(--theme-text)]">Glassmorphic Sheen (Soft blur translucency & fine border){bs === "glass" ? " ✓" : ""}</option>
-                                    <option value="minimal-solid" className="bg-[var(--theme-card-bg)] text-[var(--theme-text)]">Minimal Modern Solid (Clean flat solid color with hover elevation){bs === "minimal-solid" ? " ✓" : ""}</option>
-                                  </>
-                                );
-                              })()}
-                            </select>
-                          </div>
-
-                          {/* 5. Shapes & Corner Roundness */}
-                          <div className="space-y-1.5">
-                            <label className="text-xs font-bold text-[var(--theme-text)] uppercase tracking-wider flex items-center gap-2">
-                              <span>Corner Radius</span>
-                            </label>
-                            <select
-                              value={siteConfig.borderRadius || "rounded-2xl"}
-                              onChange={(e) => {
-                                const val = e.target.value as BorderRadiusStyle;
-                                setSiteConfig({ ...siteConfig, borderRadius: val });
-                              }}
-                              className="theme-input w-full px-3.5 py-2 text-xs font-bold cursor-pointer"
-                            >
-                              {(() => {
-                                const br = siteConfig.borderRadius || "rounded-2xl";
-                                return (
-                                  <>
-                                    <option value="rounded-xl" className="bg-[var(--theme-card-bg)] text-[var(--theme-text)]">Standard Corner Roundness (12px / rounded-xl){br === "rounded-xl" ? " ✓" : ""}</option>
-                                    <option value="rounded-2xl" className="bg-[var(--theme-card-bg)] text-[var(--theme-text)]">Playful Gamified Corner Roundness (20px / rounded-2xl){br === "rounded-2xl" ? " ✓" : ""}</option>
-                                    <option value="rounded-3xl" className="bg-[var(--theme-card-bg)] text-[var(--theme-text)]">Ultra Curved Pill Corner Roundness (28px / rounded-3xl){br === "rounded-3xl" ? " ✓" : ""}</option>
-                                  </>
-                                );
-                              })()}
-                            </select>
-                          </div>
-
-                          {/* 5. Custom Color Hex Pickers */}
-                          <div className="space-y-3">
-                            <label className="text-xs font-bold text-[var(--theme-text)] uppercase tracking-wider block">
-                              Custom Color Overrides
-                            </label>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                              {/* Primary Color */}
-                              <div className="space-y-1.5">
-                                <span className="text-[11px] font-bold text-[var(--theme-text)] opacity-80 block">Primary Color</span>
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    type="color"
-                                    value={siteConfig.primaryColor || "#58cc02"}
-                                    onChange={(e) => {
-                                      const val = e.target.value;
-                                      const updated = { ...siteConfig, primaryColor: val, themePreset: "custom" as ThemePreset };
-                                      setSiteConfig(updated);
-                                    }}
-                                    className="w-10 h-10 rounded-xl bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] cursor-pointer p-1 transition-all"
-                                  />
-                                  <input
-                                    type="text"
-                                    value={siteConfig.primaryColor || "#58cc02"}
-                                    onChange={(e) => {
-                                      const val = e.target.value;
-                                      const updated = { ...siteConfig, primaryColor: val, themePreset: "custom" as ThemePreset };
-                                      setSiteConfig(updated);
-                                    }}
-                                    className="theme-input flex-1 px-3 py-2 text-xs font-mono text-[var(--theme-text)] font-bold"
-                                  />
-                                </div>
-                              </div>
-
-                              {/* Accent Color */}
-                              <div className="space-y-1.5">
-                                <span className="text-[11px] font-bold text-[var(--theme-text)] opacity-80 block">Accent Color</span>
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    type="color"
-                                    value={siteConfig.accentColor || "#ff4b4b"}
-                                    onChange={(e) => {
-                                      const val = e.target.value;
-                                      const updated = { ...siteConfig, accentColor: val, themePreset: "custom" as ThemePreset };
-                                      setSiteConfig(updated);
-                                    }}
-                                    className="w-10 h-10 rounded-xl bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] cursor-pointer p-1 transition-all"
-                                  />
-                                  <input
-                                    type="text"
-                                    value={siteConfig.accentColor || "#ff4b4b"}
-                                    onChange={(e) => {
-                                      const val = e.target.value;
-                                      const updated = { ...siteConfig, accentColor: val, themePreset: "custom" as ThemePreset };
-                                      setSiteConfig(updated);
-                                    }}
-                                    className="theme-input flex-1 px-3 py-2 text-xs font-mono text-[var(--theme-text)] font-bold"
-                                  />
-                                </div>
-                              </div>
-
-                              {/* Secondary Color */}
-                              <div className="space-y-1.5">
-                                <span className="text-[11px] font-bold text-[var(--theme-text)] opacity-80 block">Secondary Color</span>
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    type="color"
-                                    value={siteConfig.secondaryColor || "#1cb0f6"}
-                                    onChange={(e) => {
-                                      const val = e.target.value;
-                                      const updated = { ...siteConfig, secondaryColor: val, themePreset: "custom" as ThemePreset };
-                                      setSiteConfig(updated);
-                                    }}
-                                    className="w-10 h-10 rounded-xl bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] cursor-pointer p-1 transition-all"
-                                  />
-                                  <input
-                                    type="text"
-                                    value={siteConfig.secondaryColor || "#1cb0f6"}
-                                    onChange={(e) => {
-                                      const val = e.target.value;
-                                      const updated = { ...siteConfig, secondaryColor: val, themePreset: "custom" as ThemePreset };
-                                      setSiteConfig(updated);
-                                    }}
-                                    className="theme-input flex-1 px-3 py-2 text-xs font-mono text-[var(--theme-text)] font-bold"
-                                  />
-                                </div>
-                              </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            <div className="p-3 rounded-xl border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)]">
+                              <div className="text-[11px] font-bold opacity-60 uppercase">Font</div>
+                              <div className="text-sm font-bold">Sora</div>
+                            </div>
+                            <div className="p-3 rounded-xl border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)]">
+                              <div className="text-[11px] font-bold opacity-60 uppercase">Card</div>
+                              <div className="text-sm font-bold">{migrateCardStyle(siteConfig.cardStyle)}</div>
+                            </div>
+                            <div className="p-3 rounded-xl border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)]">
+                              <div className="text-[11px] font-bold opacity-60 uppercase">Button</div>
+                              <div className="text-sm font-bold">pill-gradient</div>
+                            </div>
+                            <div className="p-3 rounded-xl border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)]">
+                              <div className="text-[11px] font-bold opacity-60 uppercase">Radius</div>
+                              <div className="text-sm font-bold">rounded-2xl</div>
                             </div>
                           </div>
-
-                          {/* 6. Custom Background Imagery */}
                           <div className="space-y-1.5">
-                            <label className="text-xs font-semibold text-[var(--theme-text)] block">
-                              Custom Wallpapers
-                            </label>
+                            <label className="text-xs font-semibold block">Custom Wallpapers</label>
                             <div className="space-y-2">
                               <div>
-                                <span className="text-[11px] font-medium text-[var(--theme-text)] opacity-70 block mb-1">Auth View Background Image URL</span>
+                                <span className="text-[11px] opacity-70 block mb-1">Auth View Background Image URL</span>
                                 <div className="flex gap-3 items-center">
                                   <input
                                     type="url"
                                     value={siteConfig.authBgImage || ""}
-                                    onChange={(e) => {
-                                      const val = e.target.value;
-                                      setSiteConfig({ ...siteConfig, authBgImage: val });
-                                    }}
-                                    placeholder="https://images.unsplash.com/... or vector URL"
+                                    onChange={(e) => setSiteConfig({ ...siteConfig, authBgImage: e.target.value })}
+                                    placeholder="https://images.unsplash.com/..."
                                     className="theme-input flex-1 px-3.5 py-2 text-xs font-mono"
                                   />
-                                  <div className="w-10 h-10 rounded-lg bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] overflow-hidden shrink-0 shadow-sm flex items-center justify-center">
+                                  <div className="w-10 h-10 rounded-lg bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] overflow-hidden shrink-0 flex items-center justify-center">
                                     {siteConfig.authBgImage ? (
                                       <img src={fixGitHubImageUrl(siteConfig.authBgImage)} referrerPolicy="no-referrer" className="w-full h-full object-cover" alt="Auth Preview" />
                                     ) : (
-                                      <div className="w-full h-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-[10px] text-slate-400">
-                                        N/A
-                                      </div>
+                                      <div className="w-full h-full bg-slate-200 flex items-center justify-center text-[10px] text-slate-400">N/A</div>
                                     )}
                                   </div>
                                 </div>
                               </div>
                               <div>
-                                <span className="text-[11px] font-medium text-[var(--theme-text)] opacity-70 block mb-1">Dashboard Wallpaper / Pattern URL</span>
+                                <span className="text-[11px] opacity-70 block mb-1">Dashboard Wallpaper / Pattern URL</span>
                                 <div className="flex gap-3 items-center">
                                   <input
                                     type="url"
                                     value={siteConfig.dashboardBgImage || ""}
-                                    onChange={(e) => {
-                                      const val = e.target.value;
-                                      setSiteConfig({ ...siteConfig, dashboardBgImage: val });
-                                    }}
-                                    placeholder="https://images.unsplash.com/... or pattern URL"
+                                    onChange={(e) => setSiteConfig({ ...siteConfig, dashboardBgImage: e.target.value })}
+                                    placeholder="https://images.unsplash.com/..."
                                     className="theme-input flex-1 px-3.5 py-2 text-xs font-mono"
                                   />
-                                  <div className="w-10 h-10 rounded-lg bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] overflow-hidden shrink-0 shadow-sm flex items-center justify-center">
+                                  <div className="w-10 h-10 rounded-lg bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] overflow-hidden shrink-0 flex items-center justify-center">
                                     {siteConfig.dashboardBgImage ? (
                                       <img src={fixGitHubImageUrl(siteConfig.dashboardBgImage)} referrerPolicy="no-referrer" className="w-full h-full object-cover" alt="Dashboard Preview" />
                                     ) : (
-                                      <div className="w-full h-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-[10px] text-slate-400">
-                                        N/A
-                                      </div>
+                                      <div className="w-full h-full bg-slate-200 flex items-center justify-center text-[10px] text-slate-400">N/A</div>
                                     )}
                                   </div>
                                 </div>
                               </div>
                             </div>
                           </div>
-
                         </div>
-
-                        {/* RIGHT COLUMN: ONLY the Title "Preview" and the Inner Live Interactive Card */}
                         <div className="lg:col-span-5 lg:sticky lg:top-20 space-y-2">
                           <div className="flex items-center justify-between px-1">
-                            <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--theme-text)] opacity-70 flex items-center gap-1.5">
-                              <Sparkles className="w-4 h-4 text-amber-500" />
-                              Preview
+                            <h4 className="text-xs font-bold uppercase tracking-wider opacity-70 flex items-center gap-1.5">
+                              <Sparkles className="w-4 h-4 text-amber-500" /> Preview
                             </h4>
                             <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[var(--theme-card-bg)] text-[var(--theme-primary)] font-mono uppercase border border-[var(--theme-card-border)]">
-                              {siteConfig.themePreset || "duolingo-playful"}
+                              {siteConfig.themePreset || "hut12-light"}
                             </span>
                           </div>
-
-                          {/* Dynamic Helper Values for Live Render */}
                           {(() => {
-                            const activePresetKey = siteConfig.themePreset || "duolingo-playful";
-                            const presetDefaults = THEME_PRESETS[activePresetKey] || THEME_PRESETS["duolingo-playful"];
-
-                            const pPrimary = siteConfig.primaryColor || presetDefaults.primary;
-                            const pAccent = siteConfig.accentColor || presetDefaults.accent;
-
-                            const darkHex = (hex: string, pct = 22) => {
-                              let num = parseInt(hex.replace("#", ""), 16);
-                              if (isNaN(num)) return hex;
-                              let r = Math.max(0, (num >> 16) - Math.round(255 * (pct / 100)));
-                              let g = Math.max(0, ((num >> 8) & 0x00ff) - Math.round(255 * (pct / 100)));
-                              let b = Math.max(0, (num & 0x0000ff) - Math.round(255 * (pct / 100)));
-                              return `#${(g | (b << 8) | (r << 16)).toString(16).padStart(6, "0")}`;
-                            };
-
-                            const pPrimaryShadow = darkHex(pPrimary, 22);
-                            const pAccentShadow = darkHex(pAccent, 22);
+                            const activePresetKey = (siteConfig.themePreset || "hut12-light") as ThemePreset;
+                            const presetDefaults = HUT12_PRESETS[activePresetKey] || HUT12_PRESETS["hut12-light"];
+                            const pPrimary = presetDefaults.primary;
+                            const pAccent = presetDefaults.accent;
+                            const pPrimaryShadow = presetDefaults.primaryShadow;
+                            const pAccentShadow = presetDefaults.accentShadow;
                             const pCardBg = presetDefaults.cardBg;
                             const pCardBorder = presetDefaults.cardBorder;
                             const pBg = presetDefaults.bg;
-                            const pText = siteConfig.textColor || presetDefaults.textColor;
-                            const radiusMap: Record<string, string> = {
-                              'rounded-xl': '0.75rem',
-                              'rounded-2xl': '1.25rem',
-                              'rounded-3xl': '1.75rem'
-                            };
-                            const pRadius = radiusMap[siteConfig.borderRadius || 'rounded-2xl'] || '1.25rem';
-
-                            // 1. Live Card Style & Shadows
-                            const cStyle = siteConfig.cardStyle || 'playful-3d';
+                            const pText = presetDefaults.textColor || "#1c1917";
+                            const pRadius = "1.25rem";
+                            const cStyle = migrateCardStyle(siteConfig.cardStyle);
                             let cardBgStyle = pCardBg;
                             let cardBorderStyle = pCardBorder;
-                            let cardShadowStyle = `0 5px 0 ${presetDefaults.cardShadow || pCardBorder}`;
-                            let backdropBlurStyle: string | undefined = undefined;
-
-                            if (cStyle === 'glass') {
-                              cardBgStyle = presetDefaults.isDark ? 'rgba(21, 21, 42, 0.85)' : 'rgba(255, 255, 255, 0.82)';
-                              cardBorderStyle = presetDefaults.isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(15, 23, 42, 0.12)';
-                              cardShadowStyle = '0 8px 32px 0 rgba(0, 0, 0, 0.18)';
-                              backdropBlurStyle = 'blur(16px)';
-                            } else if (cStyle === 'solid') {
-                              cardBgStyle = pCardBg;
-                              cardBorderStyle = pCardBorder;
-                              cardShadowStyle = '0 2px 8px 0 rgba(0, 0, 0, 0.08)';
-                            } else if (cStyle === 'neo-brutalist') {
-                              cardBgStyle = pCardBg;
-                              cardBorderStyle = pCardBorder;
-                              cardShadowStyle = `4px 4px 0 ${pCardBorder}`;
-                            } else if (cStyle === 'chunky-border') {
-                              cardBgStyle = pCardBg;
-                              cardBorderStyle = pCardBorder;
-                              cardShadowStyle = '0 2px 6px rgba(0, 0, 0, 0.08)';
-                            } else { // playful-3d
-                              cardBgStyle = pCardBg;
-                              cardBorderStyle = pCardBorder;
-                              cardShadowStyle = `0 5px 0 ${presetDefaults.cardShadow || pCardBorder}`;
+                            let cardShadowStyle = cStyle === "glass" ? "0 8px 32px 0 rgba(0,0,0,0.18)" : "0 2px 8px 0 rgba(0,0,0,0.08)";
+                            let backdropBlurStyle: string | undefined = cStyle === "glass" ? "blur(16px)" : undefined;
+                            if (cStyle === "glass") {
+                              cardBgStyle = presetDefaults.isDark ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.82)";
+                              cardBorderStyle = presetDefaults.isDark ? "rgba(255,255,255,0.10)" : "rgba(15, 23, 42, 0.12)";
                             }
-
-                            // 2. Live Base Text Size Scale
-                            const fScale = siteConfig.fontSizeScale || 'md';
-                            const fontBasePxMap: Record<string, string> = {
-                              sm: '13px',
-                              md: '15px',
-                              lg: '17px',
-                              xl: '19px'
-                            };
-                            const pFontSize = fontBasePxMap[fScale] || '15px';
-
+                            const pFontSize = "15px";
                             return (
                               <div
-                                className={`theme-card p-5 space-y-4 relative transition-all overflow-hidden ${siteConfig.borderRadius || 'rounded-2xl'}`}
+                                className="theme-card p-5 space-y-4 relative transition-all overflow-hidden rounded-2xl"
                                 data-card-style={cStyle}
-                                style={{
-                                  backgroundColor: cardBgStyle,
-                                  borderColor: cardBorderStyle,
-                                  borderWidth: cStyle === 'chunky-border' ? '4px' : cStyle === 'neo-brutalist' ? '3px' : cStyle === 'playful-3d' ? '2px' : '1px',
-                                  borderStyle: cStyle === 'chunky-border' ? 'double' : 'solid',
-                                  boxShadow: cardShadowStyle,
-                                  backdropFilter: backdropBlurStyle,
-                                  WebkitBackdropFilter: backdropBlurStyle,
-                                  color: pText,
-                                  borderRadius: pRadius,
-                                  fontSize: pFontSize,
-                                  fontFamily: siteConfig.fontFamily ? `'${siteConfig.fontFamily}', sans-serif` : 'Fredoka, sans-serif',
-                                  backgroundImage: siteConfig.dashboardBgImage ? `linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0.4)), url('${siteConfig.dashboardBgImage}')` : undefined,
-                                  backgroundSize: 'cover',
-                                  backgroundPosition: 'center',
-                                } as React.CSSProperties}
+                                style={
+                                  {
+                                    backgroundColor: cardBgStyle,
+                                    borderColor: cardBorderStyle,
+                                    borderWidth: "1px",
+                                    borderStyle: "solid",
+                                    boxShadow: cardShadowStyle,
+                                    backdropFilter: backdropBlurStyle,
+                                    WebkitBackdropFilter: backdropBlurStyle,
+                                    color: pText,
+                                    borderRadius: pRadius,
+                                    fontSize: pFontSize,
+                                    fontFamily: "'Sora', sans-serif",
+                                    backgroundImage: siteConfig.dashboardBgImage ? `linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0.4)), url('${siteConfig.dashboardBgImage}')` : undefined,
+                                    backgroundSize: "cover",
+                                    backgroundPosition: "center",
+                                  } as React.CSSProperties
+                                }
                               >
-                                {/* Top row badge & title */}
                                 <div className="flex items-center justify-between gap-2">
                                   <div className="flex items-center gap-2.5">
-                                    <div
-                                      className="w-9 h-9 rounded-xl flex items-center justify-center text-lg shadow-sm transition-colors shrink-0"
-                                      style={{ backgroundColor: `${pPrimary}25` }}
-                                    >
+                                    <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg shadow-sm shrink-0" style={{ backgroundColor: `${pPrimary}25` }}>
                                       ⚡
                                     </div>
                                     <div>
@@ -3026,83 +2748,39 @@ export default function AdminView() {
                                         {siteConfig.brandName || "System"}
                                       </h5>
                                       <p className="text-[11px] opacity-70" style={{ color: pText }}>
-                                        {siteConfig.fontFamily || "Fredoka"} · {cStyle}
+                                        Sora · {cStyle}
                                       </p>
                                     </div>
                                   </div>
                                   <span
-                                    className="px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white transition-all shrink-0"
-                                    style={{
-                                      backgroundColor: pAccent,
-                                      borderRadius: pRadius,
-                                      boxShadow: `0 2px 0 ${pAccentShadow}`
-                                    }}
+                                    className="px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shrink-0"
+                                    style={{ backgroundColor: pAccent, borderRadius: pRadius, boxShadow: `0 2px 0 ${pAccentShadow}` }}
                                   >
                                     Live
                                   </span>
                                 </div>
-
-                                {/* Interactive Progress Bar */}
                                 <div className="space-y-1.5">
                                   <div className="flex justify-between text-xs font-bold">
-                                    {/* <span style={{ color: pText }}>Activity Meter</span> */}
                                     <span style={{ color: pPrimary }}>85%</span>
                                   </div>
-                                  <div
-                                    className="w-full h-2.5 rounded-full overflow-hidden p-0.5 border transition-all"
-                                    style={{ backgroundColor: pBg, borderColor: pCardBorder }}
-                                  >
-                                    <div
-                                      className="h-full rounded-full transition-all duration-300 shadow-sm"
-                                      style={{
-                                        width: '85%',
-                                        backgroundColor: pPrimary,
-                                        boxShadow: `0 2px 0 ${pPrimaryShadow}`
-                                      }}
-                                    />
+                                  <div className="w-full h-2.5 rounded-full overflow-hidden p-0.5 border" style={{ backgroundColor: pBg, borderColor: pCardBorder }}>
+                                    <div className="h-full rounded-full transition-all duration-300 shadow-sm" style={{ width: "85%", backgroundColor: pPrimary, boxShadow: `0 2px 0 ${pPrimaryShadow}` }} />
                                   </div>
                                 </div>
-
-                                {/* Sample Control Input */}
                                 <div className="space-y-1">
                                   <input
                                     type="text"
                                     readOnly
                                     value={`Active Preset: ${activePresetKey}`}
-                                    style={{
-                                      backgroundColor: pBg,
-                                      borderColor: pCardBorder,
-                                      color: pText,
-                                      borderRadius: pRadius
-                                    }}
+                                    style={{ backgroundColor: pBg, borderColor: pCardBorder, color: pText, borderRadius: pRadius }}
                                     className="w-full border px-3 py-1.5 text-xs outline-none font-mono transition-all"
                                   />
                                 </div>
-
-                                {/* Dynamic Action Buttons Grid */}
-                                <div className="grid grid-cols-2 gap-2.5 pt-1" data-button-style={siteConfig.buttonStyle || "playful-3d"}>
-                                  <button
-                                    type="button"
-                                    style={{
-                                      backgroundColor: (siteConfig.buttonStyle || 'playful-3d') === 'pill-gradient' ? undefined : pPrimary,
-                                      boxShadow: (siteConfig.buttonStyle || 'playful-3d') === 'playful-3d' ? `0 3px 0 ${pPrimaryShadow}` : undefined,
-                                      borderRadius: pRadius,
-                                      color: '#ffffff'
-                                    }}
-                                    className="btn-3d-primary py-2 px-3 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
-                                  >
+                                <div className="grid grid-cols-2 gap-2.5 pt-1" data-button-style="pill-gradient">
+                                  <button type="button" style={{ borderRadius: pRadius, color: "#ffffff" }} className="btn-3d-primary py-2 px-3 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all">
                                     <span>Primary Action</span>
                                   </button>
-                                  <button
-                                    type="button"
-                                    style={{
-                                      backgroundColor: (siteConfig.buttonStyle || 'playful-3d') === 'pill-gradient' ? undefined : pAccent,
-                                      boxShadow: (siteConfig.buttonStyle || 'playful-3d') === 'playful-3d' ? `0 3px 0 ${pAccentShadow}` : undefined,
-                                      borderRadius: pRadius,
-                                      color: '#ffffff'
-                                    }}
-                                    className="btn-3d-accent py-2 px-3 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
-                                  >
+                                  <button type="button" style={{ borderRadius: pRadius, color: "#ffffff" }} className="btn-3d-accent py-2 px-3 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all">
                                     <span>Secondary</span>
                                   </button>
                                 </div>
@@ -3110,12 +2788,12 @@ export default function AdminView() {
                             );
                           })()}
                         </div>
-
                       </div>
                     </div>
                   )}
 
                   {/* SUBTAB: REWARDS */}
+
                   {configSubTab === "rewards" && false && (
                     <div className="flex flex-col md:flex-row md:gap-12 py-4">
                       <div className="md:w-1/3 mb-6 md:mb-0 shrink-0">
