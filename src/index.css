@@ -436,18 +436,18 @@ input:-webkit-autofill:focus {
 :root {
   --hut-gold-highlight: #FFF7DE;
   --hut-gold-100: #F6DC93;
-  --hut-gold-300-matte: #D9B458;
-  --hut-gold-300-glossy: #E6BD57;
-  --hut-gold-500: var(--theme-primary);
-  --hut-gold-700: var(--theme-primary-shadow);
-  --hut-gold-900: #654B10;
-  --hut-gold-text: #34260A;
-  --hut-glow-opacity-matte: 0.16;
-  --hut-glow-opacity-glossy: 0.22;
+  --hut-gold-300-matte: #E8A735;
+  --hut-gold-300-glossy: #F0B84A;
+  --hut-gold-500: #CF7500;
+  --hut-gold-700: #9A4F00;
+  --hut-gold-900: #5A2E00;
+  --hut-gold-text: #2E1B00;
+  --hut-glow-opacity-matte: 0.2;
+  --hut-glow-opacity-glossy: 0.28;
 }
 .dark {
-  --hut-glow-opacity-matte: 0.4;
-  --hut-glow-opacity-glossy: 0.55;
+  --hut-glow-opacity-matte: 0.45;
+  --hut-glow-opacity-glossy: 0.6;
 }
 .hut-btn-3d {
   position: relative;
