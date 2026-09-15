@@ -1,5 +1,6 @@
 import React from "react";
 import { useTheme } from "../context/ThemeContext";
+import { BrandLogo } from "./BrandLogo";
 
 interface VisaMetricCardProps {
   leftValue: string;
@@ -66,29 +67,11 @@ export default function VisaMetricCard({
           <div className="absolute left-1/2 top-1/2 w-[1px] h-[calc(100%-6px)] bg-[#b8935a]/40 -translate-x-1/2 -translate-y-1/2" />
           <div className="absolute top-1/2 left-1/2 w-[calc(100%-6px)] h-[1px] bg-[#b8935a]/40 -translate-x-1/2 -translate-y-1/2" />
         </div>
-        <div className="flex items-center gap-2">
-          <div
-            className={`w-9 h-9 rounded-full flex items-center justify-center text-[13px] shrink-0 ${
-              isDark ? "bg-[#CF7500] text-white" : "bg-[#1a1a1a] text-white"
-            }`}
-          >
-            ⌂
-          </div>
-          <div className="leading-none text-left">
-            <p className={`text-[11px] font-black tracking-tight leading-none ${isDark ? "text-white" : "text-[#1a1a1a]"}`}>Hut12</p>
-            <p
-              className={`text-[9px] font-bold tracking-[0.14em] uppercase leading-none mt-0.5 ${
-                isDark ? "text-white/50" : "text-black/40"
-              }`}
-            >
-              UGX • Balance
-            </p>
-          </div>
-        </div>
+        <BrandLogo siteConfig={siteConfig} className="w-9 h-9 flex items-center justify-center shrink-0" />
       </div>
 
-      <div className={`relative grid grid-cols-2 mt-4 ${isDark ? "divide-x divide-white/10" : "divide-x divide-black/10"}`}>
-        <div className="pr-3 sm:pr-4 text-left min-w-0">
+      <div className="relative grid grid-cols-2 gap-6 mt-4">
+        <div className="text-left min-w-0">
           <p
             className={`text-[10px] font-sans font-black uppercase tracking-[0.14em] leading-none ${
               isDark ? "text-white/40" : "text-black/40"
@@ -107,7 +90,7 @@ export default function VisaMetricCard({
             <p className={`text-[10px] font-bold leading-none mt-1 ${isDark ? "text-white/40" : "text-black/40"}`}>{leftSub}</p>
           )}
         </div>
-        <div className="pl-3 sm:pl-4 text-left min-w-0">
+        <div className="text-left min-w-0">
           <p
             className={`text-[10px] font-sans font-black uppercase tracking-[0.14em] leading-none ${
               isDark ? "text-white/40" : "text-black/40"
