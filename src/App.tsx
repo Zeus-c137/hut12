@@ -720,7 +720,8 @@ export default function App() {
         </header>
 
         {/* Main interactive tabs content view block */}
-        <main className={`flex-1 scrollbar-none relative min-h-0 flex flex-col ${activeTab === "chat" ? "p-0 overflow-hidden h-full" : "px-1.5 sm:px-2 py-3 overflow-y-auto"}`}>
+        <main className={`flex-1 relative min-h-0 flex flex-col ${activeTab === "chat" ? "p-0 overflow-hidden h-full" : "px-1.5 sm:px-2 py-3 overflow-y-auto overscroll-contain"}`}
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
           <AnimatePresence mode="wait">
             {(activeTab === "dashboard" || (activeTab === "alerts" && previousTab === "dashboard")) && (
               <motion.div

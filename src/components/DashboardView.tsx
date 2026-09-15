@@ -32,6 +32,12 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
+import money3d from "@/src/assets/3d/3dicons-money-iso-premium.png";
+import flash3d from "@/src/assets/3d/3dicons-flash-iso-premium.png";
+import wallet3d from "@/src/assets/3d/3dicons-wallet-iso-premium.png";
+import credit3d from "@/src/assets/3d/3dicons-credit-card-iso-premium.png";
+import medal3d from "@/src/assets/3d/3dicons-medal-iso-premium.png";
+import gift3d from "@/src/assets/3d/3dicons-gift-iso-premium.png";
 import ParticleBg from "./ParticleBg";
 import NewsCarousel from "./NewsCarousel";
 import MetricCard from "./MetricCard";
@@ -212,8 +218,8 @@ export default function DashboardView({
   return (
     <div className="space-y-6 select-none bg-transparent text-[var(--theme-text)] p-1 rounded-2xl relative">
       
-      {/* Dynamic Grid for Miner Stats - hero/muted hierarchy */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+      {/* Dynamic Grid for Miner Stats - hut12 bento: 2 hero + 4 compact matching banner bg */}
+      <div className="grid grid-cols-2 gap-3">
         {isRefreshing ? (
           <>
             {[...Array(6)].map((_, i) => (
@@ -227,15 +233,15 @@ export default function DashboardView({
               title="AI Income"
               value={formatCurrency(totalEarnedAllTime)}
               titleColor="accent"
-              icon={<Cpu />}
+              icon={<img src={money3d} alt="" />}
               variant="hero"
             />
 
             <MetricCard
               title="Today's Earnings"
               value={formatCurrency(todayEarnings)}
-              titleColor="gold"
-              icon={<Zap />}
+              titleColor="accent"
+              icon={<img src={flash3d} alt="" />}
               variant="hero"
             />
 
@@ -244,51 +250,47 @@ export default function DashboardView({
               title="Total Deposits"
               value={formatCurrency(profile.totalDeposits || 0)}
               titleColor="primary"
-              icon={<ArrowDownLeft />}
+              icon={<img src={wallet3d} alt="" />}
               variant="muted"
             />
 
             <MetricCard
               title="Total Cash Out"
               value={formatCurrency(profile.withdrawnCash || 0)}
-              titleColor="secondary"
-              icon={<ArrowUpRight />}
+              titleColor="accent"
+              icon={<img src={credit3d} alt="" />}
               variant="muted"
             />
 
             <MetricCard
               title="Invite Count"
               value={(teamCount || profile.invitesCount || 0).toLocaleString()}
-              icon={<Users />}
+              icon={<img src={medal3d} alt="" />}
               variant="muted"
             />
 
             <MetricCard
               title="Invite Income"
               value={formatCurrency(profile.referralRewardsEarned || 0)}
-              icon={<Gift />}
+              icon={<img src={gift3d} alt="" />}
               variant="muted"
             />
           </>
         )}
       </div>
 
-      {/* Community — single row, triggers liquid-glass sheet */}
+      {/* Community — single row, triggers sheet — hut12 theme-aware */}
       <button
         type="button"
         onClick={() => setShowCommunitySheet(true)}
-        className="w-full flex items-center gap-3 rounded-[var(--theme-radius)] bg-white/60 backdrop-blur-xl border border-white/30 p-3 active:scale-[0.99] transition-all group text-left cursor-pointer shadow-sm"
-        style={{
-          backdropFilter: "blur(16px) saturate(160%)",
-          WebkitBackdropFilter: "blur(16px) saturate(160%)",
-        }}
+        className="w-full flex items-center gap-3 rounded-[var(--theme-radius)] bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] p-3 active:scale-[0.99] transition-colors group text-left cursor-pointer shadow-sm"
       >
         <img src="/telegram.svg" alt="Telegram" className="w-9 h-9 rounded-xl shrink-0 shadow-sm object-contain" />
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-display font-black text-slate-700 leading-none">Community • Official</p>
-          <p className="text-[10.5px] font-sans font-bold text-slate-500 leading-none mt-1 truncate">Tap to open • {siteConfig?.telegramLink && siteConfig?.whatsappLink ? "Telegram & WhatsApp" : siteConfig?.telegramLink ? "Telegram" : siteConfig?.whatsappLink ? "WhatsApp" : "2.4k online"}</p>
+          <p className="text-xs font-display font-black text-[var(--theme-text)] leading-none">Community • Official</p>
+          <p className="text-[10.5px] font-sans font-bold text-[var(--theme-text)] opacity-60 leading-none mt-1 truncate">Tap to open • {siteConfig?.telegramLink && siteConfig?.whatsappLink ? "Telegram & WhatsApp" : siteConfig?.telegramLink ? "Telegram" : siteConfig?.whatsappLink ? "WhatsApp" : "2.4k online"}</p>
         </div>
-        <ChevronRight className="w-4 h-4 text-slate-500 opacity-40 group-hover:opacity-60 transition-opacity shrink-0" />
+        <ChevronRight className="w-4 h-4 text-[var(--theme-text)] opacity-40 group-hover:opacity-60 transition-opacity shrink-0" />
       </button>
 
       {/* Quick Actions — docked bar */}
@@ -430,46 +432,40 @@ export default function DashboardView({
               animate={{ y: 0, opacity: 1, scale: 1 }}
               exit={{ y: 40, opacity: 0, scale: 0.97 }}
               transition={{ type: "spring", damping: 26, stiffness: 340 }}
-              className="relative w-full max-w-sm rounded-[28px] overflow-hidden border border-white/20 shadow-[0_20px_60px_rgba(0,0,0,0.3)]"
-              style={{
-                background: "linear-gradient(135deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.65) 100%)",
-                backdropFilter: "blur(24px) saturate(180%)",
-                WebkitBackdropFilter: "blur(24px) saturate(180%)",
-              }}
+              className="relative w-full max-w-sm rounded-[28px] overflow-hidden border border-[var(--theme-card-border)] shadow-[0_20px_60px_rgba(0,0,0,0.3)] bg-[var(--theme-card-bg)]"
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-[var(--theme-primary)]/10 pointer-events-none" />
               <div className="relative p-5 pb-6">
-                <div className="w-10 h-1 rounded-full bg-black/15 mx-auto mb-4" />
+                <div className="w-10 h-1 rounded-full bg-[var(--theme-card-border)] mx-auto mb-4" />
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-700">Join our community</h3>
-                  <button onClick={() => setShowCommunitySheet(false)} className="w-8 h-8 rounded-full bg-black/10 hover:bg-black/15 flex items-center justify-center text-slate-600 transition-colors">
+                  <h3 className="text-[11px] font-black uppercase tracking-[0.14em] text-[var(--theme-text)] opacity-70">Join our community</h3>
+                  <button onClick={() => setShowCommunitySheet(false)} className="w-8 h-8 rounded-full bg-[var(--theme-bg)] hover:opacity-80 flex items-center justify-center text-[var(--theme-text)] opacity-60 transition-colors border border-[var(--theme-card-border)]">
                     <X className="w-4 h-4" />
                   </button>
                 </div>
 
                 <div className="space-y-2.5">
                   {siteConfig?.whatsappLink && (
-                    <a href={siteConfig.whatsappLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-colors group">
+                    <a href={siteConfig.whatsappLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--theme-bg)] border border-[var(--theme-card-border)] hover:opacity-80 transition-colors group">
                       <img src="/whatsapp.svg" alt="WhatsApp" className="w-10 h-10 rounded-xl shrink-0 shadow-sm object-contain bg-white p-1" />
                       <span className="flex-1 min-w-0">
-                        <span className="block text-[13px] font-black text-slate-800 leading-none">WhatsApp Support</span>
-                        <span className="block text-[11px] font-bold text-slate-500 leading-none mt-1 truncate">{siteConfig.whatsappLink}</span>
+                        <span className="block text-[13px] font-black text-[var(--theme-text)] leading-none">WhatsApp Support</span>
+                        <span className="block text-[11px] font-bold text-[var(--theme-text)] opacity-60 leading-none mt-1 truncate">{siteConfig.whatsappLink}</span>
                       </span>
-                      <ExternalLink className="w-4 h-4 text-slate-400 group-hover:text-slate-600 shrink-0" />
+                      <ExternalLink className="w-4 h-4 text-[var(--theme-text)] opacity-40 group-hover:opacity-60 shrink-0" />
                     </a>
                   )}
                   {siteConfig?.telegramLink && (
-                    <a href={siteConfig.telegramLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-colors group">
+                    <a href={siteConfig.telegramLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--theme-bg)] border border-[var(--theme-card-border)] hover:opacity-80 transition-colors group">
                       <img src="/telegram.svg" alt="Telegram" className="w-10 h-10 rounded-xl shrink-0 shadow-sm object-contain bg-white p-1" />
                       <span className="flex-1 min-w-0">
-                        <span className="block text-[13px] font-black text-slate-800 leading-none">Telegram Channel</span>
-                        <span className="block text-[11px] font-bold text-slate-500 leading-none mt-1 truncate">{siteConfig.telegramLink}</span>
+                        <span className="block text-[13px] font-black text-[var(--theme-text)] leading-none">Telegram Channel</span>
+                        <span className="block text-[11px] font-bold text-[var(--theme-text)] opacity-60 leading-none mt-1 truncate">{siteConfig.telegramLink}</span>
                       </span>
-                      <ExternalLink className="w-4 h-4 text-slate-400 group-hover:text-slate-600 shrink-0" />
+                      <ExternalLink className="w-4 h-4 text-[var(--theme-text)] opacity-40 group-hover:opacity-60 shrink-0" />
                     </a>
                   )}
                   {!siteConfig?.telegramLink && !siteConfig?.whatsappLink && (
-                    <p className="text-center text-sm font-bold text-slate-500 py-6">No community links configured yet.</p>
+                    <p className="text-center text-sm font-bold text-[var(--theme-text)] opacity-60 py-6">No community links configured yet.</p>
                   )}
                 </div>
               </div>
