@@ -77,14 +77,14 @@ export default function TransactionHistoryView({ phone, siteConfig, onBack }: Pr
   };
 
   return (
-    <div className="w-full min-h-[100dvh] select-none flex flex-col bg-transparent p-0">
+    <div className="w-full flex-1 flex flex-col min-h-0 bg-transparent p-0 select-none">
       {/* Header like deposit/withdraw but no back */}
       <div className="flex items-center justify-center py-3 shrink-0">
         <h1 className="text-sm font-display font-black uppercase tracking-wider text-[var(--theme-text)]">Transaction History</h1>
       </div>
 
       {/* Search + Filter — sticky below header */}
-      <div className="sticky top-0 z-10 bg-[var(--theme-bg)]/80 backdrop-blur-[12px] space-y-3 px-0 py-2 shrink-0">
+      <div className="shrink-0 space-y-3 px-1 py-2 bg-transparent">
         <div className="relative">
           <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--theme-text)] opacity-40" />
           <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search type, status or amount..." className="w-full pl-9 pr-3 py-2.5 rounded-full bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] text-xs font-sans font-bold text-[var(--theme-text)] placeholder:text-[var(--theme-text)]/40 outline-none focus:border-[var(--theme-primary)]" />
