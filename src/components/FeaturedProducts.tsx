@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { ArrowUpRight, Cpu, Flame } from "lucide-react";
 import { SubscriptionItem } from "../types";
 import { useCurrency } from "../currency";
@@ -13,12 +13,84 @@ const POPULARITY = ["2.1k+", "1.4k+", "980+", "560+", "310+", "180+"];
 export default function FeaturedProducts({ items, onBrowseProducts }: FeaturedProductsProps) {
   const { formatCurrency } = useCurrency();
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const pausedRef = useRef(false);
   const featuredItems = items.filter((item) => !item.disabled && !item.outOfStock).slice(0, 6);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || featuredItems.length <= 1) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    let timer: number | null = null;
+    let resumeTimer: number | null = null;
+
+    const start = () => {
+      if (timer) window.clearInterval(timer);
+      timer = window.setInterval(() => {
+        if (pausedRef.current || document.visibilityState !== "visible") return;
+        const first = el.firstElementChild as HTMLElement | null;
+        const gap = 10; // 2.5 * 4
+        const step = first ? first.offsetWidth + gap : 212;
+        const max = el.scrollWidth - el.clientWidth;
+        if (el.scrollLeft >= max - 4) {
+          el.scrollTo({ left: 0, behavior: "smooth" });
+        } else {
+          el.scrollBy({ left: step, behavior: "smooth" });
+        }
+      }, 2800);
+    };
+
+    const pause = () => {
+      pausedRef.current = true;
+      if (timer) { window.clearInterval(timer); timer = null; }
+      if (resumeTimer) window.clearTimeout(resumeTimer);
+    };
+    const scheduleResume = () => {
+      if (resumeTimer) window.clearTimeout(resumeTimer);
+      resumeTimer = window.setTimeout(() => {
+        pausedRef.current = false;
+        start();
+      }, 3200);
+    };
+
+    start();
+
+    el.addEventListener("mouseenter", pause);
+    el.addEventListener("mouseleave", scheduleResume);
+    el.addEventListener("touchstart", pause, { passive: true });
+    el.addEventListener("touchend", scheduleResume);
+    el.addEventListener("pointerdown", pause);
+    el.addEventListener("pointerup", scheduleResume);
+    // if user manually scrolls, pause and resume later
+    let scrollPause: number | null = null;
+    const onScroll = () => {
+      if (!pausedRef.current) {
+        pause();
+        if (scrollPause) window.clearTimeout(scrollPause);
+        scrollPause = window.setTimeout(scheduleResume, 3200);
+      }
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+
+    return () => {
+      if (timer) window.clearInterval(timer);
+      if (resumeTimer) window.clearTimeout(resumeTimer);
+      if (scrollPause) window.clearTimeout(scrollPause);
+      el.removeEventListener("mouseenter", pause);
+      el.removeEventListener("mouseleave", scheduleResume);
+      el.removeEventListener("touchstart", pause);
+      el.removeEventListener("touchend", scheduleResume);
+      el.removeEventListener("pointerdown", pause);
+      el.removeEventListener("pointerup", scheduleResume);
+      el.removeEventListener("scroll", onScroll);
+    };
+  }, [featuredItems.length]);
 
   if (featuredItems.length === 0) return null;
 
   return (
-    <section className="space-y-2.5" aria-labelledby="trending-products-title">
+    <section className="bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 rounded-[24px] p-3 sm:p-4 space-y-3" aria-labelledby="trending-products-title">
       <div className="flex items-end justify-between gap-3 px-1">
         <div>
           <div className="flex items-center gap-1.5 text-amber-500">
@@ -38,13 +110,13 @@ export default function FeaturedProducts({ items, onBrowseProducts }: FeaturedPr
         </button>
       </div>
 
-      <div className="flex gap-2.5 overflow-x-auto snap-x snap-mandatory scrollbar-none -mx-1 px-1 pb-1">
+      <div ref={scrollRef} className="flex gap-2.5 overflow-x-auto snap-x snap-mandatory scrollbar-none -mx-1 px-1 pb-1 touch-pan-x overscroll-x-contain" style={{ WebkitOverflowScrolling: "touch" } as React.CSSProperties}>
         {featuredItems.map((item, index) => (
           <button
             key={item.id}
             type="button"
             onClick={onBrowseProducts}
-            className="shrink-0 w-[200px] sm:w-[220px] snap-start theme-card rounded-[var(--theme-radius)] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] overflow-hidden text-left cursor-pointer group hover:border-[var(--theme-primary)]/30 transition-colors flex flex-col shadow-sm"
+            className="shrink-0 w-[200px] sm:w-[220px] snap-start rounded-[var(--theme-radius)] border border-white/10 bg-[var(--theme-card-bg)] overflow-hidden text-left cursor-pointer group hover:border-[var(--theme-primary)]/30 transition-colors flex flex-col shadow-sm"
             aria-label={`View ${item.name}`}
           >
             <div
@@ -53,7 +125,7 @@ export default function FeaturedProducts({ items, onBrowseProducts }: FeaturedPr
                 e.stopPropagation();
                 setPreviewImage(item.imageUrl);
               }}
-              className={`relative h-36 sm:h-40 bg-[var(--theme-bg)] overflow-hidden shrink-0 ${item.imageUrl ? "cursor-zoom-in" : ""}`}
+              className={`relative h-32 sm:h-40 bg-white overflow-hidden shrink-0 p-3 ${item.imageUrl ? "cursor-zoom-in" : ""}`}
             >
               {item.imageUrl ? (
                 <img
@@ -61,7 +133,7 @@ export default function FeaturedProducts({ items, onBrowseProducts }: FeaturedPr
                   alt={item.name}
                   loading="lazy"
                   referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500"
+                  className="w-full h-full object-contain group-hover:scale-[1.02] transition-transform duration-500"
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-[var(--theme-primary)] opacity-40">

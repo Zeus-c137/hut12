@@ -39,6 +39,15 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { useCurrency } from "../currency";
+import history3d from "@/src/assets/3d/3dicons-calender-iso-premium.png";
+import invite3d from "@/src/assets/3d/3dicons-gift-iso-premium.png";
+import vip3d from "@/src/assets/3d/3dicons-trophy-iso-premium.png";
+import gift3d2 from "@/src/assets/3d/3dicons-gift-box-iso-premium.png";
+import checkin3d from "@/src/assets/3d/3dicons-calendar-iso-premium.png";
+import install3d from "@/src/assets/3d/3dicons-rocket-iso-premium.png";
+import bank3d from "@/src/assets/3d/3dicons-wallet-iso-premium.png";
+import update3d from "@/src/assets/3d/3dicons-setting-iso-premium.png";
+import { Button } from "./ui/button";
 import confetti from "canvas-confetti";
 import ParticleBg from "./ParticleBg";
 import NewsCarousel from "./NewsCarousel";
@@ -512,141 +521,57 @@ export default function ProfileView({
         rightLabel="Withdrawable"
         rightValue={`${currency === 'USD' ? '$' : 'UGX'} ${currency === 'USD' ? ((userProfile.points || 0) / 3700).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : (userProfile.points || 0).toLocaleString()}`}
       />
-      <div className="flex gap-2">
-        <button
-          onClick={onNavigateToDeposit}
-          className="flex-1 py-2.5 rounded-full bg-[var(--theme-primary)] text-white font-black text-xs uppercase tracking-wider shadow-[0_3px_0_0_var(--theme-primary-shadow)] active:translate-y-[1px] active:shadow-none transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-        >
+      <div className="grid grid-cols-2 gap-2 bg-transparent border-0 p-0">
+        <Button variant="gold-glossy" size="sm" onClick={onNavigateToDeposit} className="w-full" glow={false}>
           <ArrowDownLeft className="w-4 h-4" /> Deposit
-        </button>
-        <button
-          onClick={() => (onNavigateToWithdraw ? onNavigateToWithdraw() : setShowWithdrawSheet(true))}
-          className="flex-1 py-2.5 rounded-full bg-[var(--theme-card-bg)] border-2 border-[var(--theme-card-border)] text-[var(--theme-text)] font-black text-xs uppercase tracking-wider hover:border-[var(--theme-primary)]/30 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-        >
-          <ArrowUpRight className="w-4 h-4 text-[var(--theme-primary)]" /> Withdraw
-        </button>
+        </Button>
+        <Button variant="gold-matte" size="sm" onClick={() => (onNavigateToWithdraw ? onNavigateToWithdraw() : setShowWithdrawSheet(true))} className="w-full" glow={false}>
+          <ArrowUpRight className="w-4 h-4" /> Withdraw
+        </Button>
       </div>
 
-        {/* More Actions Section Header */}
-        <h4 className="font-display font-black text-xs uppercase tracking-wider text-[var(--theme-text)] opacity-70 font-extrabold pt-2">
-          More Actions
-        </h4>
-
-        {/* Integrated Squircle Icon Menu Grid */}
-        <div id="quick-action-menu-grid" className="grid grid-cols-4 gap-x-2 gap-y-5 pt-1">
-          {/* History — now a page */}
-          <button
-            onClick={() => onNavigate("history")}
-            className="flex flex-col items-center gap-1.5 focus:outline-none group"
-          >
-            <div className="w-12 h-12 flex items-center justify-center rounded-2xl border-2 bg-[var(--theme-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] shadow-sm active:scale-95 group-active:border-[var(--theme-primary)] transition-all">
-              <History className="w-5 h-5 text-[var(--theme-primary)]" />
-            </div>
-            <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">History</span>
+        {/* More Actions — frosted container with flat 3D icons */}
+        <div className="bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 rounded-[24px] p-4 space-y-4">
+          <h4 className="font-display font-black text-xs uppercase tracking-wider text-[var(--theme-text)] opacity-70">More Actions</h4>
+          <div id="quick-action-menu-grid" className="grid grid-cols-4 gap-x-2 gap-y-5">
+            <button onClick={() => onNavigate("history")} className="flex flex-col items-center gap-1.5 focus:outline-none group">
+              <img src={history3d} alt="" className="w-12 h-12 object-contain drop-shadow-sm" />
+              <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">History</span>
+            </button>
+            <button onClick={() => onNavigate("referral")} className="flex flex-col items-center gap-1.5 focus:outline-none group">
+              <img src={invite3d} alt="" className="w-12 h-12 object-contain drop-shadow-sm" />
+              <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">Invite</span>
+            </button>
+            <button onClick={() => setShowVipTasksSheet(true)} className="flex flex-col items-center gap-1.5 focus:outline-none group">
+              <img src={vip3d} alt="" className="w-12 h-12 object-contain drop-shadow-sm" />
+              <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">VIP Tasks</span>
+            </button>
+            <button onClick={() => setShowGiftCodeSheet(true)} className="flex flex-col items-center gap-1.5 focus:outline-none group">
+              <img src={gift3d2} alt="" className="w-12 h-12 object-contain drop-shadow-sm" />
+              <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">Gift Code</span>
+            </button>
+            <button onClick={() => setShowCheckinSheet(true)} className="flex flex-col items-center gap-1.5 focus:outline-none group">
+              <img src={checkin3d} alt="" className="w-12 h-12 object-contain drop-shadow-sm" />
+              <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">Check-in</span>
           </button>
 
-          {/* Invite */}
-          <button
-            onClick={() => onNavigate("referral")}
-            className="flex flex-col items-center gap-1.5 focus:outline-none group"
-          >
-            <div className="w-12 h-12 flex items-center justify-center btn-3d-primary rounded-[var(--theme-radius)] aspect-square text-white shadow-md active:scale-95 transition-all cursor-pointer">
-              <UserPlus className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">Invite</span>
-          </button>
-
-          {/* VIP Tasks */}
-          <button
-            onClick={() => setShowVipTasksSheet(true)}
-            className="flex flex-col items-center gap-1.5 focus:outline-none group"
-          >
-            <div className="w-12 h-12 flex items-center justify-center btn-3d-primary rounded-[var(--theme-radius)] aspect-square text-white shadow-md active:scale-95 transition-all cursor-pointer">
-              <Crown className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">VIP Tasks</span>
-          </button>
-
-          {/* Gift Code */}
-          <button
-            onClick={() => setShowGiftCodeSheet(true)}
-            className="flex flex-col items-center gap-1.5 focus:outline-none group"
-          >
-            <div className="w-12 h-12 flex items-center justify-center btn-3d-primary rounded-[var(--theme-radius)] aspect-square text-white shadow-md active:scale-95 transition-all cursor-pointer">
-              <Gift className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">Gift Code</span>
-          </button>
-
-          {/* Check-in */}
-          <button
-            onClick={() => setShowCheckinSheet(true)}
-            className="flex flex-col items-center gap-1.5 focus:outline-none group"
-          >
-            <div className="w-12 h-12 flex items-center justify-center btn-3d-primary rounded-[var(--theme-radius)] aspect-square text-white shadow-md active:scale-95 transition-all cursor-pointer">
-              <CalendarCheck className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">Check-in</span>
-          </button>
-
-          {/* Download App */}
-          <button
-            onClick={async () => {
-              if (isInstalled) {
-                toast.success("App is already installed and running!");
-              } else if (canInstall) {
-                const accepted = await install();
-                if (!accepted) {
-                  toast.info("Installation was cancelled. You can retry from your browser's install menu.");
-                }
-              } else {
-                const instructions = platform === "Safari iOS"
-                  ? "Tap Share, then choose Add to Home Screen."
-                  : platform === "Safari macOS"
-                    ? "Choose Add to Dock from Safari's File menu."
-                    : platform === "Firefox"
-                      ? "Firefox does not expose an automatic install prompt here. Use Chrome or Edge, or add this page to your bookmarks."
-                      : "Open this page in a normal browser tab over HTTPS, then use the install icon in the address bar or browser menu.";
-                toast.info(`Automatic install is unavailable in this browser context. ${instructions}`);
-              }
-            }}
-            className="flex flex-col items-center gap-1.5 focus:outline-none group"
-          >
-            <div className={`w-12 h-12 flex items-center justify-center rounded-[var(--theme-radius)] aspect-square text-white shadow-md active:scale-95 transition-all cursor-pointer ${
-              isInstalled 
-                ? "bg-emerald-600 shadow-emerald-600/10" 
-                : "btn-3d-primary"
-            }`}>
-              {isInstalled ? (
-                <CheckCircle2 className="w-5 h-5 text-white" />
-              ) : (
-                <Download className="w-5 h-5 text-white animate-bounce" />
-              )}
-            </div>
-            <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">
-              {isInstalled ? "Installed" : "Install App"}
-            </span>
-          </button>
-
-          {/* Settings / Account Settings */}
-          <button
-            onClick={() => {
-              setSuccessUpdate(false);
-              setShowSettingsSheet(true);
-            }}
-            className="flex flex-col items-center gap-1.5 focus:outline-none group"
-          >
-            <div className="w-12 h-12 flex items-center justify-center btn-3d-secondary rounded-[var(--theme-radius)] aspect-square text-[var(--theme-text)] shadow-md active:scale-95 transition-all cursor-pointer border border-[var(--theme-card-border)]">
-              <Wallet className="w-5 h-5 text-[var(--theme-text)]" />
-            </div>
-            <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">Bank Account</span>
-          </button>
-        </div>
-
-        {/* App updates — manual check + status */}
-        <div className="border border-[var(--theme-card-border)]  rounded-[var(--theme-radius)] p-3.5 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[var(--theme-primary)]/10 border border-[var(--theme-primary)]/20 flex items-center justify-center shrink-0">
-            <RefreshCw className={`w-5 h-5 text-[var(--theme-primary)] ${updateState === "checking" ? "animate-spin" : ""}`} />
+            <button onClick={async () => {
+              if (isInstalled) { toast.success("App is already installed and running!"); } else if (canInstall) { const accepted = await install(); if (!accepted) toast.info("Installation was cancelled."); } else { toast.info("Automatic install is unavailable. Use browser install menu."); }
+            }} className="flex flex-col items-center gap-1.5 focus:outline-none group">
+              <img src={install3d} alt="" className="w-12 h-12 object-contain drop-shadow-sm" />
+              <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">{isInstalled ? "Installed" : "Install App"}</span>
+            </button>
+            <button onClick={() => { setSuccessUpdate(false); setShowSettingsSheet(true); }} className="flex flex-col items-center gap-1.5 focus:outline-none group">
+              <img src={bank3d} alt="" className="w-12 h-12 object-contain drop-shadow-sm" />
+              <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">Bank Account</span>
+            </button>
+          </div>
+          <div className="h-px bg-[var(--theme-card-border)]/60" />
+          {/* App updates — inside frosted container */}
+          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center shrink-0">
+            <img src={update3d} alt="" className="w-10 h-10 object-contain shrink-0 drop-shadow-sm" />
+            <RefreshCw className={`w-5 h-5 text-[var(--theme-primary)] ${updateState === "checking" ? "animate-spin" : "hidden"}`} />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-xs font-display font-black text-[var(--theme-text)] leading-none">App updates</p>
@@ -675,6 +600,7 @@ export default function ProfileView({
               {updateState === "checking" ? "…" : "Check"}
             </button>
           )}
+        </div>
         </div>
 
         {/* Defined Logout Button */}

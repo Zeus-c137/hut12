@@ -179,15 +179,15 @@ export default function CatalogView({
                     transition={{ delay: idx * 0.03, duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
                     className="relative flex flex-row theme-card card-playful-3d border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] p-3 overflow-hidden transition-all duration-150 group select-none shadow-sm hover:border-[var(--theme-primary)]/70"
                   >
-                    {/* Left portion: Hardware Image square with rounded sub-borders */}
-                    <div onClick={() => item.imageUrl && setPreviewImage(item.imageUrl)} className="w-36 h-36 md:w-44 md:h-44 relative overflow-hidden rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border-2 border-[var(--theme-card-border)] shrink-0 cursor-zoom-in group-hover:border-[var(--theme-primary)]/30 transition-colors">
+                    {/* Left portion: Hardware Image — object-contain so whole product is visible */}
+                    <div onClick={() => item.imageUrl && setPreviewImage(item.imageUrl)} className="w-28 h-28 sm:w-32 sm:h-32 md:w-44 md:h-44 relative overflow-hidden rounded-[var(--theme-radius)] bg-white border-2 border-[var(--theme-card-border)] shrink-0 cursor-zoom-in group-hover:border-[var(--theme-primary)]/30 transition-colors p-2">
                       {item.imageUrl ? (
                         <img
                           src={item.imageUrl}
                           alt={item.name}
                           loading="lazy"
                           referrerPolicy="no-referrer"
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          className="w-full h-full object-contain group-hover:scale-[1.02] transition-transform duration-500"
                         />
                       ) : (
                         <div className="w-full h-full bg-[var(--theme-bg)] flex items-center justify-center text-[var(--theme-text)] opacity-40 text-xs font-mono">
@@ -197,17 +197,17 @@ export default function CatalogView({
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors pointer-events-none" />
                     </div>
 
-                    {/* Right portion: Custom specifications text parameters */}
-                    <div className="flex-1 p-2 flex flex-col justify-between space-y-1.5 font-sans text-xs">
-                      <div>
-                        {/* Title Row with Rent Buy Pill Button */}
-                        <div className="flex items-center justify-between gap-2 pb-2 border-b border-[var(--theme-card-border)]/40 mb-1.5">
-                          <div className="min-w-0 flex items-center gap-2">
-                            <h3 className="font-display font-extrabold text-sm text-[var(--theme-primary)] uppercase tracking-tight leading-none truncate">
+                    {/* Right portion: specs — min-w-0 prevents overflow when title/amounts are long */}
+                    <div className="flex-1 min-w-0 p-2 flex flex-col justify-between space-y-1.5 font-sans text-xs">
+                      <div className="min-w-0">
+                        {/* Title Row with Rent — title truncates, rent never overflows */}
+                        <div className="flex items-start justify-between gap-2 pb-2 border-b border-[var(--theme-card-border)]/40 mb-1.5 min-w-0">
+                          <div className="min-w-0 flex-1 flex items-center gap-2">
+                            <h3 className="font-display font-extrabold text-[13px] sm:text-sm text-[var(--theme-primary)] uppercase tracking-tight leading-tight line-clamp-2 break-words min-w-0">
                               {item.name}
                             </h3>
                             {ownedQuantity > 0 && (
-                              <span className="shrink-0 rounded-full border border-[var(--theme-primary)]/30 bg-[var(--theme-primary)]/10 px-2 py-0.5 text-[10px] font-black normal-case tracking-normal text-[var(--theme-primary)]">
+                              <span className="shrink-0 rounded-full border border-[var(--theme-primary)]/30 bg-[var(--theme-primary)]/10 px-2 py-0.5 text-[10px] font-black normal-case tracking-normal text-[var(--theme-primary)] whitespace-nowrap">
                                 ×{ownedQuantity} owned
                               </span>
                             )}
@@ -215,7 +215,7 @@ export default function CatalogView({
                           <button
                             onClick={() => handleSubscribe(item)}
                             disabled={submittingItemId === item.id || isOutOfStock}
-                            className="btn-3d-primary text-white text-[11px] font-sans font-black py-1 px-3 rounded-full flex items-center gap-1 shrink-0 active:scale-95 transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="btn-3d-primary text-white text-[10px] sm:text-[11px] font-sans font-black py-1.5 px-3 rounded-full flex items-center gap-1 shrink-0 whitespace-nowrap self-start active:scale-95 transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {submittingItemId === item.id ? (
                               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -230,23 +230,23 @@ export default function CatalogView({
                           </button>
                         </div>
 
-                        {/* Specs fields */}
-                        <div className="space-y-1 text-[var(--theme-text)]">
-                          <p className="flex items-baseline gap-1.5">
+                        {/* Specs — values truncate/nowrap so millions don't wrap */}
+                        <div className="space-y-1 text-[var(--theme-text)] min-w-0">
+                          <p className="flex items-center justify-between gap-2 min-w-0">
                             <span className="text-[11px] text-[var(--theme-text)] opacity-60 uppercase tracking-wider font-bold shrink-0">Duration:</span>
-                            <span className="font-bold text-[var(--theme-text)]">{item.duration} Days</span>
+                            <span className="font-bold text-[var(--theme-text)] text-[11px] sm:text-xs truncate text-right min-w-0">{item.duration} Days</span>
                           </p>
-                          <p className="flex items-baseline gap-1.5">
+                          <p className="flex items-center justify-between gap-2 min-w-0">
                             <span className="text-[11px] text-[var(--theme-text)] opacity-60 uppercase tracking-wider font-bold shrink-0">Price:</span>
-                            <span className="font-bold text-[var(--theme-text)]">{formatCurrency(item.amount)}</span>
+                            <span className="font-bold text-[var(--theme-text)] text-[11px] sm:text-xs truncate text-right min-w-0">{formatCurrency(item.amount)}</span>
                           </p>
-                          <p className="flex items-baseline gap-1.5">
+                          <p className="flex items-center justify-between gap-2 min-w-0">
                             <span className="text-[11px] text-[var(--theme-text)] opacity-60 uppercase tracking-wider font-bold shrink-0">Daily income:</span>
-                            <span className="font-bold text-[var(--theme-text)]">{formatCurrency(item.dailyYield)}</span>
+                            <span className="font-bold text-[var(--theme-text)] text-[11px] sm:text-xs truncate text-right min-w-0">{formatCurrency(item.dailyYield)}</span>
                           </p>
-                          <p className="flex items-baseline gap-1.5">
+                          <p className="flex items-center justify-between gap-2 min-w-0">
                             <span className="text-[11px] text-[var(--theme-text)] opacity-60 uppercase tracking-wider font-bold shrink-0">Total income:</span>
-                            <span className="font-bold text-[var(--theme-text)]">{formatCurrency(totalIncome)}</span>
+                            <span className="font-bold text-[var(--theme-text)] text-[11px] sm:text-xs truncate text-right min-w-0">{formatCurrency(totalIncome)}</span>
                           </p>
                         </div>
                       </div>
@@ -266,7 +266,7 @@ export default function CatalogView({
 
               {filteredItems.length === 0 && (
                 <div className="text-center py-12 text-xs font-sans text-[var(--theme-text)] opacity-60 theme-card border border-dashed border-[var(--theme-card-border)] rounded-[var(--theme-radius)]">
-                  No computational node hardware available under this filter.
+                  NO PRODUCTS FOUND HERE.
                 </div>
               )}
             </div>
