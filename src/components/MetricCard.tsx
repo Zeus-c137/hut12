@@ -35,10 +35,10 @@ export default function MetricCard({ title, value, subtitle, isLoading, titleCol
   }
 
   const cardBase = isMuted
-    ? "bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] shadow-sm"
+    ? "bg-[var(--theme-card-bg)]/60 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 shadow-sm"
     : cardStyle === "glass"
-    ? "bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] shadow-sm"
-    : "bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] shadow-[0_4px_0_0_var(--theme-card-shadow)]";
+    ? "bg-[var(--theme-card-bg)]/60 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 shadow-sm"
+    : "bg-[var(--theme-card-bg)]/60 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 shadow-[0_4px_0_0_var(--theme-card-shadow)]";
 
   const heightClass = isMuted ? "h-[96px]" : "h-[112px]";
 
