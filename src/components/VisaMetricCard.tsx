@@ -22,7 +22,6 @@ export default function VisaMetricCard({
   variant = "bank-dark",
 }: VisaMetricCardProps) {
   const { siteConfig } = useTheme();
-  const displayBrand = brandLabel || siteConfig?.brandName || "Hut12";
   const isDark = variant === "bank-dark";
 
   return (
@@ -106,23 +105,6 @@ export default function VisaMetricCard({
             {rightValue}
           </p>
         </div>
-      </div>
-
-      <div className="relative flex items-end justify-between mt-4">
-        <p
-          className={`font-mono text-[11px] sm:text-xs tracking-[0.2em] select-none ${
-            isDark ? "text-white/50" : "text-black/40"
-          }`}
-        >
-          •••• •••• •••• 4821
-        </p>
-        <span
-          className={`text-[10px] font-black tracking-[0.14em] uppercase leading-none ${
-            isDark ? "text-white/25" : "text-black/25"
-          }`}
-        >
-          {displayBrand}
-        </span>
       </div>
     </div>
   );

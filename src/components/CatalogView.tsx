@@ -178,7 +178,7 @@ export default function CatalogView({
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: idx * 0.03, duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
-                    className="relative flex flex-row items-stretch theme-card card-playful-3d border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] overflow-hidden transition-all duration-150 group select-none shadow-sm hover:border-[var(--theme-primary)]/70"
+                    className="relative flex flex-row items-stretch bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 rounded-[24px] overflow-hidden transition-all duration-150 group select-none shadow-sm hover:border-[var(--theme-primary)]/30"
                   >
                     {/* Left portion: Hardware Image — fills parent height */}
                     <div onClick={() => item.imageUrl && setPreviewImage(item.imageUrl)} className="w-32 sm:w-36 md:w-44 self-stretch relative overflow-hidden rounded-l-[var(--theme-radius)] bg-transparent border-r border-[var(--theme-card-border)] shrink-0 cursor-zoom-in group-hover:border-[var(--theme-primary)]/30 transition-colors p-4 flex items-center justify-center">

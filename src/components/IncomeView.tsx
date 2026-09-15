@@ -141,7 +141,7 @@ export default function IncomeView({
               return (
                 <div
                   key={node.id}
-                  className="group flex flex-row theme-card card-playful-3d border-2 border-[var(--theme-card-border)] rounded-[var(--theme-radius)] p-3 overflow-hidden relative shadow-sm hover:border-[var(--theme-primary)]/30"
+                  className="group flex flex-row bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 rounded-[24px] overflow-hidden relative shadow-sm hover:border-[var(--theme-primary)]/30"
                 >
                   {/* Left portion: Hardware Image full height — transparent bg like income, contain */}
                   <div onClick={() => imageUrl && setPreviewImage(imageUrl)} className="w-28 h-28 sm:w-32 sm:h-32 md:w-44 md:h-44 relative overflow-hidden rounded-[var(--theme-radius)] bg-transparent border border-[var(--theme-card-border)] shrink-0 cursor-zoom-in group-hover:border-[var(--theme-primary)]/30 transition-colors p-2 flex items-center justify-center">
