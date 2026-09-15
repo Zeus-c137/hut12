@@ -35,10 +35,10 @@ export default function MetricCard({ title, value, subtitle, isLoading, titleCol
   }
 
   const cardBase = isMuted
-    ? "bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] shadow-none"
+    ? "bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] shadow-sm"
     : cardStyle === "glass"
-    ? "bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] shadow-sm"
-    : "bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] shadow-[0_4px_0_0_var(--theme-card-shadow)]";
+    ? "bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] shadow-sm"
+    : "bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] shadow-[0_4px_0_0_var(--theme-card-shadow)]";
 
   const heightClass = isMuted ? "h-[96px]" : "h-[112px]";
 
@@ -54,7 +54,7 @@ export default function MetricCard({ title, value, subtitle, isLoading, titleCol
         </span>
         {icon && (
           isImageIcon ? (
-            <div className="w-11 h-11 rounded-xl bg-[var(--theme-card-bg)]/35 backdrop-blur-xl flex items-center justify-center shrink-0 overflow-hidden">
+            <div className="w-11 h-11 rounded-xl bg-[var(--theme-card-bg)]/65 backdrop-blur-xl flex items-center justify-center shrink-0 overflow-hidden border border-white/10">
               <span className="w-11 h-11 flex items-center justify-center [&>img]:w-11 [&>img]:h-11 [&>img]:object-contain drop-shadow-[0_3px_8px_rgba(0,0,0,0.12)]">{icon}</span>
             </div>
           ) : (

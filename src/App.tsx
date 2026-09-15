@@ -664,7 +664,7 @@ export default function App() {
       >
         
         {/* Top Premium navigation Header ribbon */}
-        <header className="sticky top-0 z-40 bg-[var(--theme-card-bg)]/85 backdrop-blur-md border-b border-[var(--theme-card-border)] h-16 flex items-center justify-between px-3.5 sm:px-4.5 shrink-0 shadow-sm">
+        <header className="sticky top-0 z-40 bg-transparent border-0 h-16 flex items-center justify-between px-3.5 sm:px-4.5 shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 flex items-center justify-center shrink-0">
               <BrandLogo siteConfig={siteConfig} className="w-8 h-8 mx-auto block" />
@@ -692,7 +692,7 @@ export default function App() {
                 if (activeTab !== "ai") setPreviousTab(activeTab as any);
                 setActiveTab("ai");
               }}
-              className={`relative p-1.5 rounded-xl text-xs font-sans font-bold flex items-center justify-center border-2 transition-colors cursor-pointer outline-none h-9 w-9 shrink-0 shadow-sm active:scale-[0.97] ${activeTab==="ai" ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] shadow-[0_3px_0_0_var(--theme-primary-shadow)]" : "bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] hover:brightness-105"}`}
+              className={`relative p-1 flex items-center justify-center border-0 transition-colors cursor-pointer outline-none h-9 w-9 shrink-0 bg-transparent active:scale-[0.97] ${activeTab==="ai" ? "opacity-100" : "opacity-90 hover:opacity-100"}`}
               title="AI Assistant"
             >
               <img src={headerAi3d} alt="" className="w-7 h-7 object-contain shrink-0 drop-shadow-sm" />
@@ -709,7 +709,7 @@ export default function App() {
                 setPreviousTab(activeTab as any);
                 setActiveTab("alerts");
               }}
-              className="relative p-1.5 rounded-xl text-xs font-sans font-bold flex items-center justify-center border-2 transition-colors cursor-pointer outline-none h-9 w-9 shrink-0 bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] hover:brightness-105 active:scale-[0.97] shadow-sm"
+              className="relative p-1 flex items-center justify-center border-0 transition-colors cursor-pointer outline-none h-9 w-9 shrink-0 bg-transparent active:scale-[0.97]"
               title="View Alerts & Notifications"
             >
               <img src={headerBell3d} alt="" className="w-7 h-7 object-contain shrink-0 drop-shadow-sm" />

@@ -245,10 +245,10 @@ export default function DashboardView({
             />
 
             {/* Unified funds: deposits + cashout in one shield card */}
-            <div style={{ transform: "translateZ(0)" }} className="col-span-2 relative overflow-hidden theme-card rounded-[var(--theme-radius)] p-3.5 h-[96px] flex flex-col justify-between bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] shadow-sm isolate">
+            <div style={{ transform: "translateZ(0)" }} className="col-span-2 relative overflow-hidden theme-card rounded-[var(--theme-radius)] p-3.5 h-[96px] flex flex-col justify-between bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] shadow-sm isolate">
               <div className="flex items-start justify-between gap-2">
                 <span className="text-[10.5px] font-display uppercase tracking-[0.12em] leading-none block pt-1 font-black text-[var(--theme-primary)]">Funds Overview</span>
-                <div className="w-11 h-11 rounded-xl bg-[var(--theme-card-bg)]/35 backdrop-blur-xl flex items-center justify-center shrink-0 overflow-hidden">
+                <div className="w-11 h-11 rounded-xl bg-[var(--theme-card-bg)]/65 backdrop-blur-xl flex items-center justify-center shrink-0 overflow-hidden border border-white/10">
                   <img src={shield3d} alt="" className="w-11 h-11 object-contain" />
                 </div>
               </div>
@@ -285,7 +285,7 @@ export default function DashboardView({
       <button
         type="button"
         onClick={() => setShowCommunitySheet(true)}
-        className="w-full flex items-center gap-3 rounded-[var(--theme-radius)] bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] p-3 active:scale-[0.99] transition-colors group text-left cursor-pointer shadow-sm"
+        className="w-full flex items-center gap-3 rounded-[var(--theme-radius)] bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] p-3 active:scale-[0.99] transition-colors group text-left cursor-pointer shadow-sm"
       >
         <img src="/telegram.svg" alt="Telegram" className="w-9 h-9 rounded-xl shrink-0 shadow-sm object-contain" />
         <div className="flex-1 min-w-0">
@@ -296,7 +296,7 @@ export default function DashboardView({
       </button>
 
       {/* Quick Actions — docked bar */}
-      <div className="theme-card border-2 border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] rounded-[var(--theme-radius)] p-1.5 grid grid-cols-2 gap-1.5 shadow-sm">
+      <div className="theme-card border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)]/90 backdrop-blur-xl rounded-[var(--theme-radius)] p-1.5 grid grid-cols-2 gap-1.5 shadow-sm">
         <button
           onClick={onNavigateToDeposit}
           className="btn-3d-primary text-white font-display font-black text-xs uppercase tracking-wider py-3 rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer shadow-[0_3px_0_0_var(--theme-primary-shadow)]"
