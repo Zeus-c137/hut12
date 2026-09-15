@@ -21,31 +21,69 @@ export default function FeaturedProducts({ items, onBrowseProducts }: FeaturedPr
     const el = scrollRef.current;
     if (!el || featuredItems.length <= 1) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    let raf = 0;
-    let last = performance.now();
-    const speed = 0.35;
-    const tick = (now: number) => {
-      const dt = now - last;
-      last = now;
-      if (!pausedRef.current && document.visibilityState === "visible") {
-        el.scrollLeft += (speed * dt) / 16;
-        if (el.scrollLeft + el.clientWidth >= el.scrollWidth - 2) el.scrollLeft = 0;
-      }
-      raf = requestAnimationFrame(tick);
+
+    let timer: number | null = null;
+    let resumeTimer: number | null = null;
+
+    const start = () => {
+      if (timer) window.clearInterval(timer);
+      timer = window.setInterval(() => {
+        if (pausedRef.current || document.visibilityState !== "visible") return;
+        const first = el.firstElementChild as HTMLElement | null;
+        const gap = 10; // 2.5 * 4
+        const step = first ? first.offsetWidth + gap : 212;
+        const max = el.scrollWidth - el.clientWidth;
+        if (el.scrollLeft >= max - 4) {
+          el.scrollTo({ left: 0, behavior: "smooth" });
+        } else {
+          el.scrollBy({ left: step, behavior: "smooth" });
+        }
+      }, 2800);
     };
-    raf = requestAnimationFrame(tick);
-    const onEnter = () => { pausedRef.current = true; };
-    const onLeave = () => { pausedRef.current = false; };
-    el.addEventListener("mouseenter", onEnter);
-    el.addEventListener("mouseleave", onLeave);
-    el.addEventListener("touchstart", onEnter, { passive: true });
-    el.addEventListener("touchend", onLeave);
+
+    const pause = () => {
+      pausedRef.current = true;
+      if (timer) { window.clearInterval(timer); timer = null; }
+      if (resumeTimer) window.clearTimeout(resumeTimer);
+    };
+    const scheduleResume = () => {
+      if (resumeTimer) window.clearTimeout(resumeTimer);
+      resumeTimer = window.setTimeout(() => {
+        pausedRef.current = false;
+        start();
+      }, 3200);
+    };
+
+    start();
+
+    el.addEventListener("mouseenter", pause);
+    el.addEventListener("mouseleave", scheduleResume);
+    el.addEventListener("touchstart", pause, { passive: true });
+    el.addEventListener("touchend", scheduleResume);
+    el.addEventListener("pointerdown", pause);
+    el.addEventListener("pointerup", scheduleResume);
+    // if user manually scrolls, pause and resume later
+    let scrollPause: number | null = null;
+    const onScroll = () => {
+      if (!pausedRef.current) {
+        pause();
+        if (scrollPause) window.clearTimeout(scrollPause);
+        scrollPause = window.setTimeout(scheduleResume, 3200);
+      }
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+
     return () => {
-      cancelAnimationFrame(raf);
-      el.removeEventListener("mouseenter", onEnter);
-      el.removeEventListener("mouseleave", onLeave);
-      el.removeEventListener("touchstart", onEnter);
-      el.removeEventListener("touchend", onLeave);
+      if (timer) window.clearInterval(timer);
+      if (resumeTimer) window.clearTimeout(resumeTimer);
+      if (scrollPause) window.clearTimeout(scrollPause);
+      el.removeEventListener("mouseenter", pause);
+      el.removeEventListener("mouseleave", scheduleResume);
+      el.removeEventListener("touchstart", pause);
+      el.removeEventListener("touchend", scheduleResume);
+      el.removeEventListener("pointerdown", pause);
+      el.removeEventListener("pointerup", scheduleResume);
+      el.removeEventListener("scroll", onScroll);
     };
   }, [featuredItems.length]);
 
@@ -72,7 +110,7 @@ export default function FeaturedProducts({ items, onBrowseProducts }: FeaturedPr
         </button>
       </div>
 
-      <div ref={scrollRef} className="flex gap-2.5 overflow-x-auto snap-x snap-mandatory scrollbar-none -mx-1 px-1 pb-1">
+      <div ref={scrollRef} className="flex gap-2.5 overflow-x-auto snap-x snap-mandatory scrollbar-none -mx-1 px-1 pb-1 touch-pan-x overscroll-x-contain" style={{ WebkitOverflowScrolling: "touch" } as React.CSSProperties}>
         {featuredItems.map((item, index) => (
           <button
             key={item.id}
