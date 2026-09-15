@@ -195,6 +195,11 @@ export default function CatalogView({
                         </div>
                       )}
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors pointer-events-none" />
+                      {ownedQuantity > 0 && (
+                        <span className="absolute bottom-1.5 right-1.5 rounded-full bg-[var(--theme-primary)] text-white px-2 py-0.5 text-[10px] font-black leading-none shadow-md whitespace-nowrap">
+                          ×{ownedQuantity}
+                        </span>
+                      )}
                     </div>
 
                     {/* Right portion: specs — min-w-0 prevents overflow when title/amounts are long */}
@@ -202,15 +207,10 @@ export default function CatalogView({
                       <div className="min-w-0">
                         {/* Title Row with Rent — title truncates, rent never overflows */}
                         <div className="flex items-start justify-between gap-2 pb-3 border-b border-[var(--theme-card-border)]/40 mb-2 min-w-0">
-                          <div className="min-w-0 flex-1 flex items-center gap-2">
+                          <div className="min-w-0 flex-1">
                             <h3 className="font-display font-extrabold text-[13px] sm:text-sm text-[var(--theme-primary)] uppercase tracking-tight leading-tight line-clamp-2 break-words min-w-0">
                               {item.name}
                             </h3>
-                            {ownedQuantity > 0 && (
-                              <span className="shrink-0 rounded-full border border-[var(--theme-primary)]/30 bg-[var(--theme-primary)]/10 px-2 py-0.5 text-[10px] font-black normal-case tracking-normal text-[var(--theme-primary)] whitespace-nowrap">
-                                ×{ownedQuantity} owned
-                              </span>
-                            )}
                           </div>
                           <button
                             onClick={() => handleSubscribe(item)}
