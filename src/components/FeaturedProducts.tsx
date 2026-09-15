@@ -13,14 +13,11 @@ const POPULARITY = ["2.1k+", "1.4k+", "980+", "560+", "310+", "180+"];
 export default function FeaturedProducts({ items, onBrowseProducts }: FeaturedProductsProps) {
   const { formatCurrency } = useCurrency();
   const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const scrollRef = React.useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const pausedRef = useRef(false);
   const featuredItems = items.filter((item) => !item.disabled && !item.outOfStock).slice(0, 6);
 
-  if (featuredItems.length === 0) return null;
-
-  const pausedRef = React.useRef(false);
-
-  React.useEffect(() => {
+  useEffect(() => {
     const el = scrollRef.current;
     if (!el || featuredItems.length <= 1) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -51,6 +48,8 @@ export default function FeaturedProducts({ items, onBrowseProducts }: FeaturedPr
       el.removeEventListener("touchend", onLeave);
     };
   }, [featuredItems.length]);
+
+  if (featuredItems.length === 0) return null;
 
   return (
     <section className="bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 rounded-[24px] p-3 sm:p-4 space-y-3" aria-labelledby="trending-products-title">
