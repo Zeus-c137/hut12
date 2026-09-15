@@ -203,7 +203,7 @@ export default function CatalogView({
                     </div>
 
                     {/* Right portion: specs — min-w-0 prevents overflow when title/amounts are long */}
-                    <div className="flex-1 min-w-0 p-5 flex flex-col justify-between space-y-3 font-sans">
+                    <div className="flex-1 min-w-0 p-4 flex flex-col justify-between space-y-2 font-sans">
                       <div className="min-w-0">
                         {/* Title Row with Rent — title truncates, rent never overflows */}
                         <div className="flex items-start justify-between gap-2 pb-3 border-b border-[var(--theme-card-border)]/40 mb-2 min-w-0">
@@ -231,22 +231,22 @@ export default function CatalogView({
                         </div>
 
                         {/* Specs — values truncate/nowrap so millions don't wrap */}
-                        <div className="space-y-2.5 text-[var(--theme-text)] min-w-0 text-sm">
-                          <p className="flex items-center justify-between gap-3 min-w-0 leading-relaxed">
-                            <span className="text-xs text-[var(--theme-text)] opacity-60 uppercase tracking-wider font-bold shrink-0">Duration:</span>
-                            <span className="font-bold text-[var(--theme-text)] text-xs sm:text-sm truncate text-right min-w-0">{item.duration} Days</span>
+                        <div className="space-y-1.5 text-[var(--theme-text)] min-w-0 text-xs">
+                          <p className="flex items-center justify-between gap-2 min-w-0 leading-normal">
+                            <span className="text-[11px] text-[var(--theme-text)] opacity-60 uppercase tracking-wider font-bold shrink-0">Duration:</span>
+                            <span className="font-bold text-[var(--theme-text)] text-[11px] sm:text-xs truncate text-right min-w-0">{item.duration} Days</span>
                           </p>
-                          <p className="flex items-center justify-between gap-3 min-w-0 leading-relaxed">
-                            <span className="text-xs text-[var(--theme-text)] opacity-60 uppercase tracking-wider font-bold shrink-0">Price:</span>
-                            <span className="font-bold text-[var(--theme-text)] text-xs sm:text-sm truncate text-right min-w-0">{formatCurrency(item.amount)}</span>
+                          <p className="flex items-center justify-between gap-2 min-w-0 leading-normal">
+                            <span className="text-[11px] text-[var(--theme-text)] opacity-60 uppercase tracking-wider font-bold shrink-0">Price:</span>
+                            <span className="font-bold text-[var(--theme-text)] text-[11px] sm:text-xs truncate text-right min-w-0">{formatCurrency(item.amount)}</span>
                           </p>
-                          <p className="flex items-center justify-between gap-3 min-w-0 leading-relaxed">
-                            <span className="text-xs text-[var(--theme-text)] opacity-60 uppercase tracking-wider font-bold shrink-0">Daily income:</span>
-                            <span className="font-bold text-[var(--theme-text)] text-xs sm:text-sm truncate text-right min-w-0">{formatCurrency(item.dailyYield)}</span>
+                          <p className="flex items-center justify-between gap-2 min-w-0 leading-normal">
+                            <span className="text-[11px] text-[var(--theme-text)] opacity-60 uppercase tracking-wider font-bold shrink-0">Daily income:</span>
+                            <span className="font-bold text-[var(--theme-text)] text-[11px] sm:text-xs truncate text-right min-w-0">{formatCurrency(item.dailyYield)}</span>
                           </p>
-                          <p className="flex items-center justify-between gap-3 min-w-0 leading-relaxed">
-                            <span className="text-xs text-[var(--theme-text)] opacity-60 uppercase tracking-wider font-bold shrink-0">Total income:</span>
-                            <span className="font-bold text-[var(--theme-text)] text-xs sm:text-sm truncate text-right min-w-0">{formatCurrency(totalIncome)}</span>
+                          <p className="flex items-center justify-between gap-2 min-w-0 leading-normal">
+                            <span className="text-[11px] text-[var(--theme-text)] opacity-60 uppercase tracking-wider font-bold shrink-0">Total income:</span>
+                            <span className="font-bold text-[var(--theme-text)] text-[11px] sm:text-xs truncate text-right min-w-0">{formatCurrency(totalIncome)}</span>
                           </p>
                         </div>
                       </div>
