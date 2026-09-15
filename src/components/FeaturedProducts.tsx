@@ -53,7 +53,7 @@ export default function FeaturedProducts({ items, onBrowseProducts }: FeaturedPr
                 e.stopPropagation();
                 setPreviewImage(item.imageUrl);
               }}
-              className={`relative h-36 sm:h-40 bg-[var(--theme-bg)] overflow-hidden shrink-0 ${item.imageUrl ? "cursor-zoom-in" : ""}`}
+              className={`relative h-32 sm:h-40 bg-white overflow-hidden shrink-0 p-3 ${item.imageUrl ? "cursor-zoom-in" : ""}`}
             >
               {item.imageUrl ? (
                 <img
@@ -61,7 +61,7 @@ export default function FeaturedProducts({ items, onBrowseProducts }: FeaturedPr
                   alt={item.name}
                   loading="lazy"
                   referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500"
+                  className="w-full h-full object-contain group-hover:scale-[1.02] transition-transform duration-500"
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-[var(--theme-primary)] opacity-40">
