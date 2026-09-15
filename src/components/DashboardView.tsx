@@ -33,7 +33,6 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 
 import money3d from "@/src/assets/3d/3dicons-money-iso-premium.png";
-import flash3d from "@/src/assets/3d/3dicons-flash-iso-premium.png";
 import medal3d from "@/src/assets/3d/3dicons-medal-iso-premium.png";
 import gift3d from "@/src/assets/3d/3dicons-gift-iso-premium.png";
 import shield3d from "@/src/assets/3d/3dicons-shield-iso-premium.png";
@@ -182,14 +181,15 @@ export default function DashboardView({
     return kampalaTime.toISOString().split("T")[0];
   };
 
-  const todayStr = getKampalaDateStr();
-  const todayEarnings = activeNodes
-    .filter((n) => n.status === "active" && n.lastClaimedDate === todayStr)
-    .reduce((sum, n) => sum + n.dailyYield, 0);
-
-  // Total incoming from all nodes all time
-  const totalEarnedAllTime = activeNodes
-    .reduce((sum, n) => sum + (n.totalEarned || 0), 0);
+  const { todayEarnings, totalEarnedAllTime } = (() => {
+    const todayStr = getKampalaDateStr();
+    let today = 0, total = 0;
+    for (const n of activeNodes) {
+      total += n.totalEarned || 0;
+      if (n.status === "active" && n.lastClaimedDate === todayStr) today += n.dailyYield;
+    }
+    return { todayEarnings: today, totalEarnedAllTime: total };
+  })();
 
   const dynamicNews = notifications.filter(n => n.category === "news").map(n => ({
     id: n.id,
@@ -221,33 +221,36 @@ export default function DashboardView({
       <div className="grid grid-cols-2 gap-3">
         {isRefreshing ? (
           <>
-            {[...Array(6)].map((_, i) => (
+            {[...Array(4)].map((_, i) => (
               <MetricCard key={i} title="Loading..." value="" isLoading={true} variant="muted" />
             ))}
           </>
         ) : (
           <>
-            {/* Hero: yield */}
-            <MetricCard
-              title="AI Income"
-              value={formatCurrency(totalEarnedAllTime)}
-              titleColor="accent"
-              icon={<img src={money3d} alt="" />}
-              variant="hero"
-            />
-
-            <MetricCard
-              title="Today's Earnings"
-              value={formatCurrency(todayEarnings)}
-              titleColor="accent"
-              icon={<img src={flash3d} alt="" />}
-              variant="hero"
-            />
+            {/* Unified earnings: AI Income + Today in one hero translucent bento */}
+            <div style={{ transform: "translateZ(0)" }} className="col-span-2 relative overflow-hidden theme-card rounded-[var(--theme-radius)] p-3.5 h-[112px] flex flex-col justify-between bg-[var(--theme-card-bg)]/60 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 shadow-sm isolate">
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-[10.5px] font-display uppercase tracking-[0.12em] leading-none block pt-1 font-black text-[var(--theme-primary)]">Earnings</span>
+                <div className="w-11 h-11 flex items-center justify-center shrink-0 overflow-hidden bg-transparent border-0">
+                  <img src={money3d} alt="" className="w-11 h-11 object-contain" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-0 -mt-1">
+                <div className="pr-3">
+                  <p className="text-[9px] font-display font-black uppercase tracking-widest opacity-50 leading-none mb-1">AI Income</p>
+                  <p className="font-display font-black text-[15px] sm:text-[16px] text-[var(--theme-text)] leading-none tracking-tight truncate">{formatCurrency(totalEarnedAllTime)}</p>
+                </div>
+                <div className="pl-3 border-l border-white/10">
+                  <p className="text-[9px] font-display font-black uppercase tracking-widest opacity-50 leading-none mb-1">Today</p>
+                  <p className="font-display font-black text-[15px] sm:text-[16px] text-[var(--theme-text)] leading-none tracking-tight truncate">{formatCurrency(todayEarnings)}</p>
+                </div>
+              </div>
+            </div>
 
             {/* Unified funds: deposits + cashout in one shield card */}
             <div style={{ transform: "translateZ(0)" }} className="col-span-2 relative overflow-hidden theme-card rounded-[var(--theme-radius)] p-3.5 h-[96px] flex flex-col justify-between bg-[var(--theme-card-bg)]/60 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 shadow-sm isolate">
               <div className="flex items-start justify-between gap-2">
-                <span className="text-[10.5px] font-display uppercase tracking-[0.12em] leading-none block pt-1 font-black text-[var(--theme-primary)]">Funds Overview</span>
+                <span className="text-[10.5px] font-display uppercase tracking-[0.12em] leading-none block pt-1 font-black text-[var(--theme-primary)]">Transactions</span>
                 <div className="w-11 h-11 flex items-center justify-center shrink-0 overflow-hidden bg-transparent border-0">
                   <img src={shield3d} alt="" className="w-11 h-11 object-contain" />
                 </div>
