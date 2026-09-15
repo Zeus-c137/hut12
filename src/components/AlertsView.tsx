@@ -126,11 +126,12 @@ export default function AlertsView({ profile, onBack, initialNotifications = [],
       <AnimatePresence>
         {selectedAlert && (() => {
           let categoryIcon3d: string = bell3d;
-          if (selectedAlert.category === "deposit") categoryIcon3d = dollar3d;
-          else if (selectedAlert.category === "withdraw") categoryIcon3d = wallet3d;
-          else if (selectedAlert.category === "rewards" || selectedAlert.category === "daily accumulation") categoryIcon3d = giftBox3d;
-          else if (selectedAlert.category === "system") categoryIcon3d = shield3d;
-          else if (selectedAlert.category === "announcement") categoryIcon3d = megaphone3d;
+          let modalBadgeClass = "bg-[var(--theme-primary)]/15 border border-[var(--theme-primary)]/30 text-[var(--theme-primary)]";
+          if (selectedAlert.category === "deposit") { categoryIcon3d = dollar3d; modalBadgeClass = "btn-3d-primary text-white"; }
+          else if (selectedAlert.category === "withdraw") { categoryIcon3d = wallet3d; modalBadgeClass = "btn-3d-secondary text-[var(--theme-text)]"; }
+          else if (selectedAlert.category === "rewards" || selectedAlert.category === "daily accumulation") { categoryIcon3d = giftBox3d; modalBadgeClass = "btn-3d-secondary text-[var(--theme-text)]"; }
+          else if (selectedAlert.category === "system") { categoryIcon3d = shield3d; modalBadgeClass = "bg-[var(--theme-primary)]/15 border border-[var(--theme-primary)]/30 text-[var(--theme-primary)]"; }
+          else if (selectedAlert.category === "announcement") { categoryIcon3d = megaphone3d; modalBadgeClass = "bg-[var(--theme-primary)]/15 border border-[var(--theme-primary)]/30 text-[var(--theme-primary)]"; }
 
           return (
             <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -149,14 +150,14 @@ export default function AlertsView({ profile, onBack, initialNotifications = [],
                 className="relative w-full max-w-md bg-[var(--theme-card-bg)]/90 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 rounded-[24px] shadow-2xl overflow-hidden z-10 flex flex-col max-h-[90vh]"
               >
                 {/* Header mimicking the Alert Card */}
-                <div className="flex justify-between items-center p-5 bg-transparent shrink-0 border-b border-white/10">
+                <div className="flex justify-between items-center p-5 bg-transparent shrink-0">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-transparent border-0 flex items-center justify-center shrink-0">
                       <img src={categoryIcon3d} alt="" className="w-10 h-10 object-contain" />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-[9px] uppercase tracking-wider font-sans font-extrabold px-2 py-0.5 rounded-full btn-3d-secondary text-[var(--theme-text)]">
+                        <span className={`text-[9px] uppercase tracking-wider font-sans font-extrabold px-2 py-0.5 rounded-full ${modalBadgeClass}`}>
                           {(selectedAlert.category === "daily accumulation" || selectedAlert.category === "rewards") ? "rewards" : selectedAlert.category}
                         </span>
                         <span className="text-[12px] font-sans text-[var(--theme-text)] opacity-60 font-semibold">
@@ -173,7 +174,7 @@ export default function AlertsView({ profile, onBack, initialNotifications = [],
                   </div>
                   <button
                     onClick={() => setSelectedAlert(null)}
-                    className="p-1.5 rounded-full bg-[var(--theme-bg)] text-[var(--theme-text)] hover:opacity-100 cursor-pointer transition-colors border border-[var(--theme-card-border)]"
+                    className="p-1.5 rounded-full bg-transparent border-0 text-[var(--theme-text)] hover:opacity-70 cursor-pointer transition-colors"
                   >
                     <X className="w-4 h-4" />
                   </button>
