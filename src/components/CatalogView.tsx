@@ -18,6 +18,7 @@ import {
   ShoppingCart,
   Loader2
 } from "lucide-react";
+import { Button } from "./ui/button";
 import { motion, AnimatePresence } from "motion/react";
 import ParticleBg from "./ParticleBg";
 import { useCurrency } from "../currency";
@@ -212,10 +213,13 @@ export default function CatalogView({
                               {item.name}
                             </h3>
                           </div>
-                          <button
+                          <Button
+                            variant="gold-matte"
+                            size="sm"
+                            glow={false}
                             onClick={() => handleSubscribe(item)}
                             disabled={submittingItemId === item.id || isOutOfStock}
-                            className="btn-3d-primary text-white text-[10px] sm:text-[11px] font-sans font-black py-1.5 px-3 rounded-full flex items-center gap-1 shrink-0 whitespace-nowrap self-start active:scale-95 transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="shrink-0 whitespace-nowrap self-start !px-3 !py-1.5 !text-[10px] !min-w-0"
                           >
                             {submittingItemId === item.id ? (
                               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -227,7 +231,7 @@ export default function CatalogView({
                                 <span>RENT</span>
                               </>
                             )}
-                          </button>
+                          </Button>
                         </div>
 
                         {/* Specs — values truncate/nowrap so millions don't wrap */}
