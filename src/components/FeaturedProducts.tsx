@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { ArrowUpRight, Cpu, Flame } from "lucide-react";
 import { SubscriptionItem } from "../types";
 import { useCurrency } from "../currency";
@@ -13,12 +13,47 @@ const POPULARITY = ["2.1k+", "1.4k+", "980+", "560+", "310+", "180+"];
 export default function FeaturedProducts({ items, onBrowseProducts }: FeaturedProductsProps) {
   const { formatCurrency } = useCurrency();
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const scrollRef = React.useRef<HTMLDivElement>(null);
   const featuredItems = items.filter((item) => !item.disabled && !item.outOfStock).slice(0, 6);
 
   if (featuredItems.length === 0) return null;
 
+  const pausedRef = React.useRef(false);
+
+  React.useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || featuredItems.length <= 1) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let raf = 0;
+    let last = performance.now();
+    const speed = 0.35;
+    const tick = (now: number) => {
+      const dt = now - last;
+      last = now;
+      if (!pausedRef.current && document.visibilityState === "visible") {
+        el.scrollLeft += (speed * dt) / 16;
+        if (el.scrollLeft + el.clientWidth >= el.scrollWidth - 2) el.scrollLeft = 0;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    const onEnter = () => { pausedRef.current = true; };
+    const onLeave = () => { pausedRef.current = false; };
+    el.addEventListener("mouseenter", onEnter);
+    el.addEventListener("mouseleave", onLeave);
+    el.addEventListener("touchstart", onEnter, { passive: true });
+    el.addEventListener("touchend", onLeave);
+    return () => {
+      cancelAnimationFrame(raf);
+      el.removeEventListener("mouseenter", onEnter);
+      el.removeEventListener("mouseleave", onLeave);
+      el.removeEventListener("touchstart", onEnter);
+      el.removeEventListener("touchend", onLeave);
+    };
+  }, [featuredItems.length]);
+
   return (
-    <section className="space-y-2.5" aria-labelledby="trending-products-title">
+    <section className="bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 rounded-[24px] p-3 sm:p-4 space-y-3" aria-labelledby="trending-products-title">
       <div className="flex items-end justify-between gap-3 px-1">
         <div>
           <div className="flex items-center gap-1.5 text-amber-500">
@@ -38,13 +73,13 @@ export default function FeaturedProducts({ items, onBrowseProducts }: FeaturedPr
         </button>
       </div>
 
-      <div className="flex gap-2.5 overflow-x-auto snap-x snap-mandatory scrollbar-none -mx-1 px-1 pb-1">
+      <div ref={scrollRef} className="flex gap-2.5 overflow-x-auto snap-x snap-mandatory scrollbar-none -mx-1 px-1 pb-1">
         {featuredItems.map((item, index) => (
           <button
             key={item.id}
             type="button"
             onClick={onBrowseProducts}
-            className="shrink-0 w-[200px] sm:w-[220px] snap-start theme-card rounded-[var(--theme-radius)] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] overflow-hidden text-left cursor-pointer group hover:border-[var(--theme-primary)]/30 transition-colors flex flex-col shadow-sm"
+            className="shrink-0 w-[200px] sm:w-[220px] snap-start rounded-[var(--theme-radius)] border border-white/10 bg-[var(--theme-card-bg)] overflow-hidden text-left cursor-pointer group hover:border-[var(--theme-primary)]/30 transition-colors flex flex-col shadow-sm"
             aria-label={`View ${item.name}`}
           >
             <div
