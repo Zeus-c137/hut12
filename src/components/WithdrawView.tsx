@@ -210,6 +210,7 @@ export default function WithdrawView({
       </div>
 
       <VisaMetricCard
+        variant="bank-light"
         leftLabel="Recharge balance"
         leftValue={`${currency === "USD" ? "$" : "UGX"} ${currency === "USD" ? ((userProfile.rechargeBalance || 0) / 3700).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : (userProfile.rechargeBalance || 0).toLocaleString()}`}
         rightLabel="Withdrawable"

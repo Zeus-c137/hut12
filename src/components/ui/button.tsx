@@ -1,7 +1,7 @@
 import * as React from "react"
 
 type Variant = "gold-matte" | "gold-glossy" | "primary" | "secondary" | "ghost"
-type Size = "sm" | "md" | "lg"
+type Size = "xs" | "sm" | "md" | "lg"
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant
@@ -12,6 +12,7 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 const sizeMap: Record<Size, string> = {
+  xs: "px-3 py-1.5 text-[10px] min-w-0",
   sm: "px-5 py-2.5 text-[13px] min-w-[132px]",
   md: "px-8 py-[17px] text-[15px] min-w-[168px]",
   lg: "px-10 py-[19px] text-[16px] min-w-[192px]",
@@ -85,7 +86,7 @@ export function Button({
   }
 
   return (
-    <span ref={wrapRef} className={`hut-btn-3d ${isFull ? "hut-full" : ""} ${success ? "success" : ""} ${className ?? ""}`}>
+    <span ref={wrapRef} className={`hut-btn-3d hut-${size} ${isFull ? "hut-full" : ""} ${success ? "success" : ""} ${className ?? ""}`}>
       {glow && <span className="hut-glow" aria-hidden />}
       <span className="hut-btn-base" aria-hidden />
       <span className="hut-btn-pulse" aria-hidden />

@@ -466,6 +466,10 @@ input:-webkit-autofill::first-line { font-size: 14px; }
   display: inline-block;
   padding-bottom: 8px;
 }
+.hut-btn-3d.hut-xs { padding-bottom: 4px; }
+.hut-btn-3d.hut-xs .hut-btn-base { top: 4px; }
+.hut-btn-3d.hut-xs .hut-btn-face:active { transform: translateY(4px); }
+.hut-btn-3d.hut-xs .hut-btn-face { gap: 6px; }
 .hut-btn-3d.hut-full { display: block; width: 100%; }
 .hut-btn-3d.hut-full .hut-btn-face { width: 100%; }
 .hut-btn-base {
