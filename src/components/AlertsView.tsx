@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { NotificationItem, UserProfile } from "../types";
-import { X, Bell, RefreshCw, Smartphone, Cpu, ShieldCheck, Gift, ExternalLink, Coins, ArrowDownCircle, ArrowUpCircle } from "lucide-react";
+import { X, ExternalLink } from "lucide-react";
+import bell3d from "@/src/assets/3d/3dicons-bell-iso-premium.png";
+import dollar3d from "@/src/assets/3d/3dicons-dollar-iso-premium.png";
+import wallet3d from "@/src/assets/3d/3dicons-wallet-iso-premium.png";
+import giftBox3d from "@/src/assets/3d/3dicons-gift-box-iso-premium.png";
+import shield3d from "@/src/assets/3d/3dicons-shield-iso-premium.png";
+import megaphone3d from "@/src/assets/3d/3dicons-megaphone-iso-premium.png";
+import money3d from "@/src/assets/3d/3dicons-money-iso-premium.png";
 import { motion, AnimatePresence } from "motion/react";
 
 interface AlertsViewProps {
@@ -115,20 +122,15 @@ export default function AlertsView({ profile, onBack, initialNotifications = [],
   ).length;
 
   return (
-    <div className="bg-transparent text-[var(--theme-text)] p-4 select-none relative">
+    <div className="bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 rounded-[24px] p-4 select-none relative text-[var(--theme-text)]">
       <AnimatePresence>
         {selectedAlert && (() => {
-          let CategoryIcon = Bell;
-          
-          if (selectedAlert.category === "deposit") {
-            CategoryIcon = Coins;
-          } else if (selectedAlert.category === "withdraw") {
-            CategoryIcon = Smartphone;
-          } else if (selectedAlert.category === "rewards" || selectedAlert.category === "daily accumulation") {
-            CategoryIcon = Gift;
-          } else if (selectedAlert.category === "system" || selectedAlert.category === "announcement") {
-            CategoryIcon = Bell;
-          }
+          let categoryIcon3d: string = bell3d;
+          if (selectedAlert.category === "deposit") categoryIcon3d = dollar3d;
+          else if (selectedAlert.category === "withdraw") categoryIcon3d = wallet3d;
+          else if (selectedAlert.category === "rewards" || selectedAlert.category === "daily accumulation") categoryIcon3d = giftBox3d;
+          else if (selectedAlert.category === "system") categoryIcon3d = shield3d;
+          else if (selectedAlert.category === "announcement") categoryIcon3d = megaphone3d;
 
           return (
             <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -144,13 +146,13 @@ export default function AlertsView({ profile, onBack, initialNotifications = [],
                 animate={{ scale: 1, opacity: 1, y: 0 }}
                 exit={{ scale: 0.94, opacity: 0, y: 15 }}
                 transition={{ type: "spring", damping: 25, stiffness: 350 }}
-                className="relative w-full max-w-md theme-card card-playful-3d border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] shadow-2xl overflow-hidden z-10 flex flex-col max-h-[85vh]"
+                className="relative w-full max-w-md bg-[var(--theme-card-bg)]/90 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 rounded-[24px] shadow-2xl overflow-hidden z-10 flex flex-col max-h-[85vh]"
               >
                 {/* Header mimicking the Alert Card */}
-                <div className="flex justify-between items-center p-5 bg-[var(--theme-card-bg)]/90 backdrop-blur-md shrink-0 border-b border-[var(--theme-card-border)]/50">
+                <div className="flex justify-between items-center p-5 bg-transparent shrink-0 border-b border-white/10">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-[var(--theme-radius)] btn-3d-secondary text-[var(--theme-text)] flex items-center justify-center shrink-0">
-                      <CategoryIcon className="w-5 h-5" />
+                    <div className="w-10 h-10 bg-transparent border-0 flex items-center justify-center shrink-0">
+                      <img src={categoryIcon3d} alt="" className="w-10 h-10 object-contain" />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
@@ -178,7 +180,7 @@ export default function AlertsView({ profile, onBack, initialNotifications = [],
                 </div>
 
                 {/* Body mimicking the Card layout */}
-                <div className="p-6 overflow-y-auto space-y-5 bg-[var(--theme-card-bg)]">
+                <div className="p-6 overflow-y-auto space-y-5 bg-transparent">
                   <div className="text-[13.5px] text-[var(--theme-text)] opacity-90 leading-relaxed space-y-4 font-sans whitespace-pre-line select-text">
                     {renderMessageWithLinks(selectedAlert.message)}
                   </div>
@@ -205,7 +207,7 @@ export default function AlertsView({ profile, onBack, initialNotifications = [],
       </AnimatePresence>
       <div>
         {/* Sticky Header Ribbon - Sticky top */}
-        <div className="sticky top-0 z-20 bg-[var(--theme-card-bg)]/95 backdrop-blur-md py-3.5 px-3 border-b border-[var(--theme-card-border)] mb-4 flex items-center justify-between shadow-xs rounded-b-[var(--theme-radius)]">
+        <div className="sticky top-0 z-20 bg-[var(--theme-card-bg)]/60 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 py-3.5 px-3 mb-4 flex items-center justify-between shadow-sm rounded-[16px]">
           <h2 className="font-display font-black text-sm uppercase tracking-wider text-[var(--theme-primary)]">
             Notifications ({unreadCount})
           </h2>
@@ -238,7 +240,7 @@ export default function AlertsView({ profile, onBack, initialNotifications = [],
             </div>
           ) : alertNotifications.length === 0 ? (
             <div className="text-center py-16 bg-slate-900/10 border border-dashed border-slate-900 rounded-2xl flex flex-col items-center justify-center gap-4">
-              <Bell className="w-8 h-8 text-slate-700 animate-pulse" />
+              <img src={bell3d} alt="" className="w-12 h-12 object-contain opacity-60" />
               <div className="space-y-1">
                 <span className="text-[11px] font-bold font-mono text-slate-400 block uppercase">No Alert Records Registered</span>
                 <p className="text-[12px] text-slate-500 max-w-[240px] mx-auto leading-normal font-mono">
@@ -249,25 +251,23 @@ export default function AlertsView({ profile, onBack, initialNotifications = [],
           ) : (
             <div className="space-y-3 pb-24">
               {alertNotifications.map((logs) => {
-                let CategoryIcon = ShieldCheck;
-                let iconContainerClass = "btn-3d-primary text-white";
+                let categoryIcon3dList: string = bell3d;
                 let badgeClass = "bg-[var(--theme-primary)]/15 border border-[var(--theme-primary)]/30 text-[var(--theme-primary)]";
 
                 if (logs.category === "deposit") {
-                  CategoryIcon = ArrowDownCircle;
-                  iconContainerClass = "btn-3d-primary text-white shadow-xs";
+                  categoryIcon3dList = dollar3d;
                   badgeClass = "btn-3d-primary text-white";
                 } else if (logs.category === "withdraw") {
-                  CategoryIcon = ArrowUpCircle;
-                  iconContainerClass = "btn-3d-secondary text-[var(--theme-text)] shadow-xs";
+                  categoryIcon3dList = wallet3d;
                   badgeClass = "btn-3d-secondary text-[var(--theme-text)]";
                 } else if (logs.category === "rewards" || logs.category === "daily accumulation") {
-                  CategoryIcon = Gift;
-                  iconContainerClass = "btn-3d-secondary text-[var(--theme-text)] shadow-xs";
+                  categoryIcon3dList = giftBox3d;
                   badgeClass = "btn-3d-secondary text-[var(--theme-text)]";
-                } else if (logs.category === "system" || logs.category === "announcement") {
-                  CategoryIcon = ShieldCheck;
-                  iconContainerClass = "btn-3d-primary text-white shadow-xs";
+                } else if (logs.category === "system") {
+                  categoryIcon3dList = shield3d;
+                  badgeClass = "bg-[var(--theme-primary)]/15 border border-[var(--theme-primary)]/30 text-[var(--theme-primary)]";
+                } else if (logs.category === "announcement") {
+                  categoryIcon3dList = megaphone3d;
                   badgeClass = "bg-[var(--theme-primary)]/15 border border-[var(--theme-primary)]/30 text-[var(--theme-primary)]";
                 }
 
@@ -277,10 +277,10 @@ export default function AlertsView({ profile, onBack, initialNotifications = [],
                   <div
                     key={logs.id}
                     onClick={() => handleOpenAlert(logs)}
-                    className="theme-card card-playful-3d border border-[var(--theme-card-border)] p-4 rounded-[var(--theme-radius)] flex gap-3.5 transition-all text-left cursor-pointer active:scale-[0.98]"
+                    className="bg-[var(--theme-card-bg)]/60 backdrop-blur-[12px] border border-white/10 p-4 rounded-[20px] flex gap-3.5 transition-all text-left cursor-pointer active:scale-[0.98] shadow-sm"
                   >
-                    <div className={`w-10 h-10 rounded-[var(--theme-radius)] flex items-center justify-center shrink-0 ${iconContainerClass}`}>
-                      <CategoryIcon className="w-5 h-5 fill-current shrink-0" />
+                    <div className="w-10 h-10 bg-transparent border-0 flex items-center justify-center shrink-0">
+                      <img src={categoryIcon3dList} alt="" className="w-10 h-10 object-contain" />
                     </div>
                     
                     <div className="space-y-1.5 flex-1 min-w-0">
