@@ -34,10 +34,9 @@ import { motion, AnimatePresence } from "motion/react";
 
 import money3d from "@/src/assets/3d/3dicons-money-iso-premium.png";
 import flash3d from "@/src/assets/3d/3dicons-flash-iso-premium.png";
-import wallet3d from "@/src/assets/3d/3dicons-wallet-iso-premium.png";
-import credit3d from "@/src/assets/3d/3dicons-credit-card-iso-premium.png";
 import medal3d from "@/src/assets/3d/3dicons-medal-iso-premium.png";
 import gift3d from "@/src/assets/3d/3dicons-gift-iso-premium.png";
+import shield3d from "@/src/assets/3d/3dicons-shield-iso-premium.png";
 import ParticleBg from "./ParticleBg";
 import NewsCarousel from "./NewsCarousel";
 import MetricCard from "./MetricCard";
@@ -245,22 +244,25 @@ export default function DashboardView({
               variant="hero"
             />
 
-            {/* Muted: secondary stats */}
-            <MetricCard
-              title="Total Deposits"
-              value={formatCurrency(profile.totalDeposits || 0)}
-              titleColor="primary"
-              icon={<img src={wallet3d} alt="" />}
-              variant="muted"
-            />
-
-            <MetricCard
-              title="Total Cash Out"
-              value={formatCurrency(profile.withdrawnCash || 0)}
-              titleColor="accent"
-              icon={<img src={credit3d} alt="" />}
-              variant="muted"
-            />
+            {/* Unified funds: deposits + cashout in one shield card */}
+            <div style={{ transform: "translateZ(0)" }} className="col-span-2 relative overflow-hidden theme-card rounded-[var(--theme-radius)] p-3.5 h-[96px] flex flex-col justify-between bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] shadow-sm isolate">
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-[10.5px] font-display uppercase tracking-[0.12em] leading-none block pt-1 font-black text-[var(--theme-primary)]">Funds Overview</span>
+                <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 overflow-hidden drop-shadow-[0_3px_8px_rgba(0,0,0,0.12)]">
+                  <img src={shield3d} alt="" className="w-11 h-11 object-contain" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-0 -mt-1">
+                <div className="pr-3">
+                  <p className="text-[9px] font-display font-black uppercase tracking-widest opacity-50 leading-none mb-1">Total Deposits</p>
+                  <p className="font-display font-black text-[15px] sm:text-[16px] text-[var(--theme-text)] leading-none tracking-tight truncate">{formatCurrency(profile.totalDeposits || 0)}</p>
+                </div>
+                <div className="pl-3 border-l border-[var(--theme-card-border)]">
+                  <p className="text-[9px] font-display font-black uppercase tracking-widest opacity-50 leading-none mb-1">Total Cash Out</p>
+                  <p className="font-display font-black text-[15px] sm:text-[16px] text-[var(--theme-text)] leading-none tracking-tight truncate">{formatCurrency(profile.withdrawnCash || 0)}</p>
+                </div>
+              </div>
+            </div>
 
             <MetricCard
               title="Invite Count"
