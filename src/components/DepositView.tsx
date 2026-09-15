@@ -338,6 +338,7 @@ export default function DepositView({
 
       {/* Visa balance card — recharge + withdrawable */}
       <VisaMetricCard
+        variant="bank-light"
         leftLabel="Recharge balance"
         leftValue={formatCurrency(userProfile.rechargeBalance || 0)}
         rightLabel="Withdrawable"
