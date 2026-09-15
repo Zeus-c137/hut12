@@ -116,7 +116,7 @@ export default function FeaturedProducts({ items, onBrowseProducts }: FeaturedPr
             key={item.id}
             type="button"
             onClick={onBrowseProducts}
-            className="shrink-0 w-[200px] sm:w-[220px] snap-start rounded-[var(--theme-radius)] border border-white/10 bg-[var(--theme-card-bg)] overflow-hidden text-left cursor-pointer group hover:border-[var(--theme-primary)]/30 transition-colors flex flex-col shadow-sm"
+            className="shrink-0 w-[200px] sm:w-[220px] snap-start rounded-[var(--theme-radius)] border border-white/10 bg-transparent overflow-hidden text-left cursor-pointer group hover:border-[var(--theme-primary)]/30 transition-colors flex flex-col shadow-sm"
             aria-label={`View ${item.name}`}
           >
             <div
@@ -125,7 +125,7 @@ export default function FeaturedProducts({ items, onBrowseProducts }: FeaturedPr
                 e.stopPropagation();
                 setPreviewImage(item.imageUrl);
               }}
-              className={`relative h-32 sm:h-40 bg-white overflow-hidden shrink-0 p-3 ${item.imageUrl ? "cursor-zoom-in" : ""}`}
+              className={`relative h-32 sm:h-40 bg-transparent overflow-hidden shrink-0 p-3 flex items-center justify-center ${item.imageUrl ? "cursor-zoom-in" : ""}`}
             >
               {item.imageUrl ? (
                 <img
