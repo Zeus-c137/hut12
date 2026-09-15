@@ -1391,7 +1391,7 @@ export default function AdminView() {
             <BrandLogo siteConfig={siteConfig} className="w-14 h-14 mx-auto block bg-transparent shadow-none" />
             <div>
               <h2 className="font-display font-extrabold text-2xl tracking-tight text-[var(--theme-text)]">
-                {(siteConfig?.brandName || "Vortex") + " Admin"}
+                {(siteConfig?.brandName || " ") + " Admin"}
               </h2>
               <p className="text-xs text-[var(--theme-text)] opacity-65 mt-1">
                 Enter administrative credentials to log in

@@ -193,7 +193,7 @@ export default function AuthView({ onAuthSuccess, siteConfig }: AuthViewProps) {
               <div className="text-center space-y-1.5 pb-1">
                 <BrandLogo siteConfig={activeConfig} className="w-14 h-14 mx-auto block bg-transparent shadow-none" />
                 <h2 className="font-display font-extrabold text-2xl text-[var(--theme-text)]">
-                  {activeConfig?.brandName || "Vortex"}
+                  {activeConfig?.brandName || " "}
                 </h2>
               </div>
 

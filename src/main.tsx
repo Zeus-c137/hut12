@@ -2,6 +2,7 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import { Toaster } from 'sonner';
 import App from './App.tsx';
+import UpdateBanner from './components/UpdateBanner.tsx';
 import './index.css';
 
 // Older development builds registered a service worker that cached API
@@ -21,6 +22,7 @@ if ((import.meta as any).env?.DEV && 'serviceWorker' in navigator) {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />
+    <UpdateBanner />
     <Toaster theme="dark" richColors position="top-center" />
   </StrictMode>,
 );

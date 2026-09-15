@@ -10,14 +10,16 @@ export default defineConfig(() => {
       react(),
       tailwindcss(),
       VitePWA({
-        registerType: 'autoUpdate',
+        registerType: 'prompt',
         injectRegister: 'auto', // We let vite-plugin-pwa handle registration and manifest injection
         manifest: false,
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
           cleanupOutdatedCaches: true,
-          clientsClaim: true,
-          skipWaiting: true,
+          // prompt mode: new SW must stay waiting so onNeedRefresh fires.
+          // skipWaiting:true would activate silently and the banner would never show.
+          skipWaiting: false,
+          clientsClaim: false,
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\/.*/i,

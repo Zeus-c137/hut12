@@ -1220,8 +1220,8 @@ app.post("/api/copilot/chat", async (req, res) => {
   }
 
   const siteConfig = await getSiteConfig();
-  const brand = siteConfig?.brandName || "TW AI Mining";
-  const manifestDesc = siteConfig?.manifestDescription || "Uganda High-Yield AI GPU Mining Network";
+  const brand = siteConfig?.brandName || "Loading...";
+  const manifestDesc = siteConfig?.manifestDescription || "Loading description...";
 
   let catalogProductsList = "";
   let categoriesList = "";
@@ -2047,8 +2047,19 @@ async function startServer() {
     // In production, server.cjs is located inside dist/
     // So __dirname will be the dist/ folder.
     const distPath = __dirname;
-    app.use(express.static(distPath));
+    app.use(express.static(distPath, {
+      index: false,
+      setHeaders: (res, filePath) => {
+        const name = path.basename(filePath);
+        if (name === "index.html" || name === "sw.js" || name === "registerSW.js") {
+          res.setHeader("Cache-Control", "no-cache");
+        } else if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+          res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+        }
+      },
+    }));
     app.get("*", (req, res) => {
+      res.setHeader("Cache-Control", "no-cache");
       res.sendFile(path.join(distPath, "index.html"));
     });
   }

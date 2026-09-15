@@ -22,6 +22,7 @@ import {
   Calendar,
   Lock,
   Download,
+  RefreshCw,
   Settings,
   LogOut,
   X,
@@ -96,6 +97,66 @@ export default function ProfileView({
     platform,
     install,
   } = usePwaInstall();
+
+  // Manual app-update check (pairs with the auto UpdateBanner).
+  const [updateState, setUpdateState] = useState<"idle" | "checking" | "ready" | "uptodate" | "unsupported">("idle");
+  const [updateCheckedAt, setUpdateCheckedAt] = useState<number | null>(() => {
+    try {
+      const raw = localStorage.getItem("app_update_last_checked");
+      return raw ? Number(raw) : null;
+    } catch { return null; }
+  });
+
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) { setUpdateState("unsupported"); return; }
+    navigator.serviceWorker.getRegistration().then((reg) => {
+      if (!reg) return; // dev / no worker yet — leave idle
+      if (reg.waiting) setUpdateState("ready");
+    }).catch(() => {});
+  }, []);
+
+  const checkForAppUpdate = async () => {
+    if (!("serviceWorker" in navigator)) {
+      setUpdateState("unsupported");
+      toast.info("Update checks need the installed production build.");
+      return;
+    }
+    setUpdateState("checking");
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (!reg) {
+        setUpdateState("unsupported");
+        toast.info("Open the installed app to check.");
+        return;
+      }
+      await reg.update().catch(() => {});
+      await new Promise((r) => setTimeout(r, 1200));
+      const fresh = await navigator.serviceWorker.getRegistration();
+      const at = Date.now();
+      try { localStorage.setItem("app_update_last_checked", String(at)); } catch {}
+      setUpdateCheckedAt(at);
+      if (fresh?.waiting) {
+        setUpdateState("ready");
+        toast.success("A new version is ready. Tap Apply to update.");
+      } else {
+        setUpdateState("uptodate");
+        toast.success("You're on the latest version.");
+      }
+    } catch {
+      setUpdateState("idle");
+      toast.error("Could not check for updates. Try again.");
+    }
+  };
+
+  const applyAppUpdate = () => {
+    navigator.serviceWorker.getRegistration().then((reg) => {
+      const waiting = reg?.waiting;
+      if (!waiting) { window.location.reload(); return; }
+      navigator.serviceWorker.addEventListener("controllerchange", () => window.location.reload(), { once: true });
+      waiting.postMessage({ type: "SKIP_WAITING" });
+      setTimeout(() => window.location.reload(), 2500);
+    }).catch(() => window.location.reload());
+  };
 
   useEffect(() => {
     // Just handle simple initialization if needed
@@ -580,6 +641,40 @@ export default function ProfileView({
             </div>
             <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">Bank Account</span>
           </button>
+        </div>
+
+        {/* App updates — manual check + status */}
+        <div className="border border-[var(--theme-card-border)]  rounded-[var(--theme-radius)] p-3.5 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-[var(--theme-primary)]/10 border border-[var(--theme-primary)]/20 flex items-center justify-center shrink-0">
+            <RefreshCw className={`w-5 h-5 text-[var(--theme-primary)] ${updateState === "checking" ? "animate-spin" : ""}`} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-display font-black text-[var(--theme-text)] leading-none">App updates</p>
+            <p className="text-[11px] font-sans font-bold text-[var(--theme-text)] opacity-60 leading-none mt-1.5 truncate">
+              {updateState === "checking" ? "Checking…" :
+               updateState === "ready" ? "New version available" :
+               updateState === "uptodate" ? "Up to date" :
+               updateState === "unsupported" ? "Install the app to enable updates" :
+               isInstalled ? "Installed" : "Not installed"}
+              {updateCheckedAt ? ` • checked ${new Date(updateCheckedAt).toLocaleDateString()} ${new Date(updateCheckedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
+            </p>
+          </div>
+          {updateState === "ready" ? (
+            <button
+              onClick={applyAppUpdate}
+              className="shrink-0 px-4 py-2 rounded-xl bg-[var(--theme-primary)] text-white text-[11px] font-black uppercase tracking-wide shadow-[0_3px_0_0_var(--theme-primary-shadow)] active:translate-y-[1px] active:shadow-none transition-all cursor-pointer"
+            >
+              Apply
+            </button>
+          ) : (
+            <button
+              onClick={checkForAppUpdate}
+              disabled={updateState === "checking"}
+              className="shrink-0 px-4 py-2 rounded-xl bg-[var(--theme-bg)] border-2 border-[var(--theme-card-border)] text-[var(--theme-text)] text-[11px] font-black uppercase tracking-wide hover:border-[var(--theme-primary)]/30 transition-colors cursor-pointer active:scale-95 disabled:opacity-50"
+            >
+              {updateState === "checking" ? "…" : "Check"}
+            </button>
+          )}
         </div>
 
         {/* Defined Logout Button */}
