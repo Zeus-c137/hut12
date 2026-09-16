@@ -80,7 +80,7 @@ export default function VipTasksPage({ phone, userProfile, onClaimSuccess, onBac
               <div className="flex gap-4 items-start relative">
                 <img src={heroTrophy} alt="" className="w-14 h-14 object-contain shrink-0 drop-shadow-sm mt-1"/>
                 <div className="flex-1 min-w-0 pr-6">
-                  <p className="text-[11px] font-sans font-medium opacity-50">Balance</p>
+                  <p className="text-[11px] font-sans font-medium opacity-50">Referral balance</p>
                   <p className="text-[28px] font-display font-bold leading-none tracking-tight mt-1" style={{fontVariantNumeric:"tabular-nums"}}>{formatCurrency(accumulatedBonus)}</p>
                   <p className="text-[11px] font-sans opacity-40 mt-1">Total bonus you've earned from referrals so far.</p>
                 </div>
