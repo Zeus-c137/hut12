@@ -141,14 +141,12 @@ export default function VipTasksPage({ phone, userProfile, onClaimSuccess, onBac
                         <img src={trophy3d} alt="" className="w-9 h-9 object-contain drop-shadow-sm" loading="lazy" decoding="async" />
                       </div>
                       <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <span className="text-[10px] font-sans font-black px-2 py-0.5 rounded-full bg-[var(--theme-primary)]/10 text-[var(--theme-primary)] border border-[var(--theme-primary)]/15 uppercase tracking-wide leading-none">{task.category}</span>
-                            <h4 className="text-[13px] font-sans font-bold leading-tight mt-1.5 truncate">{task.title}</h4>
-                            {task.description && <p className="text-[11px] font-sans font-medium opacity-50 leading-snug line-clamp-2 mt-1">{task.description}</p>}
-                          </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] font-sans font-black px-2 py-0.5 rounded-full bg-[var(--theme-primary)]/10 text-[var(--theme-primary)] border border-[var(--theme-primary)]/15 uppercase tracking-wide leading-none">{task.category}</span>
                           <span className="text-[13px] font-sans font-bold text-[var(--theme-primary)] shrink-0">+{formatCurrency(task.reward)}</span>
                         </div>
+                        <h4 className="text-[13px] font-sans font-bold leading-tight">{task.title}</h4>
+                        {task.description && <p className="text-[11px] font-sans font-medium opacity-50 leading-snug">{task.description}</p>}
                         <div className="w-full h-1.5 bg-black/10 rounded-full overflow-hidden border border-white/5 mt-1">
                           <div className={`h-full rounded-full transition-all ${state === "unlocked" ? "bg-[var(--theme-primary)]" : state === "claimed" ? "bg-emerald-500" : "bg-white/20"}`} style={{ width: `${p}%` }} />
                         </div>
