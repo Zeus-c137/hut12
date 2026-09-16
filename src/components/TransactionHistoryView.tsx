@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Search, Loader2 } from "lucide-react";
 import dollar3d from "@/src/assets/3d/3dicons-dollar-iso-premium.png";
 import wallet3d from "@/src/assets/3d/3dicons-wallet-iso-premium.png";
@@ -11,6 +11,7 @@ import bell3d from "@/src/assets/3d/3dicons-bell-iso-premium.png";
 import money3d from "@/src/assets/3d/3dicons-money-iso-premium.png";
 import { useCurrency } from "../currency";
 import { canonicalTypeOf, getTransactionDisplayMeta, isPositiveTransaction, getWithdrawalDisplayAmounts } from "@/src/utils/transactionMeta";
+import { fixGitHubImageUrl } from "@/src/utils/imageUtils";
 
 interface Props {
   phone: string;
@@ -37,6 +38,7 @@ export default function TransactionHistoryView({ phone, siteConfig, onBack }: Pr
   const [txLoading, setTxLoading] = useState(false);
   const [historyFilter, setHistoryFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
+  const [catalog, setCatalog] = useState<any[]>([]);
 
   const fetchTxHistory = async () => {
     setTxLoading(true);
@@ -53,9 +55,53 @@ export default function TransactionHistoryView({ phone, siteConfig, onBack }: Pr
     }
   };
 
+  const fetchCatalog = async () => {
+    try {
+      const res = await fetch("/api/items");
+      if (res.ok) {
+        const data = await res.json();
+        setCatalog(Array.isArray(data) ? data : data.items || []);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     fetchTxHistory();
   }, [phone]);
+
+  useEffect(() => {
+    fetchCatalog();
+  }, []);
+
+  const catalogById = useMemo(() => {
+    const m = new Map<string, any>();
+    for (const item of catalog) {
+      if (item.id) m.set(String(item.id), item);
+    }
+    return m;
+  }, [catalog]);
+
+  const getProductForTx = (tx: any, canon: string) => {
+    if (canon !== "daily_yield" && canon !== "product_activation") return null;
+    const meta = tx.metadata || {};
+    const id = String(meta.sourceItemId || meta.sourceItemName && catalog.find(c => c.name === meta.sourceItemName)?.id || tx.itemId || meta.subscriptionId || "").trim();
+    // For daily_yield, also fallback to tx.itemId directly
+    const directId = String(tx.itemId || "").trim();
+    const lookupId = id || directId;
+    if (!lookupId) return null;
+    // try direct id lookup
+    let product = catalogById.get(lookupId);
+    if (product) return product;
+    // for daily_yield via subscriptionId, we only have sub id not item id — try to find by itemId mapping already covered; if not found, try search by name
+    const name = String(meta.sourceItemName || "").trim();
+    if (name) {
+      const byName = catalog.find(c => String(c.name).toLowerCase() === name.toLowerCase());
+      if (byName) return byName;
+    }
+    return null;
+  };
 
   const filtered = transactions.filter((tx) => {
     const canon = canonicalTypeOf(tx.type, tx.metadata) as string;
@@ -77,7 +123,7 @@ export default function TransactionHistoryView({ phone, siteConfig, onBack }: Pr
     if (search) {
       const q = search.toLowerCase();
       const meta = getTransactionDisplayMeta(tx.type, tx.metadata);
-      const productName = String(tx.metadata?.sourceItemName || "").toLowerCase();
+      const productName = String(tx.metadata?.sourceItemName || tx.itemId || "").toLowerCase();
       return canon.includes(q) || (tx.status || "").toLowerCase().includes(q) || String(tx.amount).includes(q) || productName.includes(q) || meta.label.toLowerCase().includes(q) || (meta.isReferralLevel && String(meta.level).includes(q));
     }
     return true;
@@ -118,7 +164,7 @@ export default function TransactionHistoryView({ phone, siteConfig, onBack }: Pr
             { id: "yield", label: "Yield" },
             { id: "referral", label: "Referral" },
             { id: "checkin", label: "Check-in" },
-            { id: "voucher", label: "Voucher" },
+            { id: "voucher", label: "Gift Code" },
             { id: "vip_task", label: "VIP" },
           ].map(tab => (
             <button key={tab.id} onClick={() => setHistoryFilter(tab.id)} className={`px-3.5 py-2.5 relative text-[11px] font-black uppercase tracking-wide shrink-0 transition-colors cursor-pointer ${historyFilter===tab.id ? "text-[var(--theme-primary)]" : "text-[var(--theme-text)] opacity-60 hover:opacity-100"}`}>{tab.label}{historyFilter===tab.id && <span className="absolute bottom-0 left-2 right-2 h-[3px] bg-[var(--theme-primary)] rounded-full" />}</button>
@@ -145,26 +191,40 @@ export default function TransactionHistoryView({ phone, siteConfig, onBack }: Pr
         ) : (
           filtered.map(tx => {
             const meta = getMeta(tx.type, tx.metadata);
-            const status = String(tx.status || "completed").toUpperCase();
             const isPositive = isPositiveTransaction(tx.type, tx.metadata);
             const { fee, payout } = getWithdrawalDisplayAmounts(tx);
             const amount = meta.canon === "withdrawal" ? payout : (tx.amount||0);
             const showFee = meta.canon === "withdrawal" && fee>0;
-            const productName = meta.isProductWithName ? (String(tx.metadata?.sourceItemName || tx.itemId || "").trim()) : "";
             const level = meta.isReferralLevel ? meta.level : undefined;
+
+            const product = getProductForTx(tx, meta.canon);
+            const productImage = product ? fixGitHubImageUrl(product.imageUrl || product.image) : null;
+            const productName = product?.name || String(tx.metadata?.sourceItemName || tx.itemId || "").trim();
+
+            // Product activation: label as product name activated, icon as product image
+            const displayLabel = meta.canon === "product_activation" && productName
+              ? `${productName} Activated`
+              : meta.canon === "daily_yield" && productName
+                ? `${productName} Yield`
+                : meta.label;
+
+            const iconSrc = (meta.canon === "daily_yield" || meta.canon === "product_activation") && productImage
+              ? productImage
+              : meta.icon3d;
+
+            const isProductIcon = (meta.canon === "daily_yield" || meta.canon === "product_activation") && !!productImage;
+
             return (
               <div key={tx.id} className={`rounded-[20px] border-0 p-3.5 flex items-center gap-3 bg-transparent ${meta.card}`}>
-                <div className="w-11 h-11 rounded-xl bg-transparent border-0 flex items-center justify-center shrink-0">
-                  <img src={meta.icon3d} alt="" className="w-11 h-11 object-contain" />
+                <div className={`w-11 h-11 rounded-xl bg-transparent border-0 flex items-center justify-center shrink-0 overflow-hidden ${isProductIcon ? "bg-white/5" : ""}`}>
+                  <img src={iconSrc} alt="" className={`${isProductIcon ? "w-11 h-11 object-cover rounded-xl" : "w-11 h-11 object-contain"}`} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[11px] font-display font-black uppercase tracking-wide text-[var(--theme-text)]">{meta.label}</span>
+                    <span className="text-[11px] font-display font-black uppercase tracking-wide text-[var(--theme-text)]">{displayLabel}</span>
                     {level != null && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[var(--theme-primary)]/15 text-[var(--theme-primary)] border border-[var(--theme-primary)]/20">L{level}</span>}
-                    {productName && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] truncate max-w-[110px]">{productName}</span>}
-                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full border ${status==="SUCCESSFUL"||status==="COMPLETED" ? "bg-emerald-800/15 text-emerald-800 border-emerald-800/20" : status==="PENDING"?"bg-amber-500/15 text-amber-600 border-amber-500/20 animate-pulse":"bg-rose-500/15 text-rose-600 border-rose-500/20"}`}>{status}</span>
                   </div>
-                  <p className="text-[11px] font-sans font-bold text-[var(--theme-text)] opacity-60 truncate mt-0.5">{new Date(tx.createdAt||tx.timestamp||Date.now()).toLocaleDateString()} • {new Date(tx.createdAt||tx.timestamp||Date.now()).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})} {tx.operator ? `• ${tx.operator}` : ""} {tx.mode ? `• ${tx.mode}` : ""}</p>
+                  <p className="text-[11px] font-sans font-bold text-[var(--theme-text)] opacity-60 truncate mt-0.5">{new Date(tx.createdAt||tx.timestamp||Date.now()).toLocaleDateString()} • {new Date(tx.createdAt||tx.timestamp||Date.now()).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})} {tx.operator ? `• ${tx.operator}` : ""}</p>
                   {showFee && <p className="text-[10px] font-bold text-[var(--theme-text)] opacity-50">Fee {formatCurrency(fee)} • Payout {formatCurrency(payout)}</p>}
                 </div>
                 <div className="text-right shrink-0">
