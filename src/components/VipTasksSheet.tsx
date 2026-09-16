@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { UserProfile } from "../types";
-import { X, CheckCircle2, Trophy, RefreshCw, Sparkles, ShieldCheck, Lock } from "lucide-react";
+import { X, CheckCircle2, Trophy, RefreshCw, Sparkles, Lock } from "lucide-react";
 import { motion } from "motion/react";
 import { toast } from "sonner";
 import { useCurrency } from "../currency";
-import { readApiJson } from "../utils/api";
+import { calcVipProgress, getNextVipRequirement, normalizeVipTaskboard } from "@/src/utils/vip";
+import { fetchJsonWithSignal } from "@/src/utils/abortableFetch";
+import { useAbortSignal } from "@/src/hooks/useGatedInterval";
+import type { VipTask, VipTaskboard } from "@/src/types";
 
 declare module "react/jsx-runtime" {
   export * from "react";
@@ -16,37 +19,6 @@ declare global {
       [elemName: string]: any;
     }
   }
-}
-
-interface VipTask {
-  id: string;
-  title: string;
-  description?: string;
-  category: string;
-  requiredBonus: number;
-  reward: number;
-  progress: number;
-  unlocked: boolean;
-  claimed: boolean;
-}
-
-interface VipTaskboard {
-  tasks: VipTask[];
-  vipLevel?: number;
-  referralRates?: {
-    level1: number;
-    level2: number;
-    level3: number;
-    level4: number;
-  };
-  progress: {
-    level1Bonus: number;
-    level2Bonus: number;
-    level3Bonus: number;
-    level4Bonus: number;
-    accumulatedBonus: number;
-    totalReferralBonus: number;
-  };
 }
 
 interface VipTasksSheetProps {
@@ -66,33 +38,17 @@ export default function VipTasksSheet({ isOpen, onClose, userProfile, onClaimSuc
   });
   const [loading, setLoading] = useState(false);
   const [claimingId, setClaimingId] = useState<string | null>(null);
+  const { signal, renew, abort } = useAbortSignal();
 
   const loadTaskboard = async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(`/api/profile/vip-tasks/${encodeURIComponent(userProfile.phone)}`);
-      const data = await readApiJson<any>(res);
-      const rawProgress = data?.progress || {};
-      const rawRates = data?.referralRates || {};
-      setBoard({
-        tasks: Array.isArray(data?.tasks) ? data.tasks : [],
-        vipLevel: Number(data?.vipLevel || 0),
-        referralRates: {
-          level1: Number(rawRates.level1 ?? 15),
-          level2: Number(rawRates.level2 ?? 5),
-          level3: Number(rawRates.level3 ?? 0),
-          level4: Number(rawRates.level4 ?? 0)
-        },
-        progress: {
-          level1Bonus: Number(rawProgress.level1Bonus ?? rawProgress.level1 ?? data?.level1Bonus ?? 0),
-          level2Bonus: Number(rawProgress.level2Bonus ?? rawProgress.level2 ?? data?.level2Bonus ?? 0),
-          level3Bonus: Number(rawProgress.level3Bonus ?? rawProgress.level3 ?? data?.level3Bonus ?? 0),
-          level4Bonus: Number(rawProgress.level4Bonus ?? rawProgress.level4 ?? data?.level4Bonus ?? 0),
-          accumulatedBonus: Number(rawProgress.accumulatedBonus ?? data?.accumulatedBonus ?? 0),
-          totalReferralBonus: Number(rawProgress.totalReferralBonus ?? data?.totalReferralBonus ?? 0)
-        }
-      });
+    if (typeof document !== "undefined" && document.hidden) return;
+    setLoading(true);
+    const currentSignal = renew();
+    try {
+      const data = await fetchJsonWithSignal<VipTaskboard>(`/api/profile/vip-tasks/${encodeURIComponent(userProfile.phone)}`, currentSignal);
+      setBoard(normalizeVipTaskboard(data));
     } catch (error: any) {
+      if (currentSignal.aborted || error?.name === "AbortError") return;
       console.error("[VIP taskboard] load failed:", error);
       toast.error(error.message || "VIP tasks are temporarily unavailable.");
     } finally {
@@ -101,27 +57,38 @@ export default function VipTasksSheet({ isOpen, onClose, userProfile, onClaimSuc
   };
 
   useEffect(() => {
-    if (isOpen) void loadTaskboard();
+    if (!isOpen) {
+      abort();
+      return;
+    }
+    if (typeof document !== "undefined" && document.hidden) return;
+    void loadTaskboard();
+    const onVisible = () => {
+      if (!document.hidden && isOpen) void loadTaskboard();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      abort();
+    };
   }, [isOpen, userProfile.phone]);
 
   if (!isOpen) return null;
 
-  const { accumulatedBonus, level1Bonus, level2Bonus, level3Bonus, level4Bonus, totalReferralBonus } = board.progress;
+  const { accumulatedBonus, level1Bonus, level2Bonus, level3Bonus, level4Bonus } = board.progress;
   const rates = board.referralRates || { level1: 15, level2: 5, level3: 0, level4: 0 };
-  const nextTask = board.tasks.find((task) => !task.unlocked && !task.claimed);
-  const nextRequirement = nextTask?.requiredBonus || accumulatedBonus || 1;
-  const overallProgress = Math.min((accumulatedBonus / nextRequirement) * 100, 100);
+  const nextRequirement = getNextVipRequirement(board.tasks, accumulatedBonus);
+  const overallProgress = calcVipProgress(accumulatedBonus, nextRequirement);
 
   const handleClaim = async (task: VipTask) => {
     try {
       setClaimingId(task.id);
-      const res = await fetch("/api/profile/vip-tasks/claim", {
+      const currentSignal = renew();
+      const data = await fetchJsonWithSignal<{ bonus: number; claimedVipTasks?: string[] }>("/api/profile/vip-tasks/claim", currentSignal, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone: userProfile.phone, taskId: task.id })
       });
-      const data = await readApiJson<{ bonus: number; claimedVipTasks?: string[] }>(res);
-
       const creditedBonus = Number(data.bonus || 0);
       toast.success(`VIP reward of ${formatCurrency(creditedBonus)} added to your balance.`);
       onClaimSuccess({
@@ -131,12 +98,15 @@ export default function VipTasksSheet({ isOpen, onClose, userProfile, onClaimSuc
       });
       await loadTaskboard();
     } catch (error: any) {
+      if (error?.name === "AbortError") return;
       console.error("[VIP taskboard] claim failed:", error);
       toast.error(error.message || "Unable to claim this VIP reward.");
     } finally {
       setClaimingId(null);
     }
   };
+
+  void signal;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">
@@ -145,7 +115,7 @@ export default function VipTasksSheet({ isOpen, onClose, userProfile, onClaimSuc
         initial={{ y: "100%", x: "-50%" }}
         animate={{ y: 0, x: "-50%" }}
         transition={{ type: "spring", damping: 25, stiffness: 220 }}
-        className="absolute bottom-0 left-1/2 w-full max-w-md h-[95vh] bg-[var(--theme-card-bg)] text-[var(--theme-text)] border-t border-[var(--theme-card-border)] rounded-t-[32px] flex flex-col z-10 overflow-hidden shadow-2xl"
+        className="absolute bottom-0 left-1/2 w-full max-w-md h-[95vh] bg-[var(--theme-card-bg)]/90 backdrop-blur-xl text-[var(--theme-text)] border border-[var(--theme-card-border)] rounded-t-[32px] flex flex-col z-10 overflow-hidden shadow-2xl"
       >
         <div className="px-5 pt-5 pb-3 border-b border-[var(--theme-card-border)] flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5">
@@ -165,15 +135,15 @@ export default function VipTasksSheet({ isOpen, onClose, userProfile, onClaimSuc
               {loading && <RefreshCw className="w-4 h-4 animate-spin text-[var(--theme-primary)]" />}
             </div>
             <div className="text-2xl font-black font-display text-[var(--theme-primary)]">{formatCurrency(accumulatedBonus)}</div>
-            <div className="w-full h-2.5 bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] rounded-full overflow-hidden">
+            <div className="w-full h-2.5 bg-[var(--theme-bg)] border border-[var(--theme-card-border)] rounded-full overflow-hidden">
               <motion.div initial={{ width: 0 }} animate={{ width: `${overallProgress}%` }} className="h-full bg-gradient-to-r from-[var(--theme-primary)] to-amber-500 rounded-full" />
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
-              <div className="p-2.5 rounded-lg bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)]"><span className="block opacity-60">Level 1 ({rates.level1}%)</span><strong>{formatCurrency(level1Bonus)}</strong></div>
-              <div className="p-2.5 rounded-lg bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)]"><span className="block opacity-60">Level 2 ({rates.level2}%)</span><strong>{formatCurrency(level2Bonus)}</strong></div>
-              <div className="p-2.5 rounded-lg bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)]"><span className="block opacity-60">Level 3 ({rates.level3}%)</span><strong>{formatCurrency(level3Bonus)}</strong></div>
-              <div className="p-2.5 rounded-lg bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)]"><span className="block opacity-60">Level 4 ({rates.level4}%)</span><strong>{formatCurrency(level4Bonus)}</strong></div>
+              <div className="p-2.5 rounded-lg bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)]"><span className="block text-[11px] font-bold opacity-60">Level 1 ({rates.level1}%)</span><strong className="font-black">{formatCurrency(level1Bonus)}</strong></div>
+              <div className="p-2.5 rounded-lg bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)]"><span className="block text-[11px] font-bold opacity-60">Level 2 ({rates.level2}%)</span><strong className="font-black">{formatCurrency(level2Bonus)}</strong></div>
+              <div className="p-2.5 rounded-lg bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)]"><span className="block text-[11px] font-bold opacity-60">Level 3 ({rates.level3}%)</span><strong className="font-black">{formatCurrency(level3Bonus)}</strong></div>
+              <div className="p-2.5 rounded-lg bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)]"><span className="block text-[11px] font-bold opacity-60">Level 4 ({rates.level4}%)</span><strong className="font-black">{formatCurrency(level4Bonus)}</strong></div>
             </div>
           </div>
 
@@ -186,7 +156,7 @@ export default function VipTasksSheet({ isOpen, onClose, userProfile, onClaimSuc
           ) : (
             <div className="space-y-2.5">
               {board.tasks.map((task) => {
-                const progress = Math.min((task.progress / Math.max(task.requiredBonus, 1)) * 100, 100);
+                const progress = calcVipProgress(task.progress, task.requiredBonus);
                 return (
                   <div key={task.id} className={`p-3.5 rounded-[var(--theme-radius)] border transition-all ${task.claimed ? "opacity-60 bg-[var(--theme-bg)] border-[var(--theme-card-border)]" : task.unlocked ? "bg-[var(--theme-card-bg)] border-[var(--theme-primary)]/40 shadow-md" : "bg-[var(--theme-card-bg)] border-[var(--theme-card-border)]"}`}>
                     <div className="flex items-start justify-between gap-3">

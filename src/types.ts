@@ -94,6 +94,37 @@ export interface VipTaskConfig {
   active?: boolean;
 }
 
+export interface VipTask {
+  id: string;
+  title: string;
+  description?: string;
+  category: string;
+  requiredBonus: number;
+  reward: number;
+  progress: number;
+  unlocked: boolean;
+  claimed: boolean;
+}
+
+export interface VipTaskboard {
+  tasks: VipTask[];
+  vipLevel?: number;
+  referralRates?: {
+    level1: number;
+    level2: number;
+    level3: number;
+    level4: number;
+  };
+  progress: {
+    level1Bonus: number;
+    level2Bonus: number;
+    level3Bonus: number;
+    level4Bonus: number;
+    accumulatedBonus: number;
+    totalReferralBonus: number;
+  };
+}
+
 export interface UserProfile {
   phone: string;
   username: string;
