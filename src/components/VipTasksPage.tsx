@@ -79,21 +79,23 @@ export default function VipTasksPage({ phone, userProfile, onClaimSuccess, onBac
               <div className="absolute inset-0 pointer-events-none opacity-[0.04]" style={{background:"radial-gradient(600px 200px at 20% 0%, var(--theme-primary), transparent)"}}/>
               <div className="flex gap-4 items-start relative">
                 <img src={heroTrophy} alt="" className="w-14 h-14 object-contain shrink-0 drop-shadow-sm mt-1"/>
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 pr-6">
                   <p className="text-[11px] font-sans font-medium opacity-50">Balance</p>
                   <p className="text-[28px] font-display font-bold leading-none tracking-tight mt-1" style={{fontVariantNumeric:"tabular-nums"}}>{formatCurrency(accumulatedBonus)}</p>
-                  <p className="text-[11px] font-sans opacity-40 mt-1 pr-6">Total bonus you've earned from referrals so far.</p>
-                  <div className="flex items-center justify-between mt-4">
-                    <span className="text-[13px] font-sans font-semibold opacity-90">Lv.{board.vipLevel||0} → Lv.{(board.vipLevel||0)+1}</span>
-                    <span className="text-[11px] font-sans font-semibold px-2.5 py-1 rounded-full bg-[var(--theme-primary)]/10 text-[var(--theme-primary)] border border-[var(--theme-primary)]/15">{formatCurrency(toGo)} to go</span>
-                  </div>
-                  <div className="w-full h-2 bg-black/10 rounded-full overflow-hidden mt-2 border border-white/10">
-                    <div className="h-full bg-[var(--theme-primary)] rounded-full transition-all" style={{width:`${overall}%`}}/>
-                  </div>
-                  <div className="flex items-center justify-between mt-1.5 text-[11px] font-sans">
-                    <span className="font-semibold text-[var(--theme-primary)]">{formatCurrency(accumulatedBonus)}</span>
-                    <span className="opacity-50">Lv.{(board.vipLevel||0)+1} at {formatCurrency(nextReq)}</span>
-                  </div>
+                  <p className="text-[11px] font-sans opacity-40 mt-1">Total bonus you've earned from referrals so far.</p>
+                </div>
+              </div>
+              <div className="relative mt-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-[13px] font-sans font-semibold opacity-90">VIP {board.vipLevel||0} → VIP {(board.vipLevel||0)+1}</span>
+                  <span className="text-[11px] font-sans font-semibold px-2.5 py-1 rounded-full bg-[var(--theme-primary)]/10 text-[var(--theme-primary)] border border-[var(--theme-primary)]/15">{formatCurrency(toGo)} to go</span>
+                </div>
+                <div className="w-full h-2 bg-black/10 rounded-full overflow-hidden mt-2 border border-white/10">
+                  <div className="h-full bg-[var(--theme-primary)] rounded-full transition-all" style={{width:`${overall}%`}}/>
+                </div>
+                <div className="flex items-center justify-between mt-1.5 text-[11px] font-sans">
+                  <span className="font-semibold text-[var(--theme-primary)]">{formatCurrency(accumulatedBonus)}</span>
+                  <span className="opacity-50">VIP {(board.vipLevel||0)+1} at {formatCurrency(nextReq)}</span>
                 </div>
               </div>
             </div>
@@ -126,12 +128,10 @@ export default function VipTasksPage({ phone, userProfile, onClaimSuccess, onBac
                   return (
                     <div key={task.id} className={`rounded-[22px] border p-4 flex flex-col gap-3 backdrop-blur-xl ${state==="claimed"?"bg-[var(--theme-bg)]/20 border-white/5 opacity-70": state==="unlocked"?"bg-white/5 border-[var(--theme-primary)]/20": "bg-white/[0.03] border-white/5"}`}>
                       <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-2">
-                          <div className={`w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 ${trophyBg(i, board.tasks.length)} ${isLast?"bg-transparent":""}`}>
-                            <img src={trophy3d} alt="" className="w-5 h-5 object-contain"/>
-                          </div>
-                          <span className="text-[11px] font-sans font-semibold px-2.5 py-1 rounded-full border border-white/10 bg-white/5 opacity-70">VIP {i}</span>
-                        </div>
+                        <span className={`inline-flex items-center gap-1.5 text-[11px] font-sans font-semibold px-2.5 py-1 rounded-full border ${trophyBg(i, board.tasks.length)} ${isLast?"bg-transparent":""}`}>
+                          <img src={trophy3d} alt="" className="w-3.5 h-3.5 object-contain"/>
+                          VIP {i}
+                        </span>
                         <div className="text-right shrink-0">
                           <div className={`flex items-center gap-1 justify-end text-[13px] font-sans font-bold ${state==="locked"?"opacity-40":"text-[var(--theme-primary)]"}`}>+{formatCurrency(task.reward)}</div>
                           <div className="text-[10px] font-sans opacity-40 text-right">reward</div>
