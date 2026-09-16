@@ -640,9 +640,7 @@ export default function ProfileView({
                       <X className="w-4 h-4" />
                     </button>
                     <div className="flex flex-col items-center justify-center mb-5 mt-1">
-                      <div className="w-14 h-14 btn-3d-primary text-white rounded-2xl flex items-center justify-center mb-3 shadow-md">
-                        <Gift className="w-7 h-7" />
-                      </div>
+                      <img src={gift3d2} alt="" className="w-14 h-14 object-contain drop-shadow-sm mb-3" loading="lazy" decoding="async" />
                       <h3 className="text-lg font-display font-black text-[var(--theme-text)] tracking-tight">Gift code</h3>
                       <p className="text-[12px] text-[var(--theme-text)] opacity-70 mt-1 text-center font-sans">Enter your code below</p>
                     </div>
