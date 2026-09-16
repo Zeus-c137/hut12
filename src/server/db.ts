@@ -666,6 +666,7 @@ export async function subscribeToItem(phone: string, itemId: string): Promise<Su
       phone: phone,
       itemId: item.id,
       mode: "auto",
+      metadata: { sourceItemId: item.id, sourceItemName: item.name, sourceItemImage: item.imageUrl || item.image },
       timestamp: now.toISOString()
     });
   }
@@ -912,7 +913,7 @@ export async function claimDailyReward(arg1: string, arg2: string): Promise<{ su
       phone: user.phone,
       itemId: sub.itemId,
       mode: "auto",
-      metadata: { platformDate: today, subscriptionId: sub.id },
+      metadata: { platformDate: today, subscriptionId: sub.id, sourceItemId: sub.itemId, sourceItemName: itemName, sourceItemImage: sub.image },
       timestamp: creditedAt
     });
   });

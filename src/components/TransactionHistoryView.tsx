@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, memo } from "react";
 import { Search, Loader2 } from "lucide-react";
 import dollar3d from "@/src/assets/3d/3dicons-dollar-iso-premium.png";
 import wallet3d from "@/src/assets/3d/3dicons-wallet-iso-premium.png";
@@ -83,24 +83,31 @@ export default function TransactionHistoryView({ phone, siteConfig, onBack }: Pr
     return m;
   }, [catalog]);
 
-  const getProductForTx = (tx: any, canon: string) => {
+  const catalogByName = useMemo(() => {
+    const m = new Map<string, unknown>();
+    for (const c of catalog) if (c.name) m.set(String(c.name).toLowerCase(), c);
+    return m;
+  }, [catalog]);
+
+  const getProductForTx = (tx: unknown, canon: string) => {
     if (canon !== "daily_yield") return null;
-    const meta = tx.metadata || {};
-    const id = String(meta.sourceItemId || meta.sourceItemName && catalog.find(c => c.name === meta.sourceItemName)?.id || tx.itemId || meta.subscriptionId || "").trim();
-    const directId = String(tx.itemId || "").trim();
+    const meta = (tx as { metadata?: Record<string, unknown>; itemId?: unknown }).metadata || {};
+    const directId = String((tx as { itemId?: unknown }).itemId || "").trim();
+    const id = String((meta as Record<string, unknown>).sourceItemId || (meta as Record<string, unknown>).subscriptionId || directId || "").trim();
     const lookupId = id || directId;
-    if (!lookupId) return null;
-    let product = catalogById.get(lookupId);
-    if (product) return product;
-    const name = String(meta.sourceItemName || "").trim();
+    if (lookupId) {
+      const product = catalogById.get(lookupId);
+      if (product) return product;
+    }
+    const name = String((meta as Record<string, unknown>).sourceItemName || "").trim().toLowerCase();
     if (name) {
-      const byName = catalog.find(c => String(c.name).toLowerCase() === name.toLowerCase());
+      const byName = catalogByName.get(name);
       if (byName) return byName;
     }
     return null;
   };
 
-  const filtered = transactions.filter((tx) => {
+  const filtered = useMemo(() => transactions.filter((tx) => {
     const canon = canonicalTypeOf(tx.type, tx.metadata) as string;
     if (canon === "product_activation") return false;
     const matchesFilter =
@@ -124,7 +131,7 @@ export default function TransactionHistoryView({ phone, siteConfig, onBack }: Pr
       return canon.includes(q) || (tx.status || "").toLowerCase().includes(q) || String(tx.amount).includes(q) || productName.includes(q) || meta.label.toLowerCase().includes(q) || (meta.isReferralLevel && String(meta.level).includes(q));
     }
     return true;
-  });
+  }), [transactions, search, historyFilter]);
 
   const getMeta = (type: string, metadata?: any) => {
     const disp = getTransactionDisplayMeta(type, metadata);
@@ -181,7 +188,7 @@ export default function TransactionHistoryView({ phone, siteConfig, onBack }: Pr
           </div>
         ) : filtered.length === 0 ? (
           <div className="py-14 text-center">
-            <img src={bell3d} alt="" className="w-11 h-11 object-contain opacity-40 mx-auto mb-3" />
+            <img src={bell3d} alt="" loading="lazy" decoding="async" className="w-11 h-11 object-contain opacity-40 mx-auto mb-3" />
             <p className="text-xs font-sans font-semibold tracking-wide text-[var(--theme-text)]">No transactions</p>
             <p className="text-[11px] font-sans font-normal text-[var(--theme-text)] opacity-50 mt-1">Try a different filter or check back later.</p>
           </div>
@@ -195,7 +202,8 @@ export default function TransactionHistoryView({ phone, siteConfig, onBack }: Pr
             const level = meta.isReferralLevel ? meta.level : undefined;
 
             const product = getProductForTx(tx, meta.canon);
-            const productImage = product ? fixGitHubImageUrl(product.imageUrl || product.image) : null;
+            const productImageFromMeta = tx.metadata?.sourceItemImage ? fixGitHubImageUrl(String(tx.metadata.sourceItemImage)) : null;
+            const productImage = productImageFromMeta || (product ? fixGitHubImageUrl(product.imageUrl || product.image) : null);
             const productName = product?.name || String(tx.metadata?.sourceItemName || "").trim();
 
             const displayLabel = meta.canon === "daily_yield" && productName
@@ -211,7 +219,7 @@ export default function TransactionHistoryView({ phone, siteConfig, onBack }: Pr
             return (
               <div key={tx.id} className={`rounded-[20px] border-0 p-3.5 flex items-center gap-3 bg-transparent ${meta.card}`}>
                 <div className={`w-11 h-11 rounded-2xl bg-transparent border-0 flex items-center justify-center shrink-0 overflow-hidden ${isProductIcon ? "bg-white/5 border border-white/10" : ""}`}>
-                  <img src={iconSrc} alt="" className={`${isProductIcon ? "w-11 h-11 object-cover rounded-2xl" : "w-10 h-10 object-contain"}`} />
+                  <img src={iconSrc} alt="" loading="lazy" decoding="async" className={`${isProductIcon ? "w-11 h-11 object-cover rounded-2xl" : "w-10 h-10 object-contain"}`} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">

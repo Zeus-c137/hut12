@@ -252,6 +252,25 @@ export async function ensureDatabaseSchema(): Promise<void> {
     }
   }
 
+  // Backfill daily_yield (Income) metadata for history product name/image without catalog fetch.
+  try {
+    await connection.query(`UPDATE transactions t
+      LEFT JOIN subscribed_nodes sn ON JSON_UNQUOTE(JSON_EXTRACT(t.metadata, '$.subscriptionId')) = sn.id
+      LEFT JOIN catalog_products cp ON cp.id = COALESCE(JSON_UNQUOTE(JSON_EXTRACT(t.metadata, '$.sourceItemId')), t.item_id, sn.item_id)
+      SET t.metadata = JSON_SET(
+        COALESCE(t.metadata, JSON_OBJECT()),
+        '$.sourceItemName', COALESCE(JSON_UNQUOTE(JSON_EXTRACT(t.metadata, '$.sourceItemName')), cp.name, sn.item_name),
+        '$.sourceItemId', COALESCE(JSON_UNQUOTE(JSON_EXTRACT(t.metadata, '$.sourceItemId')), t.item_id, sn.item_id, cp.id),
+        '$.sourceItemImage', COALESCE(JSON_UNQUOTE(JSON_EXTRACT(t.metadata, '$.sourceItemImage')), cp.imageUrl, cp.image, sn.image)
+      )
+      WHERE LOWER(t.type) = 'daily_yield'
+        AND (JSON_EXTRACT(t.metadata, '$.sourceItemName') IS NULL OR JSON_EXTRACT(t.metadata, '$.sourceItemId') IS NULL OR JSON_EXTRACT(t.metadata, '$.sourceItemImage') IS NULL)`);
+  } catch (error: any) {
+    if (!String(error?.code || "").includes("ER_NO_SUCH_TABLE") && !String(error?.message || "").includes("JSON")) {
+      throw error;
+    }
+  }
+
   try {
     await connection.query("UPDATE transactions SET status = UPPER(status) WHERE LOWER(status) IN ('completed','successful','pending','failed') AND status != UPPER(status)");
   } catch (error: any) {
