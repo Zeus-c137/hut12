@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect } from "react";
 import { UserProfile, SubscribedNode } from "../types";
+import { canonicalTypeOf, getTransactionDisplayMeta, isPositiveTransaction, getWithdrawalDisplayAmounts } from "../utils/transactionMeta";
 import { usePwaInstall } from "../hooks/usePwaInstall";
 import {
   Phone,
@@ -1006,8 +1007,10 @@ export default function ProfileView({
                   { id: "all", label: "All" },
                   { id: "deposit", label: "Recharge" },
                   { id: "withdraw", label: "Withdrawal" },
-                  { id: "checkin", label: "Check-in" },
+                  { id: "product", label: "Product" },
+                  { id: "yield", label: "Yield" },
                   { id: "referral", label: "Referral" },
+                  { id: "checkin", label: "Check-in" },
                   { id: "voucher", label: "Voucher" },
                   { id: "vip_task", label: "VIP Tasks" }
                 ].map((tab) => (
@@ -1042,59 +1045,67 @@ export default function ProfileView({
                   transactions
                     .filter((tx) => {
                       if (historyFilter === "all") return true;
-                      const t = (tx.type || "").toLowerCase();
-                      if (historyFilter === "deposit") return t === "deposit" || t === "balance" || t === "manual";
-                      if (historyFilter === "withdraw") return t === "withdrawal" || t === "withdraw";
-                      if (historyFilter === "checkin") return t === "checkin" || t === "checkin_bonus";
-                      if (historyFilter === "referral") return t === "referral";
-                      if (historyFilter === "voucher") return t === "voucher";
-                      if (historyFilter === "vip_task") return t === "vip_task";
+                      const canon = canonicalTypeOf(tx.type, tx.metadata) as string;
+                      if (historyFilter === "deposit") return canon === "deposit";
+                      if (historyFilter === "withdraw") return canon === "withdrawal";
+                      if (historyFilter === "product") return canon === "product_activation";
+                      if (historyFilter === "yield") return canon === "daily_yield";
+                      if (historyFilter === "checkin") return canon === "daily_checkin_bonus";
+                      if (historyFilter === "referral") return canon === "referral_signup_bonus" || canon === "referral_level_income";
+                      if (historyFilter === "voucher") return canon === "gift_code";
+                      if (historyFilter === "vip_task") return canon === "vip_task";
+                      if (historyFilter === "registration_bonus") return canon === "registration_bonus";
                       return true;
                     })
                     .map((tx) => {
-                      const t = (tx.type || "").toLowerCase();
+                      const canon = canonicalTypeOf(tx.type, tx.metadata) as string;
                       const txStatus = String(tx.status || "").toUpperCase();
-                      const isPositive = t === "deposit" || t === "balance" || t === "manual" || t === "checkin" || t === "checkin_bonus" || t === "referral" || t === "voucher" || t === "vip_task" || t === "reward";
+                      const isPositive = isPositiveTransaction(tx.type, tx.metadata);
 
-                      // Compute display amounts: for withdrawals prefer payoutAmount (after fee), falling back to amount - fee
-                      const metadata = tx.metadata || {};
-                      const requestedAmount = Number(metadata.requestedAmount ?? tx.amount ?? 0);
-                      const feeAmount = Number(metadata.feeAmount ?? 0);
-                      const payoutAmount = Number(metadata.payoutAmount ?? Math.max(0, (tx.amount || 0) - feeAmount));
+                      const { fee: feeAmount, payout: payoutAmount } = getWithdrawalDisplayAmounts(tx);
+                      const meta = getTransactionDisplayMeta(tx.type, tx.metadata);
 
-                      let badgeLabel = "Transaction";
+                      let badgeLabel = meta.label;
                       let badgeStyle = "bg-blue-500/15 text-blue-500 border-blue-500/30";
                       let IconComponent = Coins;
 
-                      if (t === "deposit" || t === "balance" || t === "manual") {
+                      if (canon === "deposit") {
                         badgeLabel = "Recharge";
                         badgeStyle = "bg-emerald-500/15 text-emerald-500 border-emerald-500/30";
                         IconComponent = ArrowDownLeft;
-                      } else if (t === "withdrawal" || t === "withdraw") {
+                      } else if (canon === "withdrawal") {
                         badgeLabel = "Withdrawal";
                         badgeStyle = "bg-rose-500/15 text-rose-500 border-rose-500/30";
                         IconComponent = ArrowUpRight;
-                      } else if (t === "gpu" || t === "subscription") {
-                        badgeLabel = "Product Rental";
+                      } else if (canon === "product_activation") {
+                        badgeLabel = meta.isProductWithName && meta.productName ? meta.productName : "Product Rental";
                         badgeStyle = "bg-blue-500/15 text-blue-500 border-blue-500/30";
                         IconComponent = Cpu;
-                      } else if (t === "checkin" || t === "daily accumulation") {
+                      } else if (canon === "daily_yield") {
+                        badgeLabel = "Daily Yield";
+                        badgeStyle = "bg-amber-500/15 text-amber-500 border-amber-500/30";
+                        IconComponent = Flame;
+                      } else if (canon === "daily_checkin_bonus") {
                         badgeLabel = "Daily Check-in";
                         badgeStyle = "bg-amber-500/15 text-amber-500 border-amber-500/30";
                         IconComponent = Flame;
-                      } else if (t === "referral") {
+                      } else if (canon === "registration_bonus") {
+                        badgeLabel = "Registration Bonus";
+                        badgeStyle = "bg-teal-500/15 text-teal-500 border-teal-500/30";
+                        IconComponent = CheckCircle2;
+                      } else if (canon === "referral_signup_bonus") {
                         badgeLabel = "Referral Bonus";
                         badgeStyle = "bg-purple-500/15 text-purple-500 border-purple-500/30";
                         IconComponent = Users;
-                      } else if (t === "voucher") {
-                        badgeLabel = "Voucher Cut";
+                      } else if (canon === "referral_level_income") {
+                        badgeLabel = `Referral L${meta.level ?? "?"}`;
+                        badgeStyle = "bg-purple-500/15 text-purple-500 border-purple-500/30";
+                        IconComponent = Users;
+                      } else if (canon === "gift_code") {
+                        badgeLabel = "Gift Code";
                         badgeStyle = "bg-indigo-500/15 text-indigo-500 border-indigo-500/30";
                         IconComponent = Gift;
-                      } else if (t === "checkin_bonus" || t === "register") {
-                        badgeLabel = "Check-in Bonus";
-                        badgeStyle = "bg-teal-500/15 text-teal-500 border-teal-500/30";
-                        IconComponent = CheckCircle2;
-                      } else if (t === "vip_task") {
+                      } else if (canon === "vip_task") {
                         badgeLabel = "VIP Task";
                         badgeStyle = "bg-yellow-500/15 text-yellow-500 border-yellow-500/30";
                         IconComponent = Trophy;
@@ -1123,10 +1134,10 @@ export default function ProfileView({
 
                           <div className="text-right space-y-0.5">
                             <span className={`text-xs font-sans font-black ${isPositive ? "text-emerald-500" : "text-[var(--theme-text)]"}`}>
-                              {isPositive ? "+" : "-"} {formatCurrency((t === "withdrawal" || t === "withdraw") ? payoutAmount : (tx.amount || 0))}
+                              {isPositive ? "+" : "-"} {formatCurrency(canon === "withdrawal" ? payoutAmount : (tx.amount || 0))}
                             </span>
 
-                            {(t === "withdrawal" || t === "withdraw") && feeAmount > 0 && (
+                            {canon === "withdrawal" && feeAmount > 0 && (
                               <p className="text-[11px] text-[var(--theme-text)] opacity-60 font-sans font-medium">
                                 Fees: {formatCurrency(feeAmount)}
                               </p>
@@ -1134,7 +1145,7 @@ export default function ProfileView({
 
                             {((tx.operator === "USDT" || tx.withdrawOperator === "USDT" || (tx.senderPhone || "").startsWith("T")) && siteConfig?.usdtRate) && (
                               <p className="text-[11px] font-sans text-[var(--theme-primary)] font-bold">
-                                ≈ ${(((t === "withdrawal" || t === "withdraw") ? payoutAmount : (tx.amount || 0)) / siteConfig.usdtRate).toFixed(2)} USDT
+                                ≈ ${((canon === "withdrawal" ? payoutAmount : (tx.amount || 0)) / siteConfig.usdtRate).toFixed(2)} USDT
                               </p>
                             )}
 

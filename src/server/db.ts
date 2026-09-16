@@ -4,6 +4,7 @@ import { ensureDatabaseSchema, getDb, schema } from "../db/index";
 import { and, eq, desc, asc, isNull, inArray, sql } from "drizzle-orm";
 import { UserProfile, SubscriptionItem, SubscribedNode, ChatMessage, ReferralStat, NotificationItem, SiteConfig } from "../types";
 import { sanitizeSiteConfig } from "../utils/themeTokens";
+import { canonicalTypeOf } from "../utils/transactionMeta";
 
 
 export class DatabaseOperationError extends Error {
@@ -267,7 +268,7 @@ export async function seedDatabaseIfEmpty() {
           amount
         )) AS settled_withdrawals
       FROM transactions
-      WHERE type IN ('withdrawal', 'withdraw')
+      WHERE type = 'withdrawal'
         AND UPPER(status) IN ('SUCCESSFUL', 'COMPLETED')
       GROUP BY user_id
     ) w ON w.user_id = u.phone
@@ -390,7 +391,7 @@ export async function registerUserProfile(data: any): Promise<any> {
     await saveTransaction({
       id: "reg_bonus_" + crypto.randomBytes(8).toString("hex"),
       userId: phone,
-      type: "gift",
+      type: "registration_bonus",
       amount: regBonus,
       currency: "UGX",
       status: "SUCCESSFUL",
@@ -435,7 +436,7 @@ export async function registerUserProfile(data: any): Promise<any> {
         await saveTransaction({
           id: "ref_bonus_" + crypto.randomBytes(8).toString("hex"),
           userId: referrer.phone,
-          type: "referral",
+          type: "referral_signup_bonus",
           amount: inviteBonusAmt,
           currency: "UGX",
           status: "SUCCESSFUL",
@@ -640,7 +641,7 @@ export async function subscribeToItem(phone: string, itemId: string): Promise<Su
   await saveTransaction({
     id: createTransactionId("RNT", now),
     userId: phone,
-    type: "gpu",
+    type: "product_activation",
     amount: item.amount,
     currency: "UGX",
     status: "SUCCESSFUL",
@@ -648,6 +649,7 @@ export async function subscribeToItem(phone: string, itemId: string): Promise<Su
     phone: phone,
     itemId: item.id,
     mode: "auto",
+    metadata: { sourceItemId: item.id, sourceItemName: item.name },
     timestamp: now.toISOString()
   });
 
@@ -656,7 +658,7 @@ export async function subscribeToItem(phone: string, itemId: string): Promise<Su
     await saveTransaction({
       id: "yield_init_" + crypto.randomBytes(8).toString("hex"),
       userId: phone,
-      type: "yield",
+      type: "daily_yield",
       amount: immediateYield,
       currency: "UGX",
       status: "SUCCESSFUL",
@@ -754,7 +756,7 @@ export async function distributeReferralBonus(
       await saveTransaction({
         id: "ref_income_" + crypto.randomBytes(8).toString("hex"),
         userId: current.phone,
-        type: "referral",
+        type: "referral_level_income",
         amount: bonus,
         currency: "UGX",
         status: "SUCCESSFUL",
@@ -902,7 +904,7 @@ export async function claimDailyReward(arg1: string, arg2: string): Promise<{ su
     await tx.insert(schema.transactions).values({
       id: transactionId,
       userId: user.phone,
-      type: "yield",
+      type: "daily_yield",
       amount: reward,
       currency: "UGX",
       status: "SUCCESSFUL",
@@ -1121,7 +1123,8 @@ export async function getReferreeStatsList(phoneOrCode: string): Promise<Referra
   const referralTransactions = await drizzleDb.select().from(schema.transactions)
     .where(eq(schema.transactions.userId, user.phone));
   for (const transaction of referralTransactions) {
-    if (transaction.type !== "referral" || !["SUCCESSFUL", "COMPLETED"].includes(String(transaction.status).toUpperCase())) continue;
+    const canon = canonicalTypeOf(String(transaction.type), transaction.metadata) as string;
+    if (!["referral_signup_bonus", "referral_level_income"].includes(canon) || !["SUCCESSFUL", "COMPLETED"].includes(String(transaction.status).toUpperCase())) continue;
     const metadata = transaction.metadata && typeof transaction.metadata === "object"
       ? transaction.metadata as Record<string, any>
       : {};
@@ -1241,9 +1244,9 @@ export async function fetchSystemDashboardStats() {
       drizzleDb.select({ count: sql<number>`count(*)` }).from(schema.users),
       drizzleDb.select({ count: sql<number>`count(*)` }).from(schema.subscribedNodes).where(eq(schema.subscribedNodes.status, "active")),
       drizzleDb.select({ total: sql<number>`coalesce(sum(amount), 0)` }).from(schema.transactions)
-        .where(sql`type in ('deposit', 'balance') and upper(status) in ('SUCCESSFUL', 'COMPLETED')`),
+        .where(sql`type = 'deposit' and upper(status) in ('SUCCESSFUL', 'COMPLETED')`),
       drizzleDb.select({ total: sql<number>`coalesce(sum(amount), 0)` }).from(schema.transactions)
-        .where(sql`type in ('withdrawal', 'withdraw') and upper(status) in ('SUCCESSFUL', 'COMPLETED')`)
+        .where(sql`type = 'withdrawal' and upper(status) in ('SUCCESSFUL', 'COMPLETED')`)
     ]);
 
     return {
@@ -1382,11 +1385,22 @@ export async function saveTransaction(
   let tx: any;
   if (typeof txOrId === "object" && txOrId !== null) {
     tx = txOrId;
+    // Canonicalize legacy types on write (full migration, no users: always canonical)
+    try {
+      const { canonicalTypeOf } = await import("../utils/transactionMeta");
+      tx.type = canonicalTypeOf(String(tx.type || "deposit"), tx.metadata) as string;
+    } catch {}
   } else {
+    let canonType = String(type || "deposit");
+    try {
+      const { canonicalTypeOf: c } = await import("../utils/transactionMeta");
+      canonType = c(canonType, undefined) as string;
+      if (!canonType || typeof canonType !== "string") canonType = "deposit";
+    } catch {}
     tx = {
       id: txOrId,
       userId: phone || "",
-      type: type || "deposit",
+      type: canonType,
       amount: amount || 0,
       currency: "UGX",
       status: "pending",
@@ -1539,7 +1553,7 @@ export async function completeSuccessfulWithdrawal(txId: string): Promise<any> {
     if (currentStatus === "FAILED" || currentStatus === "REJECTED") {
       throw new Error("This withdrawal was already rejected.");
     }
-    if (transaction.type !== "withdrawal" && transaction.type !== "withdraw") {
+    if (transaction.type !== "withdrawal") {
       throw new Error("The transaction is not a withdrawal.");
     }
 
@@ -1614,7 +1628,7 @@ export async function completeFailedTransaction(txId: string) {
       throw new Error("This transaction was already completed.");
     }
 
-    if (transaction.type === "withdrawal" || transaction.type === "withdraw") {
+    if (transaction.type === "withdrawal") {
       const metadata = transaction.metadata && typeof transaction.metadata === "object"
         ? transaction.metadata as Record<string, any>
         : {};
@@ -1777,7 +1791,7 @@ export async function adminUpdateTransactionStatus(txId: string, status: string)
   const transaction = await getTransaction(txId);
   if (!transaction) throw new Error("Transaction was not found.");
 
-  const isWithdrawal = transaction.type === "withdrawal" || transaction.type === "withdraw";
+  const isWithdrawal = transaction.type === "withdrawal";
   const isAutomaticWithdrawal = isWithdrawal && String(transaction.mode || "").toLowerCase() === "automatic";
   if (isAutomaticWithdrawal && normalizedStatus !== "PENDING") {
     throw new Error("Automatic withdrawals are settled only by the payment-provider webhook.");
@@ -1945,9 +1959,11 @@ export async function redeemGiftCode(phone: string, code: string) {
     await drizzleDb.insert(schema.transactions).values({
       id: newTxId,
       userId: phone,
-      type: "voucher",
+      type: "gift_code",
       amount: gift.amount,
-      status: "completed",
+      status: "SUCCESSFUL",
+      currency: "UGX",
+      paymentMethod: "GIFT_CODE",
       mode: "auto",
       timestamp: new Date().toISOString()
     });
@@ -1982,7 +1998,7 @@ export async function dailyCheckin(phone: string) {
   await saveTransaction({
     id: "chk_" + crypto.randomBytes(8).toString("hex"),
     userId: phone,
-    type: "checkin",
+    type: "daily_checkin_bonus",
     amount: bonus,
     currency: "UGX",
     status: "SUCCESSFUL",
