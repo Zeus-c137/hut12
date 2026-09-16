@@ -55,7 +55,6 @@ import { Button } from "./ui/button";
 import confetti from "canvas-confetti";
 import ParticleBg from "./ParticleBg";
 import NewsCarousel from "./NewsCarousel";
-import VipTasksSheet from "./VipTasksSheet";
 import VisaMetricCard from "./VisaMetricCard";
 
 interface ProfileViewProps {
@@ -342,7 +341,6 @@ export default function ProfileView({
   const [showWithdrawSheet, setShowWithdrawSheet] = useState(false);
   const [showSettingsSheet, setShowSettingsSheet] = useState(false);
   const [showHistorySheet, setShowHistorySheet] = useState(false);
-  const [showVipTasksSheet, setShowVipTasksSheet] = useState(false);
   const [showCommunitySheet, setShowCommunitySheet] = useState(false);
 
   // Edit Profile form fields
@@ -1235,18 +1233,6 @@ export default function ProfileView({
               </div>
             </motion.div>
           </div>
-        )}
-      </AnimatePresence>
-
-      {/* 4. VIP Tasks Sheet Overlay */}
-      <AnimatePresence>
-        {showVipTasksSheet && (
-          <VipTasksSheet
-            isOpen={showVipTasksSheet}
-            onClose={() => setShowVipTasksSheet(false)}
-            userProfile={userProfile}
-            onClaimSuccess={onProfileUpdate}
-          />
         )}
       </AnimatePresence>
     </div>
