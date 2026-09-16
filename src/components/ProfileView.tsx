@@ -655,12 +655,14 @@ export default function ProfileView({
                           className="w-full px-4 py-3 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-sm font-display font-black text-center tracking-[0.2em] text-[var(--theme-text)] outline-none focus:border-[var(--theme-primary)] uppercase transition-all shadow-inner placeholder-[var(--theme-text)]/40"
                         />
                       </div>
-                      <button
+                    <button
                         type="submit"
                         disabled={isRedeemingGiftCode || !giftCodeValue}
-                        className="w-full py-3.5 btn-3d-primary text-white text-xs font-display font-black uppercase tracking-wider rounded-[var(--theme-radius)] transition-all shadow-md flex items-center justify-center cursor-pointer active:scale-95 disabled:opacity-50"
+                        className="w-full hut-btn-3d hut-md hut-gold-glossy"
                       >
-                        {isRedeemingGiftCode ? <Loader2 className="w-5 h-5 animate-spin mx-auto text-white" /> : "get gift"}
+                        <span className="hut-btn-base flex items-center justify-center gap-2 text-xs font-display font-black uppercase tracking-wider">
+                          {isRedeemingGiftCode ? <Loader2 className="w-5 h-5 animate-spin" /> : "get gift"}
+                        </span>
                       </button>
                     </form>
                   </motion.div>
@@ -689,7 +691,7 @@ export default function ProfileView({
                     className="relative w-full max-w-[440px] max-h-[90vh] bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] rounded-[24px] shadow-2xl text-[var(--theme-text)] text-left flex flex-col overflow-hidden backdrop-blur-xl"
                   >
                     {/* Top Banner - Theme Aware */}
-                    <div className=" relative border-b border-[var(--theme-card-border)] px-5 py-4 text-[var(--theme-text)] flex flex-col gap-3 shrink-0">
+                    <div className=" relative px-5 py-4 text-[var(--theme-text)] flex flex-col gap-3 shrink-0">
                       <button 
                         onClick={() => setShowCheckinSheet(false)} 
                         className="absolute right-4 top-4 text-[var(--theme-text)] opacity-60 hover:opacity-100 p-2 rounded-full hover:bg-[var(--theme-bg)] transition-colors cursor-pointer"
@@ -697,17 +699,9 @@ export default function ProfileView({
                         <X className="w-5 h-5" />
                       </button>
                       <div className="flex items-center gap-3">
-                        <div className="w-11 h-11 rounded-2xl bg-[var(--theme-primary)]/10 border border-[var(--theme-primary)]/20 flex items-center justify-center">
-                          <Calendar className="w-5 h-5 text-[var(--theme-primary)]" />
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-[10px] uppercase tracking-[0.35em] text-[var(--theme-primary)] opacity-80 font-semibold">Daily check-in</p>
-                          <h3 className="font-display font-black text-xl tracking-tight text-[var(--theme-text)]">Keep your streak rolling</h3>
-                        </div>
+                        <img src={checkin3d} alt="" className="w-11 h-11 object-contain drop-shadow-sm" loading="lazy" decoding="async" />
+                        <h3 className="font-display font-black text-xl tracking-tight text-[var(--theme-text)]">Daily check-in</h3>
                       </div>
-                      <p className="text-sm text-[var(--theme-text)] opacity-70 max-w-[32rem] leading-6">
-                        Claim a bonus once every 24 hours and return tomorrow to grow your streak and rewards.
-                      </p>
                     </div>
 
                     <div className="p-4 sm:p-5 flex-1 overflow-y-auto space-y-5 scrollbar-none">
@@ -785,7 +779,7 @@ export default function ProfileView({
                                         isClaimed
                                           ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white font-bold shadow-lg"
                                           : isToday && !checkedInToday
-                                          ? "bg-[var(--theme-accent)] border-[var(--theme-accent)] text-white font-black ring-2 ring-[var(--theme-accent)]/40 shadow-sm cursor-pointer"
+                                          ? "hut-btn-3d hut-gold-glossy cursor-pointer"
                                           : isMissed
                                           ? "bg-[var(--theme-card-bg)]/70 border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70"
                                           : "bg-[var(--theme-bg)]/60 border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-60"
@@ -813,38 +807,8 @@ export default function ProfileView({
                         );
                       })()}
 
-                      {/* Quick Guide */}
-                      <div className="rounded-3xl border border-[var(--theme-card-border)] bg-[var(--theme-bg)]/70 px-4 py-3 text-sm text-[var(--theme-text)] opacity-90">
-                        <p className="font-semibold">How to claim</p>
-                        <p className="mt-1 text-xs opacity-70 leading-5">
-                          Tap today's tile when it is available. Check in daily to keep your streak alive and increase future rewards.
-                        </p>
-                      </div>
-
-                      {/* Bottom CTA Button */}
-                      <div className="pt-1">
-                        {checkedInToday ? (
-                          <div className="w-full py-3 rounded-full bg-[var(--theme-primary)]/15 text-[var(--theme-text)] text-xs font-display font-black uppercase tracking-wider flex items-center justify-center gap-2 cursor-not-allowed select-none">
-                            <Check className="w-4 h-4 stroke-[3]" />
-                            <span>Already claimed</span>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={handleCheckin}
-                            disabled={spinningIndex !== null}
-                            className="btn-3d-primary w-full py-3 rounded-full text-xs font-display font-black uppercase tracking-wider text-white flex items-center justify-center gap-2 cursor-pointer shadow-lg active:scale-98"
-                          >
-                            {spinningIndex !== null ? (
-                              <Loader2 className="w-4 h-4 animate-spin text-white" />
-                            ) : (
-                              <>
-                                <Gift className="w-4 h-4 text-white" />
-                                <span>Claim reward now</span>
-                              </>
-                            )}
-                          </button>
-                        )}
-                      </div>
+                      {/* Quick Guide - removed */}
+                      {/* Tiles handle claim directly */}
                     </div>
                   </motion.div>
                 </div>

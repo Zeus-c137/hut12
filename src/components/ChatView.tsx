@@ -397,39 +397,32 @@ export default function ChatView({ userProfile, initialRoom = "shared", canUploa
                         transition={{ type: "spring", bounce: 0.1, duration: 0.35 }}
                         className={`group flex flex-col max-w-[92%] sm:max-w-[80%] ${
                           isMe ? "ml-auto items-end" : "mr-auto items-start"
-                        } ${failed ? "opacity-70" : ""} ${showHeader ? "mt-3 space-y-1.5" : "mt-1 space-y-1"}`}
+                        } ${failed ? "opacity-70" : ""} ${showHeader ? "mt-3" : "mt-1"}`}
                       >
-                        {showHeader && (
-                        <div className="flex items-center gap-1.5 text-xs font-sans text-[var(--theme-text)] opacity-70 px-1">
-                          {!isMe && (
-                            <span className={`font-sans font-black truncate max-w-[140px] ${isSupportAdmin ? 'text-[var(--theme-accent)]' : 'text-[var(--theme-primary)]'}`}>
-                              {isSupportAdmin ? "👾 Support" : m.senderName}
-                            </span>
-                          )}
-                          {isMe && (
-                            <span className="font-sans font-black text-[var(--theme-primary)] truncate max-w-[140px]">
-                              You
-                            </span>
-                          )}
-                          {!isSystem && (
-                            <button
-                              type="button"
-                              title="Reply"
-                              onClick={() => setReplyTo({ name: isMe ? "You" : isSupportAdmin ? "👾 Support" : m.senderName, text: splitQuote(m.text).body || "[photo]" })}
-                              className="opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center gap-1 px-1.5 py-1 text-[var(--theme-primary)] cursor-pointer"
-                            >
-                              <Reply className="w-3.5 h-3.5" />
-                              <span className="text-[10px] font-extrabold uppercase tracking-wide">Reply</span>
-                            </button>
-                          )}
-                        </div>
-                        )}
-
                         <div
-                          className={`chat-bubble-flat rounded-xl px-3 py-2 space-y-1.5 text-[13px] font-sans leading-relaxed text-[var(--theme-text)] font-medium ${
+                          className={`rounded-[16px] px-3 py-2.5 space-y-1.5 text-[13px] font-sans leading-relaxed text-[var(--theme-text)] font-medium bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 shadow-sm ${
                             isMe ? "rounded-tr-none" : "rounded-tl-none"
                           }`}
                         >
+                          {showHeader && (
+                            <div className="flex items-center gap-1.5 text-[11px] font-sans font-bold opacity-80">
+                              <span className={`truncate max-w-[140px] ${isMe ? 'text-[var(--theme-primary)]' : isSupportAdmin ? 'text-[var(--theme-accent)]' : 'text-[var(--theme-primary)]'}`}>
+                                {isMe ? "You" : isSupportAdmin ? "👾 Support" : m.senderName}
+                              </span>
+                              <span className="opacity-40 font-medium">•</span>
+                              <span className="text-[10px] font-medium opacity-50">{new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                              {!isSystem && (
+                                <button
+                                  type="button"
+                                  title="Reply"
+                                  onClick={() => setReplyTo({ name: isMe ? "You" : isSupportAdmin ? "👾 Support" : m.senderName, text: splitQuote(m.text).body || "[photo]" })}
+                                  className="ml-auto opacity-40 hover:opacity-100 transition-opacity flex items-center gap-1 px-1 py-0.5 text-[var(--theme-primary)] cursor-pointer"
+                                >
+                                  <Reply className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                          )}
                           {renderText(m.text)}
 
                           {m.image && (
@@ -452,10 +445,12 @@ export default function ChatView({ userProfile, initialRoom = "shared", canUploa
                               Failed to send, tap to retry
                             </button>
                           )}
-                          <div className="flex justify-end items-center gap-1 pt-0.5 text-[10px] leading-none text-[var(--theme-text)] opacity-50">
-                            <span>{new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                            {isMe && !failed && (m.id.startsWith("tmp_") ? <Check className="w-3 h-3" /> : <CheckCheck className="w-3.5 h-3.5" />)}
-                          </div>
+                          {!showHeader && (
+                            <div className="flex justify-end items-center gap-1 pt-0.5 text-[10px] leading-none text-[var(--theme-text)] opacity-40">
+                              <span>{new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                              {isMe && !failed && (m.id.startsWith("tmp_") ? <Check className="w-3 h-3" /> : <CheckCheck className="w-3.5 h-3.5" />)}
+                            </div>
+                          )}
                         </div>
                       </motion.div>
                     );
@@ -530,7 +525,7 @@ export default function ChatView({ userProfile, initialRoom = "shared", canUploa
             <textarea
               ref={inputRef}
               rows={1}
-              placeholder={activeRoom === "shared" ? "Write a message to global lobby..." : "Ask support about deposits, products, or payouts..."}
+              placeholder={activeRoom === "shared" ? "Message..." : "Message support..."}
               value={inputText}
               onChange={(e) => {
                 setInputText(e.target.value);
