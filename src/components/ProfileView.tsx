@@ -28,6 +28,7 @@ import {
   Settings,
   LogOut,
   X,
+  ExternalLink,
   Loader2,
   CheckCircle2,
   Crown,
@@ -42,13 +43,14 @@ import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { useCurrency } from "../currency";
 import history3d from "@/src/assets/3d/3dicons-calender-iso-premium.png"; // lazy via img attrs
-import invite3d from "@/src/assets/3d/3dicons-gift-iso-premium.png";
+import invite3d from "@/src/assets/3d/3dicons-link-iso-premium.png";
 import vip3d from "@/src/assets/3d/3dicons-trophy-iso-premium.png";
 import gift3d2 from "@/src/assets/3d/3dicons-gift-box-iso-premium.png";
 import checkin3d from "@/src/assets/3d/3dicons-calendar-iso-premium.png";
 import install3d from "@/src/assets/3d/3dicons-rocket-iso-premium.png";
 import bank3d from "@/src/assets/3d/3dicons-wallet-iso-premium.png";
 import update3d from "@/src/assets/3d/3dicons-setting-iso-premium.png";
+import community3d from "@/src/assets/3d/3dicons-megaphone-iso-premium.png";
 import { Button } from "./ui/button";
 import confetti from "canvas-confetti";
 import ParticleBg from "./ParticleBg";
@@ -341,6 +343,7 @@ export default function ProfileView({
   const [showSettingsSheet, setShowSettingsSheet] = useState(false);
   const [showHistorySheet, setShowHistorySheet] = useState(false);
   const [showVipTasksSheet, setShowVipTasksSheet] = useState(false);
+  const [showCommunitySheet, setShowCommunitySheet] = useState(false);
 
   // Edit Profile form fields
   const [username, setUsername] = useState(userProfile.username || "");
@@ -550,8 +553,12 @@ export default function ProfileView({
               <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">History</span>
             </button>
             <button onClick={() => onNavigate("referral")} className="flex flex-col items-center gap-1.5 focus:outline-none group">
-              <img src={invite3d} alt="" className="w-12 h-12 object-contain drop-shadow-sm" />
+              <img src={invite3d} alt="" loading="lazy" decoding="async" className="w-12 h-12 object-contain drop-shadow-sm" />
               <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">Invite</span>
+            </button>
+            <button onClick={() => setShowCommunitySheet(true)} className="flex flex-col items-center gap-1.5 focus:outline-none group">
+              <img src={community3d} alt="" loading="lazy" decoding="async" className="w-12 h-12 object-contain drop-shadow-sm" />
+              <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">Community</span>
             </button>
             <button onClick={() => setShowVipTasksSheet(true)} className="flex flex-col items-center gap-1.5 focus:outline-none group">
               <img src={vip3d} alt="" className="w-12 h-12 object-contain drop-shadow-sm" />
@@ -1168,6 +1175,63 @@ export default function ProfileView({
                       );
                     })
                 )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* 3.5 Community Sheet — same as DashboardView */}
+      <AnimatePresence>
+        {showCommunitySheet && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowCommunitySheet(false)}
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ y: 40, opacity: 0, scale: 0.97 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 40, opacity: 0, scale: 0.97 }}
+              transition={{ type: "spring", damping: 26, stiffness: 340 }}
+              className="relative w-full max-w-sm rounded-[28px] overflow-hidden border border-[var(--theme-card-border)] shadow-[0_20px_60px_rgba(0,0,0,0.3)] bg-[var(--theme-card-bg)]"
+            >
+              <div className="relative p-5 pb-6">
+                <div className="w-10 h-1 rounded-full bg-[var(--theme-card-border)] mx-auto mb-4" />
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-[11px] font-black uppercase tracking-[0.14em] text-[var(--theme-text)] opacity-70">Join our community</h3>
+                  <button onClick={() => setShowCommunitySheet(false)} className="w-8 h-8 rounded-full bg-[var(--theme-bg)] hover:opacity-80 flex items-center justify-center text-[var(--theme-text)] opacity-60 transition-colors border border-[var(--theme-card-border)]">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="space-y-2.5">
+                  {siteConfig?.whatsappLink && (
+                    <a href={siteConfig.whatsappLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] hover:opacity-80 transition-colors group">
+                      <img src="/whatsapp.svg" alt="WhatsApp" className="w-10 h-10 rounded-xl shrink-0 shadow-sm object-contain bg-white p-1" />
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-[13px] font-black text-[var(--theme-text)] leading-none">WhatsApp Support</span>
+                        <span className="block text-[11px] font-bold text-[var(--theme-text)] opacity-60 leading-none mt-1 truncate">{siteConfig.whatsappLink}</span>
+                      </span>
+                      <ExternalLink className="w-4 h-4 text-[var(--theme-text)] opacity-40 group-hover:opacity-60 shrink-0" />
+                    </a>
+                  )}
+                  {siteConfig?.telegramLink && (
+                    <a href={siteConfig.telegramLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] hover:opacity-80 transition-colors group">
+                      <img src="/telegram.svg" alt="Telegram" className="w-10 h-10 rounded-xl shrink-0 shadow-sm object-contain bg-white p-1" />
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-[13px] font-black text-[var(--theme-text)] leading-none">Telegram Channel</span>
+                        <span className="block text-[11px] font-bold text-[var(--theme-text)] opacity-60 leading-none mt-1 truncate">{siteConfig.telegramLink}</span>
+                      </span>
+                      <ExternalLink className="w-4 h-4 text-[var(--theme-text)] opacity-40 group-hover:opacity-60 shrink-0" />
+                    </a>
+                  )}
+                  {!siteConfig?.telegramLink && !siteConfig?.whatsappLink && (
+                    <p className="text-center text-sm font-bold text-[var(--theme-text)] opacity-60 py-6">No community links configured yet.</p>
+                  )}
+                </div>
               </div>
             </motion.div>
           </div>
