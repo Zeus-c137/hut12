@@ -105,11 +105,11 @@ export default function TransactionHistoryView({ phone, siteConfig, onBack }: Pr
 
   const filtered = transactions.filter((tx) => {
     const canon = canonicalTypeOf(tx.type, tx.metadata) as string;
+    if (canon === "product_activation") return false;
     const matchesFilter =
       historyFilter === "all" ? true :
       historyFilter === "deposit" ? canon === "deposit" :
       historyFilter === "withdraw" ? canon === "withdrawal" :
-      historyFilter === "product" ? canon === "product_activation" :
       historyFilter === "yield" ? canon === "daily_yield" :
       historyFilter === "checkin" ? canon === "daily_checkin_bonus" :
       historyFilter === "voucher" ? canon === "gift_code" :
@@ -160,7 +160,6 @@ export default function TransactionHistoryView({ phone, siteConfig, onBack }: Pr
             { id: "all", label: "All" },
             { id: "deposit", label: "Recharge" },
             { id: "withdraw", label: "Withdraw" },
-            { id: "product", label: "Product" },
             { id: "yield", label: "Yield" },
             { id: "referral", label: "Referral" },
             { id: "checkin", label: "Check-in" },
