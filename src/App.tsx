@@ -733,7 +733,7 @@ export default function App() {
         </header>
 
         {/* Main interactive tabs content view block */}
-        <main className={`flex-1 relative min-h-0 flex flex-col isolate ${activeTab === "chat" ? "p-0 overflow-hidden h-full" : "px-1.5 sm:px-2 py-3 overflow-y-auto overscroll-y-contain"}`}
+        <main className={`flex-1 relative min-h-0 flex flex-col isolate ${(activeTab === "chat" || activeTab === "history" || (activeTab === "alerts" && previousTab === "history")) ? "p-0 overflow-hidden h-full" : "px-1.5 sm:px-2 py-3 overflow-y-auto overscroll-y-contain"}`}
               style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
           <AnimatePresence mode="wait">
             {(activeTab === "dashboard" || (activeTab === "alerts" && previousTab === "dashboard")) && (
@@ -811,6 +811,7 @@ export default function App() {
                 initial={{ opacity: 0, scale: 0.96 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.96 }}
+                className="h-full flex flex-col min-h-0"
               >
                 <TransactionHistoryView phone={userProfile.phone} siteConfig={siteConfig} onBack={() => setActiveTab("profile")} />
               </motion.div>
