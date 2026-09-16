@@ -14,7 +14,7 @@ export const TRANSACTION_LABELS: Record<TransactionType, string> = {
   deposit: "Recharge",
   withdrawal: "Withdrawal",
   product_activation: "Product",
-  daily_yield: "Yield",
+  daily_yield: "Income",
   registration_bonus: "Registration Bonus",
   daily_checkin_bonus: "Check-in",
   gift_code: "Gift Code",

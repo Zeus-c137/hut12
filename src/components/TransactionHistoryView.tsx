@@ -160,7 +160,7 @@ export default function TransactionHistoryView({ phone, siteConfig, onBack }: Pr
             { id: "all", label: "All" },
             { id: "deposit", label: "Recharge" },
             { id: "withdraw", label: "Withdraw" },
-            { id: "yield", label: "Yield" },
+            { id: "yield", label: "Income" },
             { id: "referral", label: "Referral" },
             { id: "checkin", label: "Check-in" },
             { id: "voucher", label: "Gift Code" },
@@ -198,20 +198,18 @@ export default function TransactionHistoryView({ phone, siteConfig, onBack }: Pr
 
             const product = getProductForTx(tx, meta.canon);
             const productImage = product ? fixGitHubImageUrl(product.imageUrl || product.image) : null;
-            const productName = product?.name || String(tx.metadata?.sourceItemName || tx.itemId || "").trim();
+            const productName = product?.name || String(tx.metadata?.sourceItemName || "").trim();
 
-            // Product activation: label as product name activated, icon as product image
-            const displayLabel = meta.canon === "product_activation" && productName
-              ? `${productName} Activated`
-              : meta.canon === "daily_yield" && productName
-                ? `${productName} Yield`
+            // Product activation is hidden (filtered above), daily_yield uses product name + Income
+            const displayLabel = meta.canon === "daily_yield" && productName
+                ? `${productName} Income`
                 : meta.label;
 
-            const iconSrc = (meta.canon === "daily_yield" || meta.canon === "product_activation") && productImage
+            const iconSrc = meta.canon === "daily_yield" && productImage
               ? productImage
               : meta.icon3d;
 
-            const isProductIcon = (meta.canon === "daily_yield" || meta.canon === "product_activation") && !!productImage;
+            const isProductIcon = meta.canon === "daily_yield" && !!productImage;
 
             return (
               <div key={tx.id} className={`rounded-[20px] border-0 p-3.5 flex items-center gap-3 bg-transparent ${meta.card}`}>
