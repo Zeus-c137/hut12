@@ -86,16 +86,14 @@ export default function VipTasksPage({ phone, userProfile, onClaimSuccess, onBac
                 </div>
               </div>
               <div className="relative mt-4">
-                <div className="flex items-center justify-between">
+                <div className="flex justify-end">
                   <span className="text-[11px] font-sans font-semibold px-2.5 py-1 rounded-full bg-[var(--theme-primary)]/10 text-[var(--theme-primary)] border border-[var(--theme-primary)]/15">{formatCurrency(toGo)} to VIP {(board.vipLevel||0)+1}</span>
-                  <span className="text-[11px] font-sans opacity-50">{formatCurrency(accumulatedBonus)} / {formatCurrency(nextReq)}</span>
                 </div>
-                <div className="w-full h-2 bg-black/10 rounded-full overflow-hidden mt-2 border border-white/10">
+                <div className="w-full h-3 bg-black/10 rounded-full overflow-hidden mt-2 border border-white/10">
                   <div className="h-full bg-[var(--theme-primary)] rounded-full transition-all" style={{width:`${overall}%`}}/>
                 </div>
-                <div className="flex items-center justify-between mt-1.5 text-[11px] font-sans">
-                  <span className="font-semibold text-[var(--theme-primary)]">{formatCurrency(accumulatedBonus)}</span>
-                  <span className="opacity-50">VIP {(board.vipLevel||0)+1} at {formatCurrency(nextReq)}</span>
+                <div className="flex justify-end mt-1.5 text-[11px] font-sans">
+                  <span className="opacity-50">{formatCurrency(accumulatedBonus)} / {formatCurrency(nextReq)}</span>
                 </div>
               </div>
             </div>
@@ -142,7 +140,7 @@ export default function VipTasksPage({ phone, userProfile, onClaimSuccess, onBac
                         {task.description && <p className="text-[12px] font-sans opacity-50 leading-snug mt-1">{task.description}</p>}
                       </div>
                       <div>
-                        <div className="w-full h-2 bg-black/10 rounded-full overflow-hidden border border-white/5">
+                        <div className="w-full h-3 bg-black/10 rounded-full overflow-hidden border border-white/5">
                           <div className={`h-full rounded-full transition-all ${state==="unlocked"?"bg-[var(--theme-primary)]": state==="claimed"?"bg-emerald-500":"bg-white/20"}`} style={{width:`${p}%`}}/>
                         </div>
                         <div className="flex items-center justify-between mt-2 text-[11px] font-sans">
