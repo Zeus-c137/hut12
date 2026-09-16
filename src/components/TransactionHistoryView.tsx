@@ -202,9 +202,10 @@ export default function TransactionHistoryView({ phone, siteConfig, onBack }: Pr
             const level = meta.isReferralLevel ? meta.level : undefined;
 
             const product = getProductForTx(tx, meta.canon);
+            const catalogFallback = tx.itemId ? catalogById.get(String(tx.itemId)) : null;
             const productImageFromMeta = tx.metadata?.sourceItemImage ? fixGitHubImageUrl(String(tx.metadata.sourceItemImage)) : null;
-            const productImage = productImageFromMeta || (product ? fixGitHubImageUrl(product.imageUrl || product.image) : null);
-            const productName = product?.name || String(tx.metadata?.sourceItemName || "").trim();
+            const productImage = productImageFromMeta || (product ? fixGitHubImageUrl(product.imageUrl || product.image) : catalogFallback ? fixGitHubImageUrl(catalogFallback.imageUrl || catalogFallback.image) : null);
+            const productName = product?.name || catalogFallback?.name || String(tx.metadata?.sourceItemName || "").trim();
 
             const displayLabel = meta.canon === "daily_yield" && productName
                 ? `${productName} Income`
@@ -218,8 +219,8 @@ export default function TransactionHistoryView({ phone, siteConfig, onBack }: Pr
 
             return (
               <div key={tx.id} className={`rounded-[20px] border-0 p-3.5 flex items-center gap-3 bg-transparent ${meta.card}`}>
-                <div className={`w-11 h-11 rounded-2xl bg-transparent border-0 flex items-center justify-center shrink-0 overflow-hidden ${isProductIcon ? "bg-white/5 border border-white/10" : ""}`}>
-                  <img src={iconSrc} alt="" loading="lazy" decoding="async" className={`${isProductIcon ? "w-11 h-11 object-cover rounded-2xl" : "w-10 h-10 object-contain"}`} />
+                <div className={`w-11 h-11 rounded-2xl bg-transparent border-0 flex items-center justify-center shrink-0 overflow-hidden ${isProductIcon ? "bg-white/5 border border-white/10 p-1" : ""}`}>
+                  <img src={iconSrc} alt="" loading="lazy" decoding="async" className={`${isProductIcon ? "w-full h-full object-contain rounded-xl" : "w-10 h-10 object-contain"}`} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
