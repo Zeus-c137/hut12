@@ -77,6 +77,7 @@ import { migrateCardStyle, sanitizeSiteConfig } from "../utils/themeTokens";
 import { fixGitHubImageUrl } from "../utils/imageUtils";
 import { readApiJson } from "../utils/api";
 import { canonicalTypeOf, getWithdrawalDisplayAmounts } from "../utils/transactionMeta";
+import { normalizeVipTask, dedupeCategories } from "@/src/utils/vip";
 
 function isSettledTransaction(transaction: any): boolean {
   const status = String(transaction?.status || "").toUpperCase();
@@ -268,10 +269,10 @@ export default function AdminView() {
   const { updateLocalThemeConfig } = useTheme();
 
   const getVipTasks = (): VipTaskConfig[] => Array.isArray(siteConfig?.vipTasks) ? siteConfig.vipTasks : [];
-  const getVipTaskCategories = (): string[] => Array.from(new Set([
+  const getVipTaskCategories = (): string[] => dedupeCategories([
     ...(Array.isArray(siteConfig?.vipTaskCategories) ? siteConfig.vipTaskCategories : []),
-    ...getVipTasks().map((task) => task.category).filter(Boolean)
-  ]));
+    ...getVipTasks().map((task) => task.category)
+  ]);
   const currentWithdrawMode: "automatic" | "manual" = siteConfig?.allowAutoWithdraw === false ? "manual" : "automatic";
 
   const persistVipConfig = async (nextFields: Record<string, unknown>, successMessage: string) => {
@@ -305,28 +306,26 @@ export default function AdminView() {
   };
 
   const handleAddVipTask = async () => {
-    const title = vipTaskTitle.trim();
-    const category = vipTaskCategory.trim();
-    const requiredBonus = Number(vipTaskRequiredBonus);
-    const reward = Number(vipTaskReward);
-    if (!title || !category) {
-      toast.error("Enter a VIP task title and category.");
-      return;
-    }
-    if (!Number.isFinite(requiredBonus) || requiredBonus <= 0 || !Number.isFinite(reward) || reward <= 0) {
-      toast.error("Requirement and reward must both be greater than zero.");
+    const rawTask = {
+      id: editingVipTaskId || `vip_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      title: vipTaskTitle,
+      description: vipTaskDescription,
+      category: vipTaskCategory,
+      requiredBonus: vipTaskRequiredBonus,
+      reward: vipTaskReward,
+      active: editingVipTaskId ? getVipTasks().find((task) => task.id === editingVipTaskId)?.active !== false : true
+    };
+    let task: VipTaskConfig;
+    try {
+      task = normalizeVipTask(rawTask);
+      if (!task.title || !task.category) throw new Error("Enter a VIP task title and category.");
+      if (!Number.isFinite(task.requiredBonus) || task.requiredBonus <= 0 || !Number.isFinite(task.reward) || task.reward <= 0) throw new Error("Requirement and reward must both be greater than zero.");
+      if (editingVipTaskId) task.id = editingVipTaskId;
+    } catch (err: any) {
+      toast.error(err.message || "Enter a VIP task title and category.");
       return;
     }
     const existingTask = editingVipTaskId ? getVipTasks().find((task) => task.id === editingVipTaskId) : undefined;
-    const task: VipTaskConfig = {
-      id: existingTask?.id || `vip_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-      title,
-      description: vipTaskDescription.trim(),
-      category,
-      requiredBonus,
-      reward,
-      active: existingTask?.active !== false
-    };
     const nextTasks = existingTask
       ? getVipTasks().map((currentTask) => currentTask.id === existingTask.id ? task : currentTask)
       : [...getVipTasks(), task];
@@ -362,11 +361,12 @@ export default function AdminView() {
   const handleAddVipCategory = async () => {
     const category = newVipCategory.trim();
     if (!category) return;
-    if (getVipTaskCategories().some((existing) => existing.toLowerCase() === category.toLowerCase())) {
+    const next = dedupeCategories([...getVipTaskCategories(), category]);
+    if (next.length === getVipTaskCategories().length) {
       toast.info("That VIP category already exists.");
       return;
     }
-    const saved = await persistVipConfig({ vipTaskCategories: [...getVipTaskCategories(), category] }, "VIP category created.");
+    const saved = await persistVipConfig({ vipTaskCategories: next }, "VIP category created.");
     if (saved) {
       setNewVipCategory("");
       setVipTaskCategory(category);

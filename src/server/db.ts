@@ -5,6 +5,7 @@ import { and, eq, desc, asc, isNull, inArray, sql } from "drizzle-orm";
 import { UserProfile, SubscriptionItem, SubscribedNode, ChatMessage, ReferralStat, NotificationItem, SiteConfig } from "../types";
 import { sanitizeSiteConfig } from "../utils/themeTokens";
 import { canonicalTypeOf } from "../utils/transactionMeta";
+import { dedupeCategories, normalizeVipTask } from "../utils/vip";
 
 
 export class DatabaseOperationError extends Error {
@@ -2238,25 +2239,13 @@ export async function updateSiteConfig(newConfig: Partial<SiteConfig>): Promise<
     }
 
     if (Array.isArray(updated.vipTaskCategories)) {
-      updated.vipTaskCategories = Array.from(new Set(
-        updated.vipTaskCategories
-          .map((category) => String(category || "").trim())
-          .filter(Boolean)
-      ));
+      updated.vipTaskCategories = dedupeCategories(updated.vipTaskCategories);
     }
 
     if (Array.isArray(updated.vipTasks)) {
       updated.vipTasks = updated.vipTasks
         .filter((task: any) => task && String(task.id || "").trim() && String(task.title || "").trim())
-        .map((task: any) => ({
-          id: String(task.id).trim(),
-          title: String(task.title).trim(),
-          description: String(task.description || "").trim(),
-          category: String(task.category || "").trim(),
-          requiredBonus: Math.max(0, Number(task.requiredBonus || 0)),
-          reward: Math.max(0, Number(task.reward || 0)),
-          active: task.active !== false
-        }));
+        .map((task: any) => normalizeVipTask(task));
     }
 
     updated.minimumDeposit = getMinimumDepositAmount(updated);

@@ -66,7 +66,7 @@ interface ProfileViewProps {
   onProfileUpdate: (newProfile: UserProfile) => void;
   onNavigateToDeposit: () => void;
   onNavigateToWithdraw?: () => void;
-  onNavigate: (tab: "dashboard" | "catalog" | "income" | "history" | "referral" | "chat" | "profile" | "deposit" | "withdraw" | "alerts", chatRoom?: "shared" | "admin") => void;
+  onNavigate: (tab: "dashboard" | "catalog" | "income" | "history" | "referral" | "chat" | "profile" | "deposit" | "withdraw" | "alerts" | "vip", chatRoom?: "shared" | "admin") => void;
   onLogout: () => void;
   autoOpenWithdraw?: boolean;
   onCloseAutoWithdraw?: () => void;
@@ -560,8 +560,8 @@ export default function ProfileView({
               <img src={community3d} alt="" loading="lazy" decoding="async" className="w-12 h-12 object-contain drop-shadow-sm" />
               <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">Community</span>
             </button>
-            <button onClick={() => setShowVipTasksSheet(true)} className="flex flex-col items-center gap-1.5 focus:outline-none group">
-              <img src={vip3d} alt="" className="w-12 h-12 object-contain drop-shadow-sm" />
+            <button onClick={() => onNavigate("vip")} className="flex flex-col items-center gap-1.5 focus:outline-none group">
+              <img src={vip3d} alt="" loading="lazy" decoding="async" className="w-12 h-12 object-contain drop-shadow-sm" />
               <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">VIP Tasks</span>
             </button>
             <button onClick={() => setShowGiftCodeSheet(true)} className="flex flex-col items-center gap-1.5 focus:outline-none group">
