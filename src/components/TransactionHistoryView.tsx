@@ -149,7 +149,7 @@ export default function TransactionHistoryView({ phone, siteConfig, onBack }: Pr
   };
 
   return (
-    <div className="w-full flex-1 flex flex-col min-h-0 bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] border-0 rounded-none p-0 select-none">
+    <div className="w-full flex-1 flex flex-col min-h-0 bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] border-0 rounded-none p-0">
       <div className="flex items-center justify-center py-4 shrink-0">
         <h1 className="text-[13px] font-display font-bold tracking-wide text-[var(--theme-text)]">Transaction History</h1>
         <p className="sr-only">Your ledger — newest first</p>

@@ -1368,48 +1368,48 @@ export default function AdminView() {
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: 10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          className="w-full max-w-sm sm:max-w-md bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] p-8 shadow-2xl z-10 relative overflow-hidden backdrop-blur-md"
+          className="w-full max-w-sm sm:max-w-md bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 rounded-[24px] p-8 shadow-2xl z-10 relative overflow-hidden"
         >
           <div className="text-center space-y-3 mb-6">
             <BrandLogo siteConfig={siteConfig} className="w-14 h-14 mx-auto block bg-transparent shadow-none" />
             <div>
-              <h2 className="font-display font-extrabold text-2xl tracking-tight text-[var(--theme-text)]">
+              <h2 className="font-display font-bold text-2xl tracking-tight text-[var(--theme-text)]">
                 {(siteConfig?.brandName || " ") + " Admin"}
               </h2>
-              <p className="text-xs text-[var(--theme-text)] opacity-65 mt-1">
-                Enter administrative credentials to log in
+              <p className="text-xs font-sans font-normal text-[var(--theme-text)] opacity-50 mt-1">
+                Administrative access only
               </p>
             </div>
           </div>
 
           <form onSubmit={handleAdminLogin} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold uppercase tracking-wider text-[var(--theme-text)] opacity-80">Username / Phone</label>
+              <label className="text-[11px] font-sans font-semibold uppercase tracking-wide text-[var(--theme-text)] opacity-60">Username / Phone</label>
               <input
                 type="text"
                 required
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="w-full px-4 py-2.5 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm outline-none transition-colors"
+                className="w-full px-4 py-2.5 bg-[var(--theme-bg)]/60 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] rounded-[14px] text-[var(--theme-text)] text-sm font-sans font-medium outline-none transition-colors select-text"
                 placeholder="Enter identifier"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-bold uppercase tracking-wider text-[var(--theme-text)] opacity-80">Password</label>
+              <label className="text-[11px] font-sans font-semibold uppercase tracking-wide text-[var(--theme-text)] opacity-60">Password</label>
               <div className="relative">
                 <input
                   type={showLoginPassword ? "text" : "password"}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm outline-none transition-colors pr-10"
-                  placeholder="• • • • • • • •"
+                  className="w-full px-4 py-2.5 bg-[var(--theme-bg)]/60 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] rounded-[14px] text-[var(--theme-text)] text-sm font-sans font-medium outline-none transition-colors pr-10 select-text"
+                  placeholder="••••••••"
                 />
                 <button
                   type="button"
                   onClick={() => setShowLoginPassword(!showLoginPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--theme-text)] opacity-50 hover:opacity-100 transition-opacity"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--theme-text)] opacity-40 hover:opacity-100 transition-opacity"
                 >
                   {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -1419,7 +1419,7 @@ export default function AdminView() {
             <button
               type="submit"
               disabled={isLoggingIn}
-              className="w-full py-3 mt-2 btn-3d-primary text-white text-sm font-black transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 mt-2 btn-3d-primary text-white text-sm font-sans font-bold tracking-wide transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed select-none"
             >
               {isLoggingIn ? (
                 <>

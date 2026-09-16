@@ -199,7 +199,7 @@ textarea:focus {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-primary) 20%, transparent);
   outline: none;
 }
-/* autofill both modes — fix prefilled invisible in #000000 true OLED + #faf6f0 light */
+/* autofill both modes — frosted/transparent so prefilled text is visible in OLED #000 and warm #faf6f0 */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus,
@@ -208,8 +208,8 @@ input:autofill:hover,
 input:autofill:focus {
   -webkit-text-fill-color: var(--theme-text) !important;
   caret-color: var(--theme-text) !important;
-  -webkit-box-shadow: 0 0 0px 1000px color-mix(in srgb, var(--theme-card-bg) 96%, var(--theme-bg)) inset !important;
-  box-shadow: 0 0 0px 1000px color-mix(in srgb, var(--theme-card-bg) 96%, var(--theme-bg)) inset !important;
+  -webkit-box-shadow: 0 0 0px 1000px color-mix(in srgb, var(--theme-bg) 70%, transparent) inset !important;
+  box-shadow: 0 0 0px 1000px color-mix(in srgb, var(--theme-bg) 70%, transparent) inset !important;
   border-color: var(--theme-card-border) !important;
   transition: background-color 5000s ease-in-out 0s;
 }
@@ -219,9 +219,11 @@ input:autofill:focus {
 .dark input:autofill {
   -webkit-text-fill-color: #fafaf9 !important;
   caret-color: #fafaf9 !important;
-  -webkit-box-shadow: 0 0 0px 1000px #121214 inset !important;
-  box-shadow: 0 0 0px 1000px #121214 inset !important;
+  -webkit-box-shadow: 0 0 0px 1000px rgba(255,255,255,0.08) inset !important;
+  box-shadow: 0 0 0px 1000px rgba(255,255,255,0.08) inset !important;
   border-color: rgba(255,255,255,0.12) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  backdrop-filter: blur(12px) saturate(150%);
 }
 input:-webkit-autofill::first-line { font-size: 14px; }
 
