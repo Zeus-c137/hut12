@@ -219,7 +219,7 @@ export default function TransactionHistoryView({ phone, siteConfig, onBack }: Pr
 
             return (
               <div key={tx.id} className={`rounded-[20px] border-0 p-3.5 flex items-center gap-3 bg-transparent ${meta.card}`}>
-                <div className={`w-11 h-11 rounded-2xl bg-transparent border-0 flex items-center justify-center shrink-0 overflow-hidden ${isProductIcon ? "bg-white/5 border border-white/10 p-1" : ""}`}>
+                <div className={`${isProductIcon ? "w-14 h-14 rounded-2xl bg-white/5 border border-white/10 p-1.5" : "w-11 h-11 rounded-2xl bg-transparent border-0"} flex items-center justify-center shrink-0 overflow-hidden`}>
                   <img src={iconSrc} alt="" loading="lazy" decoding="async" className={`${isProductIcon ? "w-full h-full object-contain rounded-xl" : "w-10 h-10 object-contain"}`} />
                 </div>
                 <div className="flex-1 min-w-0">
