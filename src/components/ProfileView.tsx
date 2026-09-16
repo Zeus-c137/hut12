@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { useGatedInterval } from "../hooks/useGatedInterval";
 import { UserProfile, SubscribedNode } from "../types";
 import { canonicalTypeOf, getTransactionDisplayMeta, isPositiveTransaction, getWithdrawalDisplayAmounts } from "../utils/transactionMeta";
 import { usePwaInstall } from "../hooks/usePwaInstall";
@@ -40,7 +41,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { useCurrency } from "../currency";
-import history3d from "@/src/assets/3d/3dicons-calender-iso-premium.png";
+import history3d from "@/src/assets/3d/3dicons-calender-iso-premium.png"; // lazy via img attrs
 import invite3d from "@/src/assets/3d/3dicons-gift-iso-premium.png";
 import vip3d from "@/src/assets/3d/3dicons-trophy-iso-premium.png";
 import gift3d2 from "@/src/assets/3d/3dicons-gift-box-iso-premium.png";
@@ -125,22 +126,28 @@ export default function ProfileView({
     }).catch(() => {});
   }, []);
 
+  const updateAbortRef = useRef<AbortController | null>(null);
   const checkForAppUpdate = async () => {
+    if (document.hidden) return;
     if (!("serviceWorker" in navigator)) {
       setUpdateState("unsupported");
       toast.info("Update checks need the installed production build.");
       return;
     }
+    if (updateAbortRef.current) updateAbortRef.current.abort();
+    const ctrl = new AbortController();
+    updateAbortRef.current = ctrl;
     setUpdateState("checking");
     try {
       const reg = await navigator.serviceWorker.getRegistration();
-      if (!reg) {
+      if (!reg || ctrl.signal.aborted) {
         setUpdateState("unsupported");
         toast.info("Open the installed app to check.");
         return;
       }
       await reg.update().catch(() => {});
       await new Promise((r) => setTimeout(r, 1200));
+      if (ctrl.signal.aborted) return;
       const fresh = await navigator.serviceWorker.getRegistration();
       const at = Date.now();
       try { localStorage.setItem("app_update_last_checked", String(at)); } catch {}
@@ -153,6 +160,7 @@ export default function ProfileView({
         toast.success("You're on the latest version.");
       }
     } catch {
+      if (ctrl.signal.aborted) return;
       setUpdateState("idle");
       toast.error("Could not check for updates. Try again.");
     }
@@ -183,8 +191,9 @@ export default function ProfileView({
 
   useEffect(() => {
     if (!checkedInToday) {
+      if (document.hidden) return;
       const timer = setTimeout(() => {
-        setShowCheckinSheet(true);
+        if (!document.hidden) setShowCheckinSheet(true);
       }, 5 * 60 * 1000);
       return () => clearTimeout(timer);
     }
@@ -537,7 +546,7 @@ export default function ProfileView({
           <h4 className="font-display font-black text-xs uppercase tracking-wider text-[var(--theme-text)] opacity-70">More Actions</h4>
           <div id="quick-action-menu-grid" className="grid grid-cols-4 gap-x-2 gap-y-5">
             <button onClick={() => onNavigate("history")} className="flex flex-col items-center gap-1.5 focus:outline-none group">
-              <img src={history3d} alt="" className="w-12 h-12 object-contain drop-shadow-sm" />
+              <img src={history3d} loading="lazy" decoding="async" alt="" className="w-12 h-12 object-contain drop-shadow-sm" />
               <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">History</span>
             </button>
             <button onClick={() => onNavigate("referral")} className="flex flex-col items-center gap-1.5 focus:outline-none group">

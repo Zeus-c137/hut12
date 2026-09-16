@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { UserProfile, SubscriptionItem, SubscribedNode, SystemStats, NotificationItem } from "./types";
 import AuthView from "./components/AuthView";
 import DashboardView from "./components/DashboardView";
@@ -64,6 +64,8 @@ import { motion, AnimatePresence } from "motion/react";
 import { ThemeProvider } from "./context/ThemeContext";
 import { readApiJson } from "./utils/api";
 import { useChatUnread } from "./hooks/useChatUnread";
+import { useGatedInterval, useGatedTimeout, useAbortSignal } from "./hooks/useGatedInterval";
+import { fetchJsonWithSignal, abortableAll } from "./utils/abortableFetch";
 
 function getVipBadgeConfig(level: number = 0) {
   const configs: Record<number, { label: string; badgeColor: string }> = {
@@ -164,6 +166,8 @@ export default function App() {
   const [userNotifications, setUserNotifications] = useState<NotificationItem[]>([]);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [welcomeBonusAmount, setWelcomeBonusAmount] = useState(0);
+  const [welcomePending, setWelcomePending] = useState(false);
+  useGatedTimeout(() => { if (welcomePending && !document.hidden) setShowWelcomeModal(true); }, 30000, [welcomePending]);
 
   // Only a successful registration creates this handoff. A normal login has
   // no pending key, so returning users never see the welcome modal.
@@ -171,6 +175,7 @@ export default function App() {
     if (!userProfile?.phone) {
       setShowWelcomeModal(false);
       setWelcomeBonusAmount(0);
+      setWelcomePending(false);
       return;
     }
 
@@ -190,16 +195,14 @@ export default function App() {
       sessionStorage.removeItem(welcomeKey);
       setShowWelcomeModal(false);
       setWelcomeBonusAmount(0);
+      setWelcomePending(false);
       return;
     }
 
     setWelcomeBonusAmount(amount);
     setShowWelcomeModal(false);
-    const timer = window.setTimeout(() => {
-      setShowWelcomeModal(true);
-    }, 30_000);
-
-    return () => window.clearTimeout(timer);
+    setWelcomePending(true);
+    return () => setWelcomePending(false);
   }, [userProfile?.phone]);
 
   useEffect(() => {
@@ -233,19 +236,25 @@ export default function App() {
   }, [userProfile?.phone]);
 
   useEffect(() => {
-    fetch("/api/config/site")
+    const ctrl = new AbortController();
+    fetch("/api/config/site", { signal: ctrl.signal })
       .then(r => r.json())
       .then(data => {
-        if (!data.error) {
+        if (!ctrl.signal.aborted && !data.error) {
           setSiteConfig(data);
         }
       })
-      .catch(err => console.error("Failed to fetch site config", err));
+      .catch(err => { if (err?.name !== "AbortError") console.error("Failed to fetch site config", err); });
+    return () => ctrl.abort();
   }, []);
 
-  // Hidden override fix: refetch siteConfig when admin saves (same tab via custom event + other tabs via storage)
+  // Hidden override fix: refetch siteConfig when admin saves (same tab via custom event + other tabs via storage) — throttled focus 60s
   useEffect(() => {
     const refresh = () => {
+      if (document.hidden) return;
+      const now = Date.now();
+      if (now - lastFocusSiteFetch.current < 60000) return;
+      lastFocusSiteFetch.current = now;
       fetch("/api/config/site")
         .then(r => r.json())
         .then(data => { if (!data.error) setSiteConfig(data); })
@@ -253,13 +262,14 @@ export default function App() {
     };
     const onStorage = (e: StorageEvent) => { if (e.key === "siteConfigUpdatedAt") refresh(); };
     const onCustom = () => refresh();
+    const onFocus = () => refresh();
     window.addEventListener("storage", onStorage);
-    window.addEventListener("siteConfigUpdated", onCustom as any);
-    window.addEventListener("focus", refresh);
+    window.addEventListener("siteConfigUpdated", onCustom as unknown as EventListener);
+    window.addEventListener("focus", onFocus);
     return () => {
       window.removeEventListener("storage", onStorage);
-      window.removeEventListener("siteConfigUpdated", onCustom as any);
-      window.removeEventListener("focus", refresh);
+      window.removeEventListener("siteConfigUpdated", onCustom as unknown as EventListener);
+      window.removeEventListener("focus", onFocus);
     };
   }, []);
 
@@ -331,7 +341,9 @@ export default function App() {
   useEffect(() => {
     if (!userProfile || isAdminRoute) return;
 
-    let timeoutId: any;
+    let timeoutId: ReturnType<typeof setTimeout>;
+    let rafId: number | null = null;
+    let ticking = false;
 
     const resetTimer = () => {
       clearTimeout(timeoutId);
@@ -343,84 +355,92 @@ export default function App() {
       }, 5 * 60 * 1000); // 5 minutes
     };
 
+    const throttledReset = () => {
+      if (ticking) return;
+      ticking = true;
+      rafId = requestAnimationFrame(() => {
+        ticking = false;
+        resetTimer();
+      });
+    };
+
     const activityEvents = ["mousedown", "mousemove", "keypress", "scroll", "touchstart"];
     activityEvents.forEach((event) => {
-      window.addEventListener(event, resetTimer);
+      window.addEventListener(event, throttledReset);
     });
 
     resetTimer();
 
     return () => {
       clearTimeout(timeoutId);
+      if (rafId !== null) cancelAnimationFrame(rafId);
       activityEvents.forEach((event) => {
-        window.removeEventListener(event, resetTimer);
+        window.removeEventListener(event, throttledReset);
       });
     };
   }, [userProfile, isAdminRoute]);
 
   // Fetch lists and stats once user is active
-  const fetchUserDataAndCatalog = async (phone: string) => {
+  const abortRef = useRef<AbortController | null>(null);
+  const lastFocusSiteFetch = useRef<number>(0);
+  const _abortSignal = useAbortSignal(); void _abortSignal;
+
+  const applyUserDataResults = useCallback((results: Record<string, unknown>) => {
+    const setters: Record<string, (d: unknown) => void> = {
+      items: (d) => setItems(d as SubscriptionItem[]),
+      subs: (d) => setActiveNodes(d as SubscribedNode[]),
+      stats: (d) => setSystemStats(d as SystemStats),
+      notifs: (d) => setUserNotifications(d as NotificationItem[]),
+    };
+    for (const [k, v] of Object.entries(results)) {
+      const setter = setters[k];
+      if (setter && v !== undefined) setter(v);
+    }
+  }, []);
+
+  const fetchUserDataAndCatalog = useCallback(async (phone: string) => {
+    if (abortRef.current) abortRef.current.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    const signal = ctrl.signal;
+    if (document.hidden) return;
     try {
-      const [itemsRes, subsRes, statsRes, notifRes, profileRes, siteRes, vipRes] = await Promise.all([
-        fetch("/api/items"),
-        fetch(`/api/subscriptions/${phone}`),
-        fetch("/api/system/stats"),
-        fetch(`/api/profile/notifications/${phone}`),
-        fetch(`/api/profile/${phone}`),
-        fetch("/api/config/site"),
-        fetch(`/api/profile/vip-tasks/${encodeURIComponent(phone)}`)
-      ]);
-
-      if (itemsRes.ok && itemsRes.headers.get("content-type")?.includes("application/json")) {
-        setItems(await itemsRes.json());
-      }
-      if (subsRes.ok && subsRes.headers.get("content-type")?.includes("application/json")) {
-        setActiveNodes(await subsRes.json());
-      }
-      if (statsRes.ok && statsRes.headers.get("content-type")?.includes("application/json")) {
-        setSystemStats(await statsRes.json());
-      }
-      
-      if (profileRes.ok && profileRes.headers.get("content-type")?.includes("application/json")) {
-        const upProf = await profileRes.json();
-        if (upProf) setUserProfile(upProf);
-      }
-
-      if (siteRes.ok && siteRes.headers.get("content-type")?.includes("application/json")) {
-        const siteData = await siteRes.json();
-        if (!siteData.error) setSiteConfig(siteData);
-      }
-
-      if (vipRes.ok && vipRes.headers.get("content-type")?.includes("application/json")) {
-        const vipData = await vipRes.json();
-        setVipBadgeLevel(Number(vipData?.vipLevel || 0));
-      } else if (!vipRes.ok) {
-        setVipBadgeLevel(0);
-      }
-
-      if (notifRes.ok && notifRes.headers.get("content-type")?.includes("application/json")) {
-        const notifs = await notifRes.json();
-        setUserNotifications(notifs);
-      }
-    } catch (e) {
+      const tasks: Array<(s: AbortSignal) => Promise<unknown>> = [
+        (s) => fetchJsonWithSignal<SubscriptionItem[]>("/api/items", s),
+        (s) => fetchJsonWithSignal<SubscribedNode[]>(`/api/subscriptions/${phone}`, s),
+        (s) => fetchJsonWithSignal<SystemStats>("/api/system/stats", s),
+        (s) => fetchJsonWithSignal<NotificationItem[]>(`/api/profile/notifications/${phone}`, s),
+        (s) => fetchJsonWithSignal<UserProfile>(`/api/profile/${phone}`, s),
+        (s) => fetchJsonWithSignal<unknown>("/api/config/site", s),
+        (s) => fetchJsonWithSignal<{ vipLevel?: number }>(`/api/profile/vip-tasks/${encodeURIComponent(phone)}`, s),
+      ];
+      const [itemsData, subsData, statsData, notifData, profileData, siteData, vipData] = await abortableAll(tasks, signal) as [unknown, unknown, unknown, unknown, unknown, unknown, { vipLevel?: number }];
+      if (signal.aborted) return;
+      applyUserDataResults({
+        items: itemsData,
+        subs: subsData,
+        stats: statsData,
+        notifs: notifData,
+      });
+      if (profileData) setUserProfile(profileData as UserProfile);
+      if (siteData && !(siteData as { error?: unknown }).error) setSiteConfig(siteData);
+      setVipBadgeLevel(Number((vipData as { vipLevel?: number })?.vipLevel || 0));
+    } catch (e: unknown) {
+      if ((e as Error)?.name === "AbortError") return;
       console.error("Failed to sync backend endpoints:", e);
     }
-  };
+  }, [applyUserDataResults]);
 
   useEffect(() => {
     if (userProfile && !isAdminRoute) {
-      fetchUserDataAndCatalog(userProfile.phone);
+      void fetchUserDataAndCatalog(userProfile.phone);
     }
-  }, [userProfile?.phone, isAdminRoute]);
+    return () => { if (abortRef.current) abortRef.current.abort(); };
+  }, [userProfile?.phone, isAdminRoute, fetchUserDataAndCatalog]);
 
-  // Periodic automatic sync helper (every 60s)
-  useEffect(() => {
-    if (!userProfile || isAdminRoute) return;
-    const interval = setInterval(() => {
-      fetchUserDataAndCatalog(userProfile.phone);
-    }, 60000);
-    return () => clearInterval(interval);
-  }, [userProfile?.phone, isAdminRoute]);
+  useGatedInterval(() => {
+    if (userProfile?.phone && !isAdminRoute) void fetchUserDataAndCatalog(userProfile.phone);
+  }, 60000, { enabled: !!userProfile?.phone && !isAdminRoute, visibilityGate: true, runOnVisible: true });
 
   const handleAuthSuccess = (profile: UserProfile) => {
     setUserProfile(profile);
@@ -550,26 +570,12 @@ export default function App() {
     }
   };
 
-  // Refresh whole dashboard
-  const handleManualStatsRefresh = async () => {
+  // Refresh whole dashboard — consolidated to single fetchUserDataAndCatalog (already includes referrals+stats)
+  const handleManualStatsRefresh = useCallback(async () => {
     if (userProfile) {
       await fetchUserDataAndCatalog(userProfile.phone);
-      // Retrieve refreshed profile stats
-      try {
-        const res = await fetch(`/api/profile/referrals/${userProfile.phone}`);
-        if (res.ok) {
-          // Trigger silent sync of current balance counts
-          const usrSnap = await fetch("/api/system/stats");
-          if (usrSnap.ok) {
-            const upSt = await usrSnap.json();
-            setSystemStats(upSt);
-          }
-        }
-      } catch (err) {
-        console.log("Stats reload exception:", err);
-      }
     }
-  };
+  }, [userProfile, fetchUserDataAndCatalog]);
 
   const renderContent = () => {
     if (!isAdminRoute && isRestoringSession) {
@@ -667,7 +673,7 @@ export default function App() {
         {/* Top Premium navigation Header ribbon */}
         <header className="sticky top-0 z-40 bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] border-b border-white/10 supports-[backdrop-filter]:bg-[var(--theme-card-bg)]/40 h-16 flex items-center justify-between px-3.5 sm:px-4.5 shrink-0 will-change-[backdrop-filter]">
           <div className="flex items-center gap-2.5">
-            <img src={headerBoy3d} alt="Hut12" className="w-10 h-10 object-contain drop-shadow-sm shrink-0" />
+            <img src={headerBoy3d} alt="Hut12" decoding="async" loading="eager" fetchPriority="high" className="w-10 h-10 object-contain drop-shadow-sm shrink-0" />
             <div>
               <span className="font-display font-black text-sm tracking-tight text-[var(--theme-text)] block leading-none mb-1">
                 Hi, {userProfile.username || "Miner"}
@@ -694,7 +700,7 @@ export default function App() {
               className={`relative p-1 flex items-center justify-center border-0 transition-[transform,opacity] duration-100 cursor-pointer outline-none h-9 w-9 shrink-0 bg-transparent active:scale-[0.97] will-change-transform ${activeTab==="ai" ? "opacity-100" : "opacity-80 hover:opacity-100"}`}
               title="AI Assistant"
             >
-              <img src={headerAi3d} alt="" className="w-7 h-7 object-contain shrink-0 drop-shadow-sm" />
+              <img src={headerAi3d} alt="" decoding="async" loading="eager" className="w-7 h-7 object-contain shrink-0 drop-shadow-sm" />
               <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span>
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 border-2 border-[var(--theme-card-bg)]"></span>
@@ -711,7 +717,7 @@ export default function App() {
               className="relative p-1 flex items-center justify-center border-0 transition-[transform,opacity] duration-100 cursor-pointer outline-none h-9 w-9 shrink-0 bg-transparent active:scale-[0.97] will-change-transform opacity-80 hover:opacity-100"
               title="View Alerts & Notifications"
             >
-              <img src={headerBell3d} alt="" className="w-7 h-7 object-contain shrink-0 drop-shadow-sm" />
+              <img src={headerBell3d} alt="" decoding="async" loading="eager" className="w-7 h-7 object-contain shrink-0 drop-shadow-sm" />
               {userNotifications.filter(n => new Date(n.timestamp).getTime() > Number(localStorage.getItem("lastViewedAlertsTime") || 0)).length > 0 && (
                 <>
                   <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-rose-500 text-white text-[9px] font-black rounded-full flex items-center justify-center border-2 border-[var(--theme-card-bg)] shadow-xs animate-bounce">
@@ -1056,7 +1062,7 @@ export default function App() {
               onClick={() => setActiveTab("dashboard")}
               className={`flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-2xl border-0 transition-colors active:scale-[0.97] ${activeTab === "dashboard" ? "bg-[var(--theme-primary)] text-white shadow-[0_3px_0_0_var(--theme-primary-shadow)] -translate-y-0.5" : "bg-transparent text-[var(--theme-text)] opacity-100"}`}
             >
-              <img src={navHome3d} alt="" className="w-10 h-10 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" />
+              <img src={navHome3d} alt="" decoding="async" loading="eager" className="w-10 h-10 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" />
               <span className="text-[9px] sm:text-[10px] font-display font-black uppercase tracking-wide leading-none">Home</span>
             </button>
 
@@ -1065,7 +1071,7 @@ export default function App() {
               onClick={() => setActiveTab("catalog")}
               className={`flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-2xl border-0 transition-colors active:scale-[0.97] ${activeTab === "catalog" ? "bg-[var(--theme-primary)] text-white shadow-[0_3px_0_0_var(--theme-primary-shadow)] -translate-y-0.5" : "bg-transparent text-[var(--theme-text)] opacity-100"}`}
             >
-              <img src={navProducts3d} alt="" className="w-10 h-10 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" />
+              <img src={navProducts3d} alt="" decoding="async" loading="eager" className="w-10 h-10 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" />
               <span className="text-[9px] sm:text-[10px] font-display font-black uppercase tracking-wide leading-none">Products</span>
             </button>
 
@@ -1074,7 +1080,7 @@ export default function App() {
               onClick={() => setActiveTab("income")}
               className={`flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-2xl border-0 transition-colors active:scale-[0.97] ${activeTab === "income" ? "bg-[var(--theme-primary)] text-white shadow-[0_3px_0_0_var(--theme-primary-shadow)] -translate-y-0.5" : "bg-transparent text-[var(--theme-text)] opacity-100"}`}
             >
-              <img src={navIncome3d} alt="" className="w-10 h-10 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" />
+              <img src={navIncome3d} alt="" decoding="async" loading="eager" className="w-10 h-10 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" />
               <span className="text-[9px] sm:text-[10px] font-display font-black uppercase tracking-wide leading-none">Income</span>
             </button>
 
@@ -1083,7 +1089,7 @@ export default function App() {
               onClick={() => setActiveTab("history")}
               className={`flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-2xl border-0 transition-colors active:scale-[0.97] ${activeTab === "history" ? "bg-[var(--theme-primary)] text-white shadow-[0_3px_0_0_var(--theme-primary-shadow)] -translate-y-0.5" : "bg-transparent text-[var(--theme-text)] opacity-100"}`}
             >
-              <img src={navHistory3d} alt="" className="w-10 h-10 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" />
+              <img src={navHistory3d} alt="" decoding="async" loading="eager" className="w-10 h-10 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" />
               <span className="text-[9px] sm:text-[10px] font-display font-black uppercase tracking-wide leading-none">History</span>
             </button>
 
@@ -1092,7 +1098,7 @@ export default function App() {
               onClick={() => setActiveTab("chat")}
               className={`relative flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-2xl border-0 transition-colors active:scale-[0.97] ${activeTab === "chat" ? "bg-[var(--theme-primary)] text-white shadow-[0_3px_0_0_var(--theme-primary-shadow)] -translate-y-0.5" : "bg-transparent text-[var(--theme-text)] opacity-100"}`}
             >
-              <img src={navChat3d} alt="" className="w-10 h-10 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" />
+              <img src={navChat3d} alt="" decoding="async" loading="eager" className="w-10 h-10 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" />
               {chatUnread > 0 && (
                 <span className="absolute top-1 right-1 min-w-5 h-5 px-1 rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center border-2 border-[var(--theme-bg)]">
                   {chatUnread > 99 ? "99+" : chatUnread}
@@ -1106,7 +1112,7 @@ export default function App() {
               onClick={() => setActiveTab("profile")}
               className={`flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-2xl border-0 transition-colors active:scale-[0.97] ${activeTab === "profile" ? "bg-[var(--theme-primary)] text-white shadow-[0_3px_0_0_var(--theme-primary-shadow)] -translate-y-0.5" : "bg-transparent text-[var(--theme-text)] opacity-100"}`}
             >
-              <img src={navProfile3d} alt="" className="w-10 h-10 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" />
+              <img src={navProfile3d} alt="" decoding="async" loading="eager" className="w-10 h-10 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)]" />
               <span className="text-[9px] sm:text-[10px] font-display font-black uppercase tracking-wide leading-none">Profile</span>
             </button>
           </nav>
