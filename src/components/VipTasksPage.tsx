@@ -133,7 +133,7 @@ export default function VipTasksPage({ phone, userProfile, onClaimSuccess, onBac
                           {task.category}
                         </span>
                         <div className="text-right shrink-0">
-                          <div className={`flex items-center gap-1 justify-end text-[13px] font-sans font-bold ${state==="locked"?"opacity-40":"text-[var(--theme-primary)]"}`}>+{formatCurrency(task.reward)}</div>
+                          <div className="flex items-center gap-1 justify-end text-[13px] font-sans font-bold text-[var(--theme-primary)]">+{formatCurrency(task.reward)}</div>
                           <div className="text-[10px] font-sans opacity-40 text-right">reward</div>
                         </div>
                       </div>
