@@ -15,6 +15,7 @@ import ReferralView from "./components/ReferralView";
 import ProfileView from "./components/ProfileView";
 import ChatView from "./components/ChatView";
 import TransactionHistoryView from "./components/TransactionHistoryView";
+import VipTasksPage from "./components/VipTasksPage";
 import ParticleBg from "./components/ParticleBg";
 import AlertsView from "./components/AlertsView";
 import AdminView from "./components/AdminView";
@@ -159,7 +160,7 @@ export default function App() {
       cancelled = true;
     };
   }, [isAdminRoute]);
-  const [activeTab, setActiveTab] = useState<"dashboard" | "catalog" | "income" | "history" | "ai" | "referral" | "chat" | "profile" | "deposit" | "withdraw" | "alerts">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "catalog" | "income" | "history" | "ai" | "referral" | "chat" | "profile" | "deposit" | "withdraw" | "alerts" | "vip">("dashboard");
   const [siteConfig, setSiteConfig] = useState<any>(null);
   const chatUnread = useChatUnread(userProfile?.phone);
   const [vipBadgeLevel, setVipBadgeLevel] = useState(0);
@@ -733,7 +734,7 @@ export default function App() {
         </header>
 
         {/* Main interactive tabs content view block */}
-        <main className={`flex-1 relative min-h-0 flex flex-col isolate ${(activeTab === "chat" || activeTab === "history" || (activeTab === "alerts" && previousTab === "history")) ? "p-0 overflow-hidden h-full" : "px-1.5 sm:px-2 py-3 overflow-y-auto overscroll-y-contain"}`}
+        <main className={`flex-1 relative min-h-0 flex flex-col isolate ${(activeTab === "chat" || activeTab === "history" || activeTab === "vip" || (activeTab === "alerts" && (previousTab === "history" || previousTab === "vip"))) ? "p-0 overflow-hidden h-full" : "px-1.5 sm:px-2 py-3 overflow-y-auto overscroll-y-contain"}`}
               style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
           <AnimatePresence mode="wait">
             {(activeTab === "dashboard" || (activeTab === "alerts" && previousTab === "dashboard")) && (
@@ -876,6 +877,18 @@ export default function App() {
                 className="flex-1 flex flex-col min-h-0 h-full w-full"
               >
                 <ChatView userProfile={userProfile} initialRoom={chatRoomDefault} canUpload={userProfile.phone === siteConfig?.adminPhone} />
+              </motion.div>
+            )}
+
+            {(activeTab === "vip" || (activeTab === "alerts" && previousTab === "vip")) && (
+              <motion.div
+                key="vip"
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+                className="h-full flex flex-col min-h-0"
+              >
+                <VipTasksPage phone={userProfile.phone} siteConfig={siteConfig} userProfile={userProfile} onClaimSuccess={handleProfileUpdate} onBack={() => setActiveTab("profile")} />
               </motion.div>
             )}
 
