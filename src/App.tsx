@@ -888,7 +888,7 @@ export default function App() {
                 exit={{ opacity: 0, scale: 0.96 }}
                 className="h-full flex flex-col min-h-0"
               >
-                <VipTasksPage phone={userProfile.phone} siteConfig={siteConfig} userProfile={userProfile} onClaimSuccess={handleProfileUpdate} onBack={() => setActiveTab("profile")} />
+                <VipTasksPage phone={userProfile.phone} siteConfig={siteConfig} userProfile={userProfile} onClaimSuccess={handleProfileChange} onBack={() => setActiveTab("profile")} />
               </motion.div>
             )}
 
