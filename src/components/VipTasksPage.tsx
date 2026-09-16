@@ -47,7 +47,9 @@ export default function VipTasksPage({ phone, userProfile, onClaimSuccess, onBac
     try{
       const data=await fetchJsonWithSignal<{bonus:number; claimedVipTasks?:string[]}>(`/api/profile/vip-tasks/claim`, s, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({phone, taskId: task.id})});
       const bonus=Number(data.bonus||0); toast.success(`+${formatCurrency(bonus)}`);
-      if(userProfile&&onClaimSuccess) onClaimSuccess({...userProfile, points:Number(userProfile.points||0)+bonus, claimedVipTasks: data.claimedVipTasks || [...(userProfile.claimedVipTasks||[]), task.id]});
+      if(userProfile&&onClaimSuccess) onClaimSuccess({...userProfile, points:Number(userProfile.points||0)+bonus, referralRewardsEarned:Number((userProfile as any).referralRewardsEarned||0)+bonus, claimedVipTasks: data.claimedVipTasks || [...(userProfile.claimedVipTasks||[]), task.id]});
+      // optimistic bump so Referral income card updates instantly before refetch
+      setBoard(prev=>({ ...prev, progress:{ ...prev.progress, accumulatedBonus: prev.progress.accumulatedBonus + bonus, totalReferralBonus: prev.progress.totalReferralBonus + bonus }}));
       vipCache=null; await load(true);
     } catch(e:any){ if(e?.name!=="AbortError") toast.error(e.message||"Claim failed"); }
     finally{ setClaimingId(null); }
