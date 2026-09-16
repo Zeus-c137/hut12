@@ -9,6 +9,8 @@ import trophy3d from "@/src/assets/3d/3dicons-trophy-iso-premium.png";
 import medal3d from "@/src/assets/3d/3dicons-medal-iso-premium.png";
 import bell3d from "@/src/assets/3d/3dicons-bell-iso-premium.png";
 import money3d from "@/src/assets/3d/3dicons-money-iso-premium.png";
+import calendar3d from "@/src/assets/3d/3dicons-calendar-iso-premium.png";
+import link3d from "@/src/assets/3d/3dicons-link-iso-premium.png";
 import { useCurrency } from "../currency";
 import { canonicalTypeOf, getTransactionDisplayMeta, isPositiveTransaction, getWithdrawalDisplayAmounts } from "@/src/utils/transactionMeta";
 import { fixGitHubImageUrl } from "@/src/utils/imageUtils";
@@ -24,11 +26,11 @@ const ICON_BY_CANON: Record<string, string> = {
   withdrawal: wallet3d,
   product_activation: bag3d,
   daily_yield: fire3d,
-  daily_checkin_bonus: fire3d,
+  daily_checkin_bonus: calendar3d,
   registration_bonus: medal3d,
   gift_code: giftBox3d,
-  referral_signup_bonus: money3d,
-  referral_level_income: money3d,
+  referral_signup_bonus: link3d,
+  referral_level_income: link3d,
   vip_task: trophy3d,
 };
 
@@ -166,8 +168,8 @@ export default function TransactionHistoryView({ phone, siteConfig, onBack }: Pr
             { id: "deposit", label: "Recharge" },
             { id: "withdraw", label: "Withdraw" },
             { id: "yield", label: "Income" },
-            { id: "referral", label: "Referral" },
-            { id: "checkin", label: "Check-in" },
+            { id: "referral", label: "Referral income" },
+            { id: "checkin", label: "Daily check-in" },
             { id: "voucher", label: "Gift Code" },
             { id: "vip_task", label: "VIP" },
           ].map(tab => (
