@@ -143,7 +143,7 @@ export default function VipTasksPage({ phone, userProfile, onClaimSuccess, onBac
                       </div>
                       <div>
                         <div className="w-full h-3 bg-black/10 rounded-full overflow-hidden border border-white/5">
-                          <div className={`h-full rounded-full transition-all ${state==="unlocked"?"bg-[var(--theme-primary)]": state==="claimed"?"bg-emerald-500":"bg-white/20"}`} style={{width:`${p}%`}}/>
+                          <div className={`h-full rounded-full transition-all ${state==="claimed"?"bg-emerald-500":"bg-[var(--theme-primary)]"}`} style={{width:`${p}%`}}/>
                         </div>
                         <div className="flex items-center justify-between mt-2 text-[11px] font-sans">
                           <span className="flex items-center gap-1.5 opacity-60"><span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-primary)]"/>Balance <b className="font-semibold text-[var(--theme-primary)]">{formatCurrency(task.progress)}</b></span>
