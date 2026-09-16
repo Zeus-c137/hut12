@@ -156,7 +156,7 @@ export default function VipTasksPage({ phone, userProfile, onClaimSuccess, onBac
                           <span>{formatCurrency(task.progress)}</span><span>{formatCurrency(task.requiredBonus)}</span>
                         </div>
                         {state === "unlocked" ? (
-                          <Button size="xs" variant="gold-matte" onClick={() => void handleClaim(task)} disabled={claimingId === task.id} className="w-full mt-1">
+                          <Button size="xs" variant="gold-glossy" onClick={() => void handleClaim(task)} disabled={claimingId === task.id} className="w-full mt-1">
                             {claimingId === task.id ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}{claimingId === task.id ? "..." : "Claim"}
                           </Button>
                         ) : state === "claimed" ? (
