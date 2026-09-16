@@ -3,8 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from "react";
-import * as XLSX from "xlsx";
+import React, { useState, useEffect, useRef } from "react";
+import { useGatedInterval } from "../hooks/useGatedInterval";
+import { fetchJsonWithSignal } from "../utils/abortableFetch";
+// XLSX lazy-loaded via dynamic import inside handlers
 import { 
   ShieldAlert, 
   Users, 
@@ -81,40 +83,24 @@ function isSettledTransaction(transaction: any): boolean {
   return status === "SUCCESSFUL" || status === "COMPLETED" || status === "APPROVED";
 }
 
+function getTimeLeft(expiryDate: string): string {
+  const difference = new Date(expiryDate).getTime() - Date.now();
+  if (difference <= 0) return "Expired";
+  const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
+  const minutes = Math.floor((difference / 1000 / 60) % 60);
+  const seconds = Math.floor((difference / 1000) % 60);
+  const parts: string[] = [];
+  if (days > 0) parts.push(`${days}d`);
+  if (hours > 0 || days > 0) parts.push(`${hours}h`);
+  parts.push(`${minutes}m`);
+  parts.push(`${seconds}s`);
+  return parts.join(" ");
+}
+
 function GiftCountdown({ expiryDate }: { expiryDate: string }) {
-  const [timeLeft, setTimeLeft] = useState("");
-
-  useEffect(() => {
-    const calculateTimeLeft = () => {
-      const difference = new Date(expiryDate).getTime() - Date.now();
-      if (difference <= 0) {
-        return "Expired";
-      }
-
-      const days = Math.floor(difference / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
-      const minutes = Math.floor((difference / 1000 / 60) % 60);
-      const seconds = Math.floor((difference / 1000) % 60);
-
-      const parts = [];
-      if (days > 0) parts.push(`${days}d`);
-      if (hours > 0 || days > 0) parts.push(`${hours}h`);
-      parts.push(`${minutes}m`);
-      parts.push(`${seconds}s`);
-
-      return parts.join(" ");
-    };
-
-    setTimeLeft(calculateTimeLeft());
-    const interval = setInterval(() => {
-      setTimeLeft(calculateTimeLeft());
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [expiryDate]);
-
+  const timeLeft = getTimeLeft(expiryDate);
   const isExpired = timeLeft === "Expired";
-
   return (
     <span className={`font-mono text-xs ${isExpired ? "text-rose-500 font-semibold" : "text-blue-400 font-semibold"}`}>
       {timeLeft}
@@ -400,6 +386,9 @@ export default function AdminView() {
   const [userToOverride, setUserToOverride] = useState<UserProfile | null>(null);
   const [newOverridePassword, setNewOverridePassword] = useState("");
   const [giftCodesList, setGiftCodesList] = useState<any[]>([]);
+  const [giftTick, setGiftTick] = useState(0);
+  useGatedInterval(() => setGiftTick((v) => v + 1), 1000, { enabled: giftCodesList.length > 0, visibilityGate: true });
+  void giftTick;
   const [newGiftCode, setNewGiftCode] = useState("");
   const [newGiftCodeAmount, setNewGiftCodeAmount] = useState<number>(5000);
   const [newGiftCodeMax, setNewGiftCodeMax] = useState<number>(100);
@@ -456,48 +445,35 @@ export default function AdminView() {
   }, [isAdminLoggedIn]);
 
   const fetchAllAdminData = async () => {
+    const ctrl = new AbortController();
+    const signal = ctrl.signal;
     try {
       setIsLoading(true);
-      
-      const itemsRes = await fetch("/api/admin/catalog/nodes");
-      if (itemsRes.ok) {
-        const items = await itemsRes.json();
-        setCatalogItems(items);
-      }
-
-      const usersRes = await fetch("/api/admin/users");
+      const [itemsRes, usersRes, txRes, annRes, confRes, gcRes] = await Promise.all([
+        fetch("/api/admin/catalog/nodes", { signal }),
+        fetch("/api/admin/users", { signal }),
+        fetch("/api/admin/transactions", { signal }),
+        fetch("/api/admin/announcements", { signal }),
+        fetch("/api/admin/config", { signal }),
+        fetch(`/api/admin/gift_codes`, { signal }),
+      ]);
+      if (signal.aborted) return;
+      if (itemsRes.ok) setCatalogItems(await itemsRes.json());
       if (usersRes.ok) {
         let users: UserProfile[] = await usersRes.json();
-        // Remove admin user
         const adminPh = siteConfig?.adminPhone || "admin";
         users = users.filter((u) => u.phone !== adminPh);
         setUsersList(users);
       }
-
-      const txRes = await fetch("/api/admin/transactions");
-      if (txRes.ok) {
-        const txs = await txRes.json();
-        setTransactionsList(txs);
-      }
-      
-      const annRes = await fetch("/api/admin/announcements");
-      if (annRes.ok) {
-        setAnnouncements(await annRes.json());
-      }
-      
-      const confRes = await fetch("/api/admin/config");
-      if (confRes.ok) {
-        setSiteConfig(await confRes.json());
-      }
-      
-      const gcRes = await fetch(`/api/admin/gift_codes`);
-      if (gcRes.ok) {
-        setGiftCodesList(await gcRes.json());
-      }
-    } catch (err) {
+      if (txRes.ok) setTransactionsList(await txRes.json());
+      if (annRes.ok) setAnnouncements(await annRes.json());
+      if (confRes.ok) setSiteConfig(await confRes.json());
+      if (gcRes.ok) setGiftCodesList(await gcRes.json());
+    } catch (err: unknown) {
+      if ((err as Error)?.name === "AbortError") return;
       toast.error("Failed loading admin states");
     } finally {
-      setIsLoading(false);
+      if (!signal.aborted) setIsLoading(false);
     }
   };
 
@@ -648,7 +624,8 @@ export default function AdminView() {
   };
 
   // Download Sample Excel Template
-  const handleDownloadExcelSample = () => {
+  const handleDownloadExcelSample = async () => {
+    const XLSX = await import("xlsx");
     const sampleData = [
       {
         "Series/Category": "GS Series",
@@ -701,6 +678,7 @@ export default function AdminView() {
     if (!file) return;
 
     try {
+      const XLSX = await import("xlsx");
       setIsParsingExcel(true);
       setParsedExcelFileName(file.name);
       const arrayBuffer = await file.arrayBuffer();
@@ -1390,48 +1368,48 @@ export default function AdminView() {
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: 10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          className="w-full max-w-sm sm:max-w-md bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] p-8 shadow-2xl z-10 relative overflow-hidden backdrop-blur-md"
+          className="w-full max-w-sm sm:max-w-md bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 rounded-[24px] p-8 shadow-2xl z-10 relative overflow-hidden"
         >
           <div className="text-center space-y-3 mb-6">
             <BrandLogo siteConfig={siteConfig} className="w-14 h-14 mx-auto block bg-transparent shadow-none" />
             <div>
-              <h2 className="font-display font-extrabold text-2xl tracking-tight text-[var(--theme-text)]">
+              <h2 className="font-display font-bold text-2xl tracking-tight text-[var(--theme-text)]">
                 {(siteConfig?.brandName || " ") + " Admin"}
               </h2>
-              <p className="text-xs text-[var(--theme-text)] opacity-65 mt-1">
-                Enter administrative credentials to log in
+              <p className="text-xs font-sans font-normal text-[var(--theme-text)] opacity-50 mt-1">
+                Administrative access only
               </p>
             </div>
           </div>
 
           <form onSubmit={handleAdminLogin} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold uppercase tracking-wider text-[var(--theme-text)] opacity-80">Username / Phone</label>
+              <label className="text-[11px] font-sans font-semibold uppercase tracking-wide text-[var(--theme-text)] opacity-60">Username / Phone</label>
               <input
                 type="text"
                 required
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="w-full px-4 py-2.5 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm outline-none transition-colors"
+                className="w-full px-4 py-2.5 bg-[var(--theme-bg)]/60 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] rounded-[14px] text-[var(--theme-text)] text-sm font-sans font-medium outline-none transition-colors select-text"
                 placeholder="Enter identifier"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-bold uppercase tracking-wider text-[var(--theme-text)] opacity-80">Password</label>
+              <label className="text-[11px] font-sans font-semibold uppercase tracking-wide text-[var(--theme-text)] opacity-60">Password</label>
               <div className="relative">
                 <input
                   type={showLoginPassword ? "text" : "password"}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] rounded-[var(--theme-radius)] text-[var(--theme-text)] text-sm outline-none transition-colors pr-10"
-                  placeholder="• • • • • • • •"
+                  className="w-full px-4 py-2.5 bg-[var(--theme-bg)]/60 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] rounded-[14px] text-[var(--theme-text)] text-sm font-sans font-medium outline-none transition-colors pr-10 select-text"
+                  placeholder="••••••••"
                 />
                 <button
                   type="button"
                   onClick={() => setShowLoginPassword(!showLoginPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--theme-text)] opacity-50 hover:opacity-100 transition-opacity"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--theme-text)] opacity-40 hover:opacity-100 transition-opacity"
                 >
                   {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -1441,7 +1419,7 @@ export default function AdminView() {
             <button
               type="submit"
               disabled={isLoggingIn}
-              className="w-full py-3 mt-2 btn-3d-primary text-white text-sm font-black transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 mt-2 btn-3d-primary text-white text-sm font-sans font-bold tracking-wide transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed select-none"
             >
               {isLoggingIn ? (
                 <>

@@ -164,7 +164,7 @@ export default function AuthView({ onAuthSuccess, siteConfig }: AuthViewProps) {
   const regBonus = Number(activeConfig?.registrationBonus ?? activeConfig?.welcomeBonus ?? 1000);
   return (
     <div 
-      className="min-h-screen bg-[var(--theme-bg)] text-[var(--theme-text)] font-[var(--theme-font-family)] flex flex-col items-center justify-center p-4 relative overflow-y-auto select-none transition-colors"
+      className="min-h-screen bg-[var(--theme-bg)] text-[var(--theme-text)] font-[var(--theme-font-family)] flex flex-col items-center justify-center p-4 relative overflow-y-auto transition-colors"
       style={{
         backgroundImage: authBg ? `linear-gradient(to bottom, rgba(0,0,0,0.4), rgba(0,0,0,0.75)), url('${authBg}')` : undefined,
         backgroundSize: 'cover',
@@ -187,7 +187,7 @@ export default function AuthView({ onAuthSuccess, siteConfig }: AuthViewProps) {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -15 }}
               transition={{ duration: 0.3 }}
-              className="max-w-md mx-auto theme-card card-playful-3d p-6 sm:p-8 shadow-2xl relative overflow-hidden backdrop-blur-md space-y-5"
+              className="max-w-md mx-auto bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 rounded-[24px] p-6 sm:p-8 shadow-2xl relative overflow-hidden space-y-5"
             >
               {/* Logo and Name WITHIN the form card with NO description */}
               <div className="text-center space-y-1.5 pb-1">
@@ -200,36 +200,36 @@ export default function AuthView({ onAuthSuccess, siteConfig }: AuthViewProps) {
               {/* Form */}
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-[var(--theme-text)] opacity-80">Phone Number</label>
+                  <label className="text-[11px] font-sans font-semibold uppercase tracking-wide text-[var(--theme-text)] opacity-60">Phone Number</label>
                   <div className="relative">
-                    <Phone className="w-4 h-4 text-[var(--theme-text)] opacity-50 absolute left-3.5 top-3.5" />
+                    <Phone className="w-4 h-4 text-[var(--theme-text)] opacity-40 absolute left-3.5 top-3.5" />
                     <input
                       type="tel"
                       required
                       placeholder="e.g. 0770000000"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] text-[var(--theme-text)] placeholder:text-[var(--theme-text-muted)] text-sm rounded-[var(--theme-radius)] outline-none transition-colors"
+                      className="w-full pl-10 pr-4 py-3 bg-[var(--theme-bg)]/60 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] text-[var(--theme-text)] placeholder:text-[var(--theme-text-muted)] text-sm font-sans font-medium rounded-[14px] outline-none transition-colors select-text"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-[var(--theme-text)] opacity-80">Password</label>
+                  <label className="text-[11px] font-sans font-semibold uppercase tracking-wide text-[var(--theme-text)] opacity-60">Password</label>
                   <div className="relative">
-                    <Lock className="w-4 h-4 text-[var(--theme-text)] opacity-50 absolute left-3.5 top-3.5" />
+                    <Lock className="w-4 h-4 text-[var(--theme-text)] opacity-40 absolute left-3.5 top-3.5" />
                     <input
                       type={showPassword ? "text" : "password"}
                       required
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full pl-10 pr-10 py-3 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] text-[var(--theme-text)] placeholder:text-[var(--theme-text-muted)] text-sm rounded-[var(--theme-radius)] outline-none transition-colors"
+                      className="w-full pl-10 pr-10 py-3 bg-[var(--theme-bg)]/60 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] text-[var(--theme-text)] placeholder:text-[var(--theme-text-muted)] text-sm font-sans font-medium rounded-[14px] outline-none transition-colors select-text"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-3.5 text-[var(--theme-text)] opacity-50 hover:opacity-100 transition-opacity cursor-pointer"
+                      className="absolute right-3 top-3.5 text-[var(--theme-text)] opacity-40 hover:opacity-100 transition-opacity cursor-pointer"
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -239,21 +239,21 @@ export default function AuthView({ onAuthSuccess, siteConfig }: AuthViewProps) {
                 {authMode === "register" && (
                   <>
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold uppercase tracking-wider text-[var(--theme-text)] opacity-80">Confirm Password</label>
+                      <label className="text-[11px] font-sans font-semibold uppercase tracking-wide text-[var(--theme-text)] opacity-60">Confirm Password</label>
                       <div className="relative">
-                        <Lock className="w-4 h-4 text-[var(--theme-text)] opacity-50 absolute left-3.5 top-3.5" />
+                        <Lock className="w-4 h-4 text-[var(--theme-text)] opacity-40 absolute left-3.5 top-3.5" />
                         <input
                           type={showConfirmPassword ? "text" : "password"}
                           required
                           placeholder="••••••••"
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
-                          className="w-full pl-10 pr-10 py-3 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] text-[var(--theme-text)] placeholder:text-[var(--theme-text-muted)] text-sm rounded-[var(--theme-radius)] outline-none transition-colors"
+                          className="w-full pl-10 pr-10 py-3 bg-[var(--theme-bg)]/60 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] text-[var(--theme-text)] placeholder:text-[var(--theme-text-muted)] text-sm font-sans font-medium rounded-[14px] outline-none transition-colors select-text"
                         />
                         <button
                           type="button"
                           onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                          className="absolute right-3 top-3.5 text-[var(--theme-text)] opacity-50 hover:opacity-100 transition-opacity cursor-pointer"
+                          className="absolute right-3 top-3.5 text-[var(--theme-text)] opacity-40 hover:opacity-100 transition-opacity cursor-pointer"
                         >
                           {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
@@ -262,17 +262,17 @@ export default function AuthView({ onAuthSuccess, siteConfig }: AuthViewProps) {
 
                     <div className="space-y-1.5">
                       <div className="flex justify-between items-center">
-                        <label className="text-xs font-bold uppercase tracking-wider text-[var(--theme-text)] opacity-80">Invite Code (Optional)</label>
-                        <span className="text-[11px] font-bold text-emerald-500">Yield cashback enabled</span>
+                        <label className="text-[11px] font-sans font-semibold uppercase tracking-wide text-[var(--theme-text)] opacity-60">Invite Code <span className="normal-case font-normal opacity-50">(Optional)</span></label>
+                        <span className="text-[11px] font-sans font-medium text-emerald-600">Yield cashback</span>
                       </div>
                       <div className="relative">
-                        <UserPlus className="w-4 h-4 text-[var(--theme-text)] opacity-50 absolute left-3.5 top-3.5" />
+                        <UserPlus className="w-4 h-4 text-[var(--theme-text)] opacity-40 absolute left-3.5 top-3.5" />
                         <input
                           type="text"
                           placeholder="REFERRAL CODE"
                           value={inviteCode}
                           onChange={(e) => setInviteCode(e.target.value)}
-                          className="w-full pl-10 pr-4 py-3 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] text-[var(--theme-text)] text-sm rounded-[var(--theme-radius)] outline-none transition-colors uppercase font-mono"
+                          className="w-full pl-10 pr-4 py-3 bg-[var(--theme-bg)]/60 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] text-[var(--theme-text)] text-sm rounded-[14px] outline-none transition-colors uppercase font-mono font-medium tracking-wide select-text"
                         />
                       </div>
                     </div>
@@ -282,7 +282,7 @@ export default function AuthView({ onAuthSuccess, siteConfig }: AuthViewProps) {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="btn-3d-primary w-full py-3.5 mt-2 text-white font-black text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="btn-3d-primary w-full py-3.5 mt-1 text-white font-sans font-bold text-sm tracking-wide transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 select-none"
                 >
                   {isLoading ? (
                     <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -301,24 +301,24 @@ export default function AuthView({ onAuthSuccess, siteConfig }: AuthViewProps) {
               </form>
 
               {/* Mode Toggles */}
-              <div className="text-center pt-2 space-y-2">
+              <div className="text-center pt-1 space-y-2">
                 <button
                   type="button"
                   onClick={() => {
                     setAuthMode(authMode === "register" ? "login" : "register");
                   }}
-                  className="text-xs font-bold text-[var(--theme-primary)] hover:underline cursor-pointer block w-full"
+                  className="text-xs font-sans font-semibold text-[var(--theme-primary)] hover:underline cursor-pointer block w-full"
                 >
-                  {authMode === "register" ? "Already a member? Login instead" : "New member? Create free account"}
+                  {authMode === "register" ? "Already a member? Sign in" : "New member? Create account"}
                 </button>
                 
                 {authMode === "login" && (
                   <button
                     type="button"
                     onClick={() => { setAuthMode("support"); }}
-                    className="text-xs text-[var(--theme-text)] opacity-60 hover:opacity-100 transition-opacity cursor-pointer block w-full"
+                    className="text-xs font-sans font-normal text-[var(--theme-text)] opacity-50 hover:opacity-100 transition-opacity cursor-pointer block w-full"
                   >
-                    Forgot Password?
+                    Forgot password?
                   </button>
                 )}
 
@@ -334,7 +334,7 @@ export default function AuthView({ onAuthSuccess, siteConfig }: AuthViewProps) {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -15 }}
               transition={{ duration: 0.3 }}
-              className="max-w-md mx-auto theme-card card-playful-3d p-6 sm:p-8 shadow-2xl relative overflow-hidden backdrop-blur-md space-y-6"
+              className="max-w-md mx-auto bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 rounded-[24px] p-6 sm:p-8 shadow-2xl relative overflow-hidden space-y-6"
             >
               {/* Only leave the logo in the support desk form with title (no description) */}
               <div className="text-center space-y-2">

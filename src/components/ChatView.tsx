@@ -3,7 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useGatedInterval } from "../hooks/useGatedInterval";
+import { fetchJsonWithSignal } from "../utils/abortableFetch";
 import { UserProfile, ChatMessage } from "../types";
 import { Send, Image, MessageSquare, Shield, HelpCircle, FileImage, Loader2, ChevronDown, Reply, X, Check, CheckCheck } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
@@ -37,81 +39,76 @@ export default function ChatView({ userProfile, initialRoom = "shared", canUploa
   const seenRef = useRef<Record<string, string>>(loadSeen(SEEN_KEY));
   const seenEventAt = useRef(0);
   const scrollTicking = useRef(false);
+  const rafIdRef = useRef<number | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const otherAbortRef = useRef<AbortController | null>(null);
   const lastIdsRef = useRef<Record<string, string>>({});
 
-  const roomId = activeRoom === "shared" ? "shared" : `direct_${userProfile.phone}`;
-  const otherRoomId = activeRoom === "shared" ? `direct_${userProfile.phone}` : "shared";
+  const roomId = useMemo(() => activeRoom === "shared" ? "shared" : `direct_${userProfile.phone}`, [activeRoom, userProfile.phone]);
+  const otherRoomId = useMemo(() => activeRoom === "shared" ? `direct_${userProfile.phone}` : "shared", [activeRoom, userProfile.phone]);
 
   useEffect(() => {
     setActiveRoom(initialRoom);
   }, [initialRoom]);
 
-  useEffect(() => {
-    let active = true;
-    const fetchMessages = async () => {
-      if (document.hidden) return;
-      try {
-        const res = await fetch(`/api/chat/room/${roomId}`);
-        if (res.ok && active) {
-          const contentType = res.headers.get("content-type");
-          if (contentType && contentType.includes("application/json")) {
-            const list = (await res.json()) as ChatMessage[];
-            setMessages((prev) => (sameChatList(prev, list) ? prev : dedupeChat(list)));
-            setIsLoadingMessages(false);
-            if (list.length > 0) lastIdsRef.current[roomId] = list[list.length - 1].id;
-          }
-        }
-      } catch (err) {
-        console.error("Failed to sync chat room:", err);
-      }
-    };
-
-    setIsLoadingMessages(true);
-    fetchMessages();
-    const interval = setInterval(fetchMessages, 5000);
-
-    return () => {
-      active = false;
-      clearInterval(interval);
-    };
+  const fetchMessages = useCallback(async () => {
+    if (document.hidden) return;
+    if (abortRef.current) abortRef.current.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    try {
+      const list = await fetchJsonWithSignal<ChatMessage[]>(`/api/chat/room/${roomId}`, ctrl.signal);
+      if (ctrl.signal.aborted) return;
+      setMessages((prev) => (sameChatList(prev, list) ? prev : dedupeChat(list)));
+      setIsLoadingMessages(false);
+      if (list.length > 0) lastIdsRef.current[roomId] = list[list.length - 1].id;
+    } catch (err: unknown) {
+      if ((err as Error)?.name === "AbortError") return;
+      console.error("Failed to sync chat room:", err);
+    }
   }, [roomId]);
 
   useEffect(() => {
-    let active = true;
-    const fetchOther = async () => {
-      if (document.hidden) return;
-      try {
-        const res = await fetch(`/api/chat/room/${otherRoomId}`);
-        if (res.ok && active) {
-          const contentType = res.headers.get("content-type");
-          if (contentType && contentType.includes("application/json")) {
-            const list = (await res.json()) as ChatMessage[];
-            const seen = seenRef.current[otherRoomId];
-            let n = 0;
-            if (seen) {
-              const since = new Date(seen).getTime();
-              for (const m of list) {
-                if (m.sender === userProfile.phone) continue;
-                const t = new Date(m.timestamp).getTime();
-                if (!isNaN(t) && t > since) n++;
-              }
-            }
-            const key = otherRoomId === "shared" ? "shared" : "admin";
-            setUnread((prev) => (prev[key] === n ? prev : { ...prev, [key]: n }));
-          }
-        }
-      } catch {
-        /* badge poll is best-effort */
-      }
-    };
-
-    fetchOther();
-    const interval = setInterval(fetchOther, 15000);
+    setIsLoadingMessages(true);
+    void fetchMessages();
     return () => {
-      active = false;
-      clearInterval(interval);
+      if (abortRef.current) abortRef.current.abort();
     };
+  }, [roomId, fetchMessages]);
+
+  useGatedInterval(() => { void fetchMessages(); }, 5000, { enabled: !!roomId, visibilityGate: true });
+
+  const fetchOther = useCallback(async () => {
+    if (document.hidden) return;
+    if (otherAbortRef.current) otherAbortRef.current.abort();
+    const ctrl = new AbortController();
+    otherAbortRef.current = ctrl;
+    try {
+      const list = await fetchJsonWithSignal<ChatMessage[]>(`/api/chat/room/${otherRoomId}`, ctrl.signal);
+      if (ctrl.signal.aborted) return;
+      const seen = seenRef.current[otherRoomId];
+      let n = 0;
+      if (seen) {
+        const since = new Date(seen).getTime();
+        for (const m of list) {
+          if (m.sender === userProfile.phone) continue;
+          const t = new Date(m.timestamp).getTime();
+          if (!isNaN(t) && t > since) n++;
+        }
+      }
+      const key = otherRoomId === "shared" ? "shared" : "admin";
+      setUnread((prev) => (prev[key] === n ? prev : { ...prev, [key]: n }));
+    } catch {
+      /* badge poll is best-effort */
+    }
   }, [otherRoomId, userProfile.phone]);
+
+  useEffect(() => {
+    void fetchOther();
+    return () => { if (otherAbortRef.current) otherAbortRef.current.abort(); };
+  }, [fetchOther]);
+
+  useGatedInterval(() => { void fetchOther(); }, 30000, { enabled: !!otherRoomId, visibilityGate: true });
 
   const markSeen = (room: string, list: ChatMessage[]) => {
     if (list.length === 0) return;
@@ -128,10 +125,11 @@ export default function ChatView({ userProfile, initialRoom = "shared", canUploa
     setUnread((prev) => (prev[key] === 0 ? prev : { ...prev, [key]: 0 }));
   };
 
-  const handleScroll = () => {
+  const handleScroll = useCallback(() => {
     if (scrollTicking.current) return;
     scrollTicking.current = true;
-    requestAnimationFrame(() => {
+    if (rafIdRef.current !== null) cancelAnimationFrame(rafIdRef.current);
+    rafIdRef.current = requestAnimationFrame(() => {
       scrollTicking.current = false;
       const container = chatContainerRef.current;
       if (!container) return;
@@ -140,7 +138,9 @@ export default function ChatView({ userProfile, initialRoom = "shared", canUploa
       setShowScrollBottomBtn((prev) => (prev === !nearBottom ? prev : !nearBottom));
       if (nearBottom) markSeen(roomId, messages);
     });
-  };
+  }, [roomId, messages]);
+
+  useEffect(() => () => { if (rafIdRef.current !== null) cancelAnimationFrame(rafIdRef.current); }, []);
 
   useEffect(() => {
     setShowScrollBottomBtn(false);

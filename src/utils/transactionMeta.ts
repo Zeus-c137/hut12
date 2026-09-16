@@ -16,10 +16,10 @@ export const TRANSACTION_LABELS: Record<TransactionType, string> = {
   product_activation: "Product",
   daily_yield: "Income",
   registration_bonus: "Registration Bonus",
-  daily_checkin_bonus: "Check-in",
+  daily_checkin_bonus: "Daily check-in",
   gift_code: "Gift Code",
-  referral_signup_bonus: "Referral",
-  referral_level_income: "Referral",
+  referral_signup_bonus: "Referral income",
+  referral_level_income: "Referral income",
   vip_task: "VIP Task",
 };
 
@@ -29,10 +29,10 @@ export const TRANSACTION_ICON_KEYS: Record<TransactionType, string> = {
   product_activation: "bag3d",
   daily_yield: "fire3d",
   registration_bonus: "medal3d",
-  daily_checkin_bonus: "fire3d",
+  daily_checkin_bonus: "calendar3d",
   gift_code: "giftBox3d",
-  referral_signup_bonus: "money3d",
-  referral_level_income: "money3d",
+  referral_signup_bonus: "link3d",
+  referral_level_income: "link3d",
   vip_task: "trophy3d",
 };
 

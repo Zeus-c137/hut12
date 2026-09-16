@@ -3,7 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import { useGatedInterval } from "../hooks/useGatedInterval";
+import { fetchJsonWithSignal } from "../utils/abortableFetch";
 import { UserProfile, SubscribedNode, SystemStats, NotificationItem, SubscriptionItem } from "../types";
 import {
   Coins,
@@ -106,93 +108,85 @@ export default function DashboardView({
     });
   }
 
+  const fetchAbortRef = useRef<AbortController | null>(null);
   const fetchDashboardData = async () => {
+    if (fetchAbortRef.current) fetchAbortRef.current.abort();
+    const ctrl = new AbortController();
+    fetchAbortRef.current = ctrl;
+    if (document.hidden) return;
     try {
       setNotifLoading(true);
-      // If parent already supplies notifications, reuse them — avoid duplicate /api/profile/notifications
       if (externalNotifications === undefined) {
-        const notifRes = await fetch(`/api/profile/notifications/${profile.phone}`);
-        if (notifRes.ok) {
-          const notifData = await notifRes.json();
-          setNotifications(notifData);
-        }
+        try {
+          const notifData = await fetchJsonWithSignal<NotificationItem[]>(`/api/profile/notifications/${profile.phone}`, ctrl.signal);
+          if (!ctrl.signal.aborted) setNotifications(notifData);
+        } catch (e: unknown) { if ((e as Error)?.name !== "AbortError") throw e; }
       } else {
         setNotifications(externalNotifications);
       }
-
-      // Fetch dynamic active team size calculation
-      const refRes = await fetch(`/api/profile/referrals/${profile.phone}`);
-      if (refRes.ok) {
-        const refData = await refRes.json();
-        if (Array.isArray(refData)) {
-          setTeamCount(refData.length);
-        }
-      }
+      try {
+        const refData = await fetchJsonWithSignal<unknown>(`/api/profile/referrals/${profile.phone}`, ctrl.signal);
+        if (!ctrl.signal.aborted && Array.isArray(refData)) setTeamCount(refData.length);
+      } catch (e: unknown) { if ((e as Error)?.name !== "AbortError") throw e; }
     } catch (e) {
-      console.error("Dashboard subsidiary fetch error:", e);
+      if ((e as Error)?.name !== "AbortError") console.error("Dashboard subsidiary fetch error:", e);
     } finally {
-      setNotifLoading(false);
+      if (!ctrl.signal.aborted) setNotifLoading(false);
     }
   };
 
   // Fetch referrals/teamCount only; notifications come from parent when available
   useEffect(() => {
     let cancelled = false;
+    const ctrl = new AbortController();
     const load = async () => {
       if (externalNotifications !== undefined) {
         if (!cancelled) setNotifications(externalNotifications);
       }
-      // Throttle referrals fetch to 30s — prevents 115/ navigation spam
       const now = Date.now();
       if (now - lastReferralsFetch.current < 30_000) return;
       lastReferralsFetch.current = now;
       try {
-        const refRes = await fetch(`/api/profile/referrals/${profile.phone}`);
-        if (!cancelled && refRes.ok) {
-          const refData = await refRes.json();
-          if (Array.isArray(refData)) setTeamCount(refData.length);
-        }
+        const refData = await fetchJsonWithSignal<unknown>(`/api/profile/referrals/${profile.phone}`, ctrl.signal);
+        if (!cancelled && Array.isArray(refData)) setTeamCount((refData as unknown[]).length);
       } catch {}
       if (externalNotifications === undefined) {
-        // Only fetch notifications here when parent doesn't provide them
         try {
-          const notifRes = await fetch(`/api/profile/notifications/${profile.phone}`);
-          if (!cancelled && notifRes.ok) {
-            const notifData = await notifRes.json();
-            setNotifications(notifData);
-          }
+          const notifData = await fetchJsonWithSignal<NotificationItem[]>(`/api/profile/notifications/${profile.phone}`, ctrl.signal);
+          if (!cancelled) setNotifications(notifData);
         } catch {}
       }
     };
     void load();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; ctrl.abort(); };
   }, [profile.phone, externalNotifications]);
 
   const handleRefresh = async () => {
+    if (document.hidden) return;
     setIsRefreshing(true);
+    if (fetchAbortRef.current) fetchAbortRef.current.abort();
     await onRefreshDashboard();
     await fetchDashboardData();
     setTimeout(() => setIsRefreshing(false), 500);
   };
 
-  // Dynamic Today's Income calculation
-  const getKampalaDateStr = () => {
+  const getKampalaDateStr = useMemo(() => {
     const d = new Date();
     const kampalaTime = new Date(d.getTime() + 3 * 60 * 60 * 1000);
     return kampalaTime.toISOString().split("T")[0];
-  };
+  }, []);
 
-  const { todayEarnings, totalEarnedAllTime } = (() => {
-    const todayStr = getKampalaDateStr();
+  const { todayEarnings, totalEarnedAllTime } = useMemo(() => {
+    const todayStr = getKampalaDateStr;
     let today = 0, total = 0;
     for (const n of activeNodes) {
       total += n.totalEarned || 0;
       if (n.status === "active" && n.lastClaimedDate === todayStr) today += n.dailyYield;
     }
     return { todayEarnings: today, totalEarnedAllTime: total };
-  })();
+  }, [activeNodes, getKampalaDateStr]);
 
-  const dynamicNews = notifications.filter(n => n.category === "news").map(n => ({
+  const dynamicNews = useMemo(() => notifications.filter(n => n.category === "news").map(n => ({
     id: n.id,
     title: n.title,
     description: n.message,
@@ -200,7 +194,7 @@ export default function DashboardView({
     tag: n.metadata?.tag || "NEWS",
     imageUrl: n.metadata?.imageUrl || "",
     link: n.metadata?.link || ""
-  }));
+  })), [notifications]);
 
   const DEFAULT_NEWS_FEED: any[] = [];
 
@@ -208,12 +202,9 @@ export default function DashboardView({
 
   const [currentSlide, setCurrentSlide] = useState(0);
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % HUT8_NEWS_FEED.length);
-    }, 30000);
-    return () => clearInterval(timer);
-  }, [HUT8_NEWS_FEED.length]);
+  useGatedInterval(() => {
+    setCurrentSlide((prev) => (prev + 1) % HUT8_NEWS_FEED.length);
+  }, 30000, { enabled: HUT8_NEWS_FEED.length > 1, visibilityGate: true });
 
   return (
     <div className="space-y-6 bg-transparent isolate text-[var(--theme-text)] p-1 rounded-2xl relative">
@@ -233,7 +224,7 @@ export default function DashboardView({
               <div className="flex items-start justify-between gap-2">
                 <span className="text-[10.5px] font-display uppercase tracking-[0.12em] leading-none block pt-1 font-black text-[var(--theme-primary)]">Product Income</span>
                 <div className="w-11 h-11 flex items-center justify-center shrink-0 overflow-hidden bg-transparent border-0">
-                  <img src={money3d} alt="" className="w-11 h-11 object-contain" />
+                  <img src={money3d} alt="" loading="lazy" decoding="async" className="w-11 h-11 object-contain" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-0 -mt-1">
@@ -253,7 +244,7 @@ export default function DashboardView({
               <div className="flex items-start justify-between gap-2">
                 <span className="text-[10.5px] font-display uppercase tracking-[0.12em] leading-none block pt-1 font-black text-[var(--theme-primary)]">Transactions</span>
                 <div className="w-11 h-11 flex items-center justify-center shrink-0 overflow-hidden bg-transparent border-0">
-                  <img src={shield3d} alt="" className="w-11 h-11 object-contain" />
+                  <img src={shield3d} alt="" loading="lazy" decoding="async" className="w-11 h-11 object-contain" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-0 -mt-1">
@@ -271,14 +262,14 @@ export default function DashboardView({
             <MetricCard
               title="Invite Count"
               value={(teamCount || profile.invitesCount || 0).toLocaleString()}
-              icon={<img src={medal3d} alt="" />}
+              icon={<img src={medal3d} alt="" loading="lazy" decoding="async" />}
               variant="muted"
             />
 
             <MetricCard
               title="Invite Income"
               value={formatCurrency(profile.referralRewardsEarned || 0)}
-              icon={<img src={gift3d} alt="" />}
+              icon={<img src={gift3d} alt="" loading="lazy" decoding="async" />}
               variant="muted"
             />
           </>

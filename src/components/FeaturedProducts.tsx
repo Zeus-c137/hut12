@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
+import { useGatedInterval } from "../hooks/useGatedInterval";
 import { ArrowUpRight, Cpu, Flame } from "lucide-react";
 import { SubscriptionItem } from "../types";
 import { useCurrency } from "../currency";
@@ -15,54 +16,40 @@ export default function FeaturedProducts({ items, onBrowseProducts }: FeaturedPr
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const pausedRef = useRef(false);
-  const featuredItems = items.filter((item) => !item.disabled && !item.outOfStock).slice(0, 6);
+  const featuredItems = useMemo(() => items.filter((item) => !item.disabled && !item.outOfStock).slice(0, 6), [items]);
+
+  const doScroll = () => {
+    const el = scrollRef.current;
+    if (!el || pausedRef.current || document.visibilityState !== "visible") return;
+    const first = el.firstElementChild as HTMLElement | null;
+    const gap = 10;
+    const step = first ? first.offsetWidth + gap : 212;
+    const max = el.scrollWidth - el.clientWidth;
+    if (el.scrollLeft >= max - 4) el.scrollTo({ left: 0, behavior: "smooth" });
+    else el.scrollBy({ left: step, behavior: "smooth" });
+  };
+
+  useGatedInterval(() => { doScroll(); }, 2800, { enabled: featuredItems.length > 1, visibilityGate: true });
 
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || featuredItems.length <= 1) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-
-    let timer: number | null = null;
     let resumeTimer: number | null = null;
-
-    const start = () => {
-      if (timer) window.clearInterval(timer);
-      timer = window.setInterval(() => {
-        if (pausedRef.current || document.visibilityState !== "visible") return;
-        const first = el.firstElementChild as HTMLElement | null;
-        const gap = 10; // 2.5 * 4
-        const step = first ? first.offsetWidth + gap : 212;
-        const max = el.scrollWidth - el.clientWidth;
-        if (el.scrollLeft >= max - 4) {
-          el.scrollTo({ left: 0, behavior: "smooth" });
-        } else {
-          el.scrollBy({ left: step, behavior: "smooth" });
-        }
-      }, 2800);
-    };
-
     const pause = () => {
       pausedRef.current = true;
-      if (timer) { window.clearInterval(timer); timer = null; }
       if (resumeTimer) window.clearTimeout(resumeTimer);
     };
     const scheduleResume = () => {
       if (resumeTimer) window.clearTimeout(resumeTimer);
-      resumeTimer = window.setTimeout(() => {
-        pausedRef.current = false;
-        start();
-      }, 3200);
+      resumeTimer = window.setTimeout(() => { pausedRef.current = false; }, 3200);
     };
-
-    start();
-
     el.addEventListener("mouseenter", pause);
     el.addEventListener("mouseleave", scheduleResume);
     el.addEventListener("touchstart", pause, { passive: true });
     el.addEventListener("touchend", scheduleResume);
     el.addEventListener("pointerdown", pause);
     el.addEventListener("pointerup", scheduleResume);
-    // if user manually scrolls, pause and resume later
     let scrollPause: number | null = null;
     const onScroll = () => {
       if (!pausedRef.current) {
@@ -72,9 +59,7 @@ export default function FeaturedProducts({ items, onBrowseProducts }: FeaturedPr
       }
     };
     el.addEventListener("scroll", onScroll, { passive: true });
-
     return () => {
-      if (timer) window.clearInterval(timer);
       if (resumeTimer) window.clearTimeout(resumeTimer);
       if (scrollPause) window.clearTimeout(scrollPause);
       el.removeEventListener("mouseenter", pause);
@@ -132,6 +117,7 @@ export default function FeaturedProducts({ items, onBrowseProducts }: FeaturedPr
                   src={item.imageUrl}
                   alt={item.name}
                   loading="lazy"
+                  decoding="async"
                   referrerPolicy="no-referrer"
                   className="w-full h-full object-contain group-hover:scale-[1.02] transition-transform duration-500"
                 />

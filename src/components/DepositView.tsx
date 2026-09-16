@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { useGatedInterval } from "../hooks/useGatedInterval";
 import { SubscriptionItem, UserProfile } from "../types";
 import {
   ArrowLeft,
@@ -94,62 +95,71 @@ export default function DepositView({
     }
   }, [preselectedItem]);
 
+  const backoffRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
+  const BACKOFF = [3000, 5000, 10000] as const;
+  const getBackoff = () => BACKOFF[Math.min(backoffRef.current, 2)];
+
   useEffect(() => {
-    let intervalId: any;
-    if (paymentStatus === "PENDING" && currentTransId) {
-      const checkStatus = async () => {
-        try {
-          const res = await fetch("/api/payment/status", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ trans_id: currentTransId }),
-          });
-          if (res.ok) {
-            const data = await res.json();
-            if (data.status === "SUCCESSFUL") {
-              setPaymentStatus("SUCCESSFUL");
-              toast.success("Payment completed successfully!");
-              const finalAmt =
-                depositMode === "usdt"
-                  ? payType === "gpu"
-                    ? selectedGpu?.amount || 0
-                    : usdtAmountUSD * config.usdtRate
-                  : depositMode === "manual"
-                  ? payType === "gpu"
-                    ? selectedGpu?.amount || 0
-                    : manualAmount
-                  : payType === "gpu"
-                  ? selectedGpu?.amount || 0
-                  : depositAmount;
-              if (payType === "balance") {
-                if (data.profile) onDepositSuccess(data.profile);
-                else {
-                  const fallbackProfile = {
-                    ...userProfile,
-                    rechargeBalance: (userProfile.rechargeBalance || 0) + finalAmt,
-                    totalDeposits: (userProfile.totalDeposits || 0) + finalAmt,
-                  };
-                  onDepositSuccess(fallbackProfile);
-                }
-              } else if (data.subscription) {
-                onGpuSuccess(data.subscription, selectedGpu?.amount || 0);
-              }
-            } else if (data.status === "FAILED") {
-              setPaymentStatus("FAILED");
-              toast.error("Transaction was declined or failed.");
-              setErrorMsg("Transaction was declined or failed.");
-            }
-          }
-        } catch (err) {
-          console.error("Error polling payment status:", err);
-        }
-      };
-      intervalId = setInterval(checkStatus, 3000);
+    if (paymentStatus !== "PENDING" || !currentTransId) {
+      backoffRef.current = 0;
+      if (abortRef.current) abortRef.current.abort();
+      return;
     }
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-    };
-  }, [paymentStatus, currentTransId, payType, depositAmount, manualAmount, usdtAmountUSD, selectedGpu, userProfile, depositMode]);
+    backoffRef.current = 0;
+  }, [paymentStatus, currentTransId]);
+
+  const checkStatus = async () => {
+    if (document.hidden) return;
+    if (paymentStatus !== "PENDING" || !currentTransId) return;
+    if (abortRef.current) abortRef.current.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    try {
+      const res = await fetch("/api/payment/status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ trans_id: currentTransId }),
+        signal: ctrl.signal,
+      });
+      if (ctrl.signal.aborted) return;
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status === "SUCCESSFUL") {
+          setPaymentStatus("SUCCESSFUL");
+          toast.success("Payment completed successfully!");
+          const finalAmt =
+            depositMode === "usdt"
+              ? payType === "gpu" ? selectedGpu?.amount || 0 : usdtAmountUSD * config.usdtRate
+              : depositMode === "manual"
+              ? payType === "gpu" ? selectedGpu?.amount || 0 : manualAmount
+              : payType === "gpu" ? selectedGpu?.amount || 0 : depositAmount;
+          if (payType === "balance") {
+            if (data.profile) onDepositSuccess(data.profile);
+            else {
+              const fallbackProfile = { ...userProfile, rechargeBalance: (userProfile.rechargeBalance || 0) + finalAmt, totalDeposits: (userProfile.totalDeposits || 0) + finalAmt };
+              onDepositSuccess(fallbackProfile);
+            }
+          } else if (data.subscription) {
+            onGpuSuccess(data.subscription, selectedGpu?.amount || 0);
+          }
+        } else if (data.status === "FAILED") {
+          setPaymentStatus("FAILED");
+          toast.error("Transaction was declined or failed.");
+          setErrorMsg("Transaction was declined or failed.");
+        } else {
+          backoffRef.current = Math.min(backoffRef.current + 1, 2);
+        }
+      }
+    } catch (err: unknown) {
+      if ((err as Error)?.name === "AbortError") return;
+      console.error("Error polling payment status:", err);
+    }
+  };
+
+  useGatedInterval(() => { void checkStatus(); }, getBackoff(), { enabled: paymentStatus === "PENDING" && !!currentTransId, visibilityGate: true });
+
+  useEffect(() => () => { if (abortRef.current) abortRef.current.abort(); }, []);
 
   const handleStartPayment = async (e: React.FormEvent) => {
     e.preventDefault();

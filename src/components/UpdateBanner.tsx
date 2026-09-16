@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { useGatedInterval } from "../hooks/useGatedInterval";
 import { registerSW } from "virtual:pwa-register";
 import { motion, AnimatePresence } from "motion/react";
 import { RefreshCw } from "lucide-react";
@@ -9,10 +10,15 @@ export default function UpdateBanner() {
   const [needRefresh, setNeedRefresh] = useState(false);
   const [applyUpdate, setApplyUpdate] = useState<((reload?: boolean) => Promise<void>) | null>(null);
 
+  const regRef = useRef<ServiceWorkerRegistration | null>(null);
+  const doUpdateCheck = () => {
+    if (document.hidden) return;
+    regRef.current?.update().catch(() => {});
+  };
+  useGatedInterval(() => { doUpdateCheck(); }, UPDATE_CHECK_MS, { enabled: true, visibilityGate: true });
   useEffect(() => {
     if ((import.meta as any).env?.DEV) return;
     if (!("serviceWorker" in navigator)) return;
-    let timer: number | undefined;
     const onVis = () => {
       if (!document.hidden) navigator.serviceWorker.getRegistration().then((r) => r?.update().catch(() => {})).catch(() => {});
     };
@@ -23,17 +29,13 @@ export default function UpdateBanner() {
       },
       onRegisteredSW(_url, registration) {
         if (!registration) return;
-        const check = () => {
-          registration.update().catch(() => {});
-        };
-        timer = window.setInterval(check, UPDATE_CHECK_MS);
+        regRef.current = registration;
         document.addEventListener("visibilitychange", onVis);
         window.addEventListener("focus", onVis);
       },
     });
     setApplyUpdate(() => update);
     return () => {
-      if (timer !== undefined) window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVis);
       window.removeEventListener("focus", onVis);
     };

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import { useGatedInterval } from "../hooks/useGatedInterval";
 import { NotificationItem, UserProfile } from "../types";
 import { X, ExternalLink } from "lucide-react";
 import bell3d from "@/src/assets/3d/3dicons-bell-iso-premium.png";
@@ -48,46 +49,43 @@ export default function AlertsView({ profile, onBack, initialNotifications = [],
     setNotifications(initialNotifications);
   }, [initialNotifications]);
 
-  useEffect(() => {
-    const controller = new AbortController();
-
-    const fetchAlerts = async () => {
-      try {
-        setLoading(true);
-        const res = await fetch(`/api/profile/notifications/${profile.phone}`, {
-          signal: controller.signal
-        });
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          throw new Error(data.error || `Unable to load alerts (${res.status}).`);
-        }
-        const data = await res.json() as NotificationItem[];
-        if (controller.signal.aborted) return;
-        setNotifications(data);
-        onNotificationsChange?.(data);
-      } catch (err: any) {
-        if (err?.name !== "AbortError") {
-          console.error("Error fetching alerts history:", err);
-        }
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
+  const controllerRef = React.useRef<AbortController | null>(null);
+  const fetchAlerts = useCallback(async () => {
+    if (controllerRef.current) controllerRef.current.abort();
+    const ctrl = new AbortController();
+    controllerRef.current = ctrl;
+    try {
+      setLoading(true);
+      const res = await fetch(`/api/profile/notifications/${profile.phone}`, { signal: ctrl.signal });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Unable to load alerts (${res.status}).`);
       }
-    };
+      const data = await res.json() as NotificationItem[];
+      if (ctrl.signal.aborted) return;
+      setNotifications(data);
+      onNotificationsChange?.(data);
+    } catch (err: unknown) {
+      if ((err as Error)?.name !== "AbortError") console.error("Error fetching alerts history:", err);
+    } finally {
+      if (!ctrl.signal.aborted) setLoading(false);
+    }
+  }, [profile.phone, onNotificationsChange]);
 
-    const refreshIfVisible = () => {
-      if (document.visibilityState === "visible") void fetchAlerts();
-    };
+  const refreshIfVisible = useCallback(() => {
+    if (document.visibilityState === "visible") void fetchAlerts();
+  }, [fetchAlerts]);
 
-    refreshIfVisible();
-    const intervalId = window.setInterval(refreshIfVisible, 120_000);
+  useEffect(() => {
+    void refreshIfVisible();
     document.addEventListener("visibilitychange", refreshIfVisible);
-
     return () => {
-      controller.abort();
-      window.clearInterval(intervalId);
+      if (controllerRef.current) controllerRef.current.abort();
       document.removeEventListener("visibilitychange", refreshIfVisible);
     };
-  }, [profile.phone, onNotificationsChange]);
+  }, [refreshIfVisible]);
+
+  useGatedInterval(() => { void refreshIfVisible(); }, 120000, { enabled: true, visibilityGate: true });
 
   function renderMessageWithLinks(text: string) {
     if (!text) return "";
@@ -153,7 +151,7 @@ export default function AlertsView({ profile, onBack, initialNotifications = [],
                 <div className="flex justify-between items-center p-5 bg-transparent shrink-0">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-transparent border-0 flex items-center justify-center shrink-0">
-                      <img src={categoryIcon3d} alt="" className="w-10 h-10 object-contain" />
+                      <img src={categoryIcon3d} alt="" loading="lazy" decoding="async" className="w-10 h-10 object-contain" />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
@@ -234,7 +232,7 @@ export default function AlertsView({ profile, onBack, initialNotifications = [],
             </div>
           ) : alertNotifications.length === 0 ? (
             <div className="text-center py-16 bg-slate-900/10 border border-dashed border-slate-900 rounded-2xl flex flex-col items-center justify-center gap-4">
-              <img src={bell3d} alt="" className="w-12 h-12 object-contain opacity-60" />
+              <img src={bell3d} alt="" loading="lazy" decoding="async" className="w-12 h-12 object-contain opacity-60" />
               <div className="space-y-1">
                 <span className="text-[11px] font-bold font-mono text-slate-400 block uppercase">No Alert Records Registered</span>
                 <p className="text-[12px] text-slate-500 max-w-[240px] mx-auto leading-normal font-mono">
@@ -274,7 +272,7 @@ export default function AlertsView({ profile, onBack, initialNotifications = [],
                     className="bg-transparent border border-white/10 p-4 rounded-[20px] flex gap-3.5 transition-all text-left cursor-pointer active:scale-[0.98]"
                   >
                     <div className="w-10 h-10 bg-transparent border-0 flex items-center justify-center shrink-0">
-                      <img src={categoryIcon3dList} alt="" className="w-10 h-10 object-contain" />
+                      <img src={categoryIcon3dList} alt="" loading="lazy" decoding="async" className="w-10 h-10 object-contain" />
                     </div>
                     
                     <div className="space-y-1.5 flex-1 min-w-0">
