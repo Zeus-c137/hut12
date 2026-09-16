@@ -2113,8 +2113,10 @@ export async function claimVipTask(phone: string, taskId: string) {
 
     // Credit directly to withdrawable balance (points)! The reward and
     // requirement come from server-side site configuration, never the client.
+    // Also count toward referral income so accumulatedBonus / referralRewardsEarned updates.
     await tx.update(schema.users).set({
       points: sql`${schema.users.points} + ${task.reward}`,
+      referralRewardsEarned: sql`${schema.users.referralRewardsEarned} + ${task.reward}`,
       claimedVipTasks
     }).where(eq(schema.users.phone, phone));
   });

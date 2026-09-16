@@ -73,9 +73,9 @@ export default function VipTasksPage({ phone, userProfile, onClaimSuccess, onBac
           </div>
         ) : (
           <>
-            {/* Progress hero — mockvip hero adapted to hut12 frost, no header above */}
-            <div className="rounded-[24px] bg-[var(--theme-card-bg)]/70 backdrop-blur-xl border border-white/10 p-5 relative overflow-hidden">
-              {onBack && <button onClick={onBack} className="absolute top-3 right-3 w-7 h-7 rounded-full bg-white/5 border border-white/10 flex items-center justify-center opacity-60 hover:opacity-100"><X className="w-3.5 h-3.5"/></button>}
+            {/* Progress hero — mockvip hero adapted to hut12 frost, no header above */} 
+            <div className="rounded-[24px] bg-transparent border-0 p-5 relative overflow-hidden">
+              {onBack && <button onClick={onBack} className="absolute top-3 right-3 z-10 w-7 h-7 rounded-full bg-white/10 border border-white/10 flex items-center justify-center opacity-70 hover:opacity-100"><X className="w-3.5 h-3.5"/></button>}
               <div className="absolute inset-0 pointer-events-none opacity-[0.04]" style={{background:"radial-gradient(600px 200px at 20% 0%, var(--theme-primary), transparent)"}}/>
               <div className="flex gap-4 items-start relative">
                 <img src={heroTrophy} alt="" className="w-14 h-14 object-contain shrink-0 drop-shadow-sm mt-1"/>
@@ -93,7 +93,9 @@ export default function VipTasksPage({ phone, userProfile, onClaimSuccess, onBac
                   <div className="h-full bg-[var(--theme-primary)] rounded-full transition-all" style={{width:`${overall}%`}}/>
                 </div>
                 <div className="flex justify-end mt-1.5 text-[11px] font-sans">
-                  <span className="opacity-50">{formatCurrency(accumulatedBonus)} / {formatCurrency(nextReq)}</span>
+                  <span className="font-semibold text-[var(--theme-primary)]">{formatCurrency(accumulatedBonus)}</span>
+                  <span className="opacity-50 mx-1">/</span>
+                  <span className="opacity-50">{formatCurrency(nextReq)}</span>
                 </div>
               </div>
             </div>
