@@ -29,8 +29,8 @@
   --theme-secondary: #CF7500;
   --theme-secondary-shadow: #9A4F00;
   --theme-bg: #faf6f0;
-  --theme-card-bg: #ffffff;
-  --theme-card-border: #e7e5e4;
+  --theme-card-bg: rgba(255,255,255,0.72);
+  --theme-card-border: rgba(28,25,23,0.06);
   --theme-card-shadow: #e7e5e4;
   --theme-radius: 1.25rem;
   --theme-text: #1c1917;
