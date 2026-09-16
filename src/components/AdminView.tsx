@@ -74,6 +74,7 @@ import { HUT12_PRESETS, HUT12_PRESET_OPTIONS } from "../utils/themeTokens";
 import { migrateCardStyle, sanitizeSiteConfig } from "../utils/themeTokens";
 import { fixGitHubImageUrl } from "../utils/imageUtils";
 import { readApiJson } from "../utils/api";
+import { canonicalTypeOf, getWithdrawalDisplayAmounts } from "../utils/transactionMeta";
 
 function isSettledTransaction(transaction: any): boolean {
   const status = String(transaction?.status || "").toUpperCase();
@@ -1199,9 +1200,10 @@ export default function AdminView() {
   const totalUsersPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
 
   const filteredTransactions = transactionsList.filter(tx => {
-    const isWithdraw = tx.type === "withdrawal" || tx.type === "withdraw";
-    const isAccountDeposit = tx.type === "deposit" || tx.type === "balance" || tx.type === "manual";
-    const isRental = tx.type === "gpu" || tx.type === "gpu_activation" || tx.type === "subscription";
+    const canon = canonicalTypeOf(tx.type, tx.metadata) as string;
+    const isWithdraw = canon === "withdrawal";
+    const isAccountDeposit = canon === "deposit";
+    const isRental = canon === "product_activation";
 
     // Keep account deposits, product-rental debits, and withdrawals together
     // in this ledger; yield and reward events belong elsewhere.
@@ -1606,7 +1608,7 @@ export default function AdminView() {
             {/* TAB: HOME */}
             {activeAdminTab === "home" && (() => {
               const totalWithdrawFees = transactionsList
-                .filter(tx => (tx.type === "withdrawal" || tx.type === "withdraw") && isSettledTransaction(tx))
+                .filter(tx => canonicalTypeOf(tx.type, tx.metadata) === "withdrawal" && isSettledTransaction(tx))
                 .reduce((sum, tx) => sum + ((tx.feeAmount || tx.metadata?.feeAmount) || 0), 0);
 
               return (
@@ -1622,10 +1624,10 @@ export default function AdminView() {
                         <span className="text-[11px] font-sans text-[var(--theme-text)] opacity-70 uppercase font-semibold tracking-wider block">Total Deposits</span>
                         <div>
                           <h4 className="text-2xl font-sans font-extrabold text-[var(--theme-text)] tracking-tight">
-                            {formatCurrency(transactionsList.filter(tx => (tx.type === "deposit" || tx.type === "balance") && isSettledTransaction(tx)).reduce((sum, tx) => sum + (tx.amount || 0), 0))}
+                            {formatCurrency(transactionsList.filter(tx => canonicalTypeOf(tx.type, tx.metadata) === "deposit" && isSettledTransaction(tx)).reduce((sum, tx) => sum + (tx.amount || 0), 0))}
                           </h4>
                           <p className="text-[12px] font-sans text-[var(--theme-text)] opacity-60 mt-1">
-                            {transactionsList.filter(tx => (tx.type === "deposit" || tx.type === "balance") && isSettledTransaction(tx)).length} successful account deposits
+                            {transactionsList.filter(tx => canonicalTypeOf(tx.type, tx.metadata) === "deposit" && isSettledTransaction(tx)).length} successful account deposits
                           </p>
                         </div>
                       </div>
@@ -1640,10 +1642,10 @@ export default function AdminView() {
                         <span className="text-[11px] font-sans text-[var(--theme-text)] opacity-70 uppercase font-semibold tracking-wider block">Total Cashout</span>
                         <div>
                           <h4 className="text-2xl font-sans font-extrabold text-[var(--theme-text)] tracking-tight">
-                            {formatCurrency(transactionsList.filter(tx => (tx.type === "withdrawal" || tx.type === "withdraw") && isSettledTransaction(tx)).reduce((sum, tx) => sum + (tx.amount || 0), 0))}
+                            {formatCurrency(transactionsList.filter(tx => canonicalTypeOf(tx.type, tx.metadata) === "withdrawal" && isSettledTransaction(tx)).reduce((sum, tx) => sum + (tx.amount || 0), 0))}
                           </h4>
                           <p className="text-[12px] font-sans text-[var(--theme-text)] opacity-60 mt-1">
-                            {transactionsList.filter(tx => (tx.type === "withdrawal" || tx.type === "withdraw") && isSettledTransaction(tx)).length} paid requests
+                            {transactionsList.filter(tx => canonicalTypeOf(tx.type, tx.metadata) === "withdrawal" && isSettledTransaction(tx)).length} paid requests
                           </p>
                         </div>
                       </div>
@@ -1932,7 +1934,7 @@ export default function AdminView() {
                           const nodesCount = (u as any).activeNodesCount || 0;
                           const isLocked = !!(u as any).locked;
                           const successWithdrawals = transactionsList
-                            .filter(tx => tx.userId === u.phone && (tx.type === "withdrawal" || tx.type === "withdraw") && isSettledTransaction(tx))
+                            .filter(tx => tx.userId === u.phone && canonicalTypeOf(tx.type, tx.metadata) === "withdrawal" && isSettledTransaction(tx))
                             .reduce((sum, tx) => sum + (tx.amount || 0), 0);
                           return (
                             <tr key={u.phone} className={`hover:bg-[var(--theme-bg)]/50 transition-colors border-b border-[var(--theme-card-border)]/30 ${isLocked ? 'opacity-60' : ''}`}>
@@ -2099,8 +2101,9 @@ export default function AdminView() {
                       </thead>
                       <tbody className="divide-y divide-[var(--theme-card-border)]/30">
                         {paginatedTransactions.map((tx) => {
-                          const isWithdraw = tx.type === "withdrawal" || tx.type === "withdraw";
-                          const isGpu = tx.type === "gpu" || tx.type === "gpu_activation" || tx.type === "subscription";
+                          const canon = canonicalTypeOf(tx.type, tx.metadata) as string;
+                          const isWithdraw = canon === "withdrawal";
+                          const isGpu = canon === "product_activation";
                           const isManual = String(tx.mode || "").toLowerCase() === "manual";
                           const isAutomaticWithdrawal = isWithdraw && !isManual;
                           const txMetadata = tx.metadata && typeof tx.metadata === "object" ? tx.metadata : {};

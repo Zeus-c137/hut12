@@ -603,7 +603,8 @@ app.post("/api/payment/deposit", async (req, res) => {
     }
 
     const token = await getZuluPayToken();
-    const trans_id = String(type || "").toLowerCase() === "gpu"
+    const rawType = String(type || "").toLowerCase();
+    const trans_id = ["gpu", "product_activation", "subscription"].includes(rawType)
       ? createTransactionId("RNT")
       : createTransactionId("DEP");
     const webhookUrl = process.env.PAYMENT_WEBHOOK_URL || `${req.protocol}://${req.get("host")}/api/payment/webhook`;
@@ -693,7 +694,7 @@ app.post("/api/manual/deposit", async (req, res) => {
     await saveTransaction({
       id: internalTransactionId,
       userId: phone,
-      type: itemId ? "gpu" : "deposit",
+      type: itemId ? "product_activation" : "deposit",
       amount: depAmt,
       currency: "UGX",
       status: "pending",
@@ -764,7 +765,7 @@ app.post("/api/payment/status", async (req, res) => {
         "Authorization": `Bearer ${token}`
       },
       body: JSON.stringify({
-        type: (tx.type === "withdrawal" || tx.type === "withdraw") ? "withdraw" : "deposit",
+        type: tx.type === "withdrawal" ? "withdraw" : "deposit",
         trans_id
       })
     });

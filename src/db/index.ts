@@ -206,6 +206,62 @@ export async function ensureDatabaseSchema(): Promise<void> {
     }
   }
 
+  // Full tx-type migration to canonical names (no users: full migrate).
+  try {
+    await connection.query(`UPDATE transactions SET type = CASE
+      WHEN LOWER(type) IN ('balance','manual') THEN 'deposit'
+      WHEN LOWER(type) = 'deposit' THEN 'deposit'
+      WHEN LOWER(type) IN ('withdraw','withdrawal') THEN 'withdrawal'
+      WHEN LOWER(type) IN ('gift','register','bonus','reward') THEN 'registration_bonus'
+      WHEN LOWER(type) IN ('checkin','checkin_bonus') THEN 'daily_checkin_bonus'
+      WHEN LOWER(type) = 'voucher' THEN 'gift_code'
+      WHEN LOWER(type) = 'referral' AND JSON_EXTRACT(metadata, '$.level') IS NOT NULL AND JSON_EXTRACT(metadata, '$.level') != 'null' THEN 'referral_level_income'
+      WHEN LOWER(type) = 'referral' THEN 'referral_signup_bonus'
+      WHEN LOWER(type) = 'vip_task' THEN 'vip_task'
+      WHEN LOWER(type) IN ('gpu','gpu_activation','subscription') THEN 'product_activation'
+      WHEN LOWER(type) IN ('yield','daily','daily accumulation') THEN 'daily_yield'
+      ELSE type
+    END WHERE LOWER(type) IN (
+      'balance','manual','withdraw','gift','register','bonus','reward',
+      'checkin','checkin_bonus','voucher','referral','gpu','gpu_activation','subscription','yield','daily','daily accumulation'
+    ) OR type IN ('withdrawal','deposit','vip_task')`);
+  } catch (error: any) {
+    if (String(error?.code || "").includes("ER_NO_SUCH_TABLE")) {
+      // table just created above; nothing to migrate
+    } else {
+      throw error;
+    }
+  }
+
+  // Backfill product_activation metadata.sourceItemName/sourceItemId from catalog/out-of-band.
+  try {
+    await connection.query(`UPDATE transactions t
+      LEFT JOIN subscribed_nodes sn ON JSON_UNQUOTE(JSON_EXTRACT(t.metadata, '$.subscriptionId')) = sn.id
+      LEFT JOIN catalog_products cp ON cp.id = COALESCE(JSON_UNQUOTE(JSON_EXTRACT(t.metadata, '$.sourceItemId')), t.item_id, sn.item_id)
+      SET t.metadata = JSON_SET(
+        COALESCE(t.metadata, JSON_OBJECT()),
+        '$.sourceItemName', COALESCE(JSON_UNQUOTE(JSON_EXTRACT(t.metadata, '$.sourceItemName')), cp.name, sn.item_name, t.item_id),
+        '$.sourceItemId', COALESCE(JSON_UNQUOTE(JSON_EXTRACT(t.metadata, '$.sourceItemId')), t.item_id, sn.item_id, cp.id)
+      )
+      WHERE LOWER(t.type) = 'product_activation'
+        AND (JSON_EXTRACT(t.metadata, '$.sourceItemName') IS NULL OR JSON_EXTRACT(t.metadata, '$.sourceItemId') IS NULL)`);
+  } catch (error: any) {
+    // best-effort backfill; ignore if catalog/subscribed_nodes missing or metadata not JSON
+    if (!String(error?.code || "").includes("ER_NO_SUCH_TABLE") && !String(error?.message || "").includes("JSON")) {
+      throw error;
+    }
+  }
+
+  try {
+    await connection.query("UPDATE transactions SET status = UPPER(status) WHERE LOWER(status) IN ('completed','successful','pending','failed') AND status != UPPER(status)");
+  } catch (error: any) {
+    if (String(error?.code || "").includes("ER_NO_SUCH_TABLE")) {
+      // table just created above; nothing to normalize
+    } else {
+      throw error;
+    }
+  }
+
   try {
     await connection.query("ALTER TABLE notifications ADD COLUMN amount DOUBLE DEFAULT 0");
   } catch (error: any) {

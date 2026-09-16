@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import type { TransactionType } from "./utils/transactionMeta";
+
 // hut12 minimal — old presets purged 2026-09-15
 export type ThemePreset = "hut12-light" | "hut12-dark";
 export type ThemeMode = "light" | "dark" | "system";
@@ -155,6 +157,37 @@ export interface SubscribedNode {
   lastClaimedDate: string; // ISO Date YYYY-MM-DD
   totalEarned: number;
   status: "active" | "completed" | "expired";
+}
+
+export type { TransactionType } from "./utils/transactionMeta";
+
+export interface TransactionRow {
+  id: string;
+  userId: string;
+  type: TransactionType;
+  amount: number;
+  currency: string;
+  status: string;
+  paymentMethod?: string;
+  phone?: string;
+  usdtAddress?: string;
+  itemId?: string;
+  operator?: string;
+  mode?: string;
+  metadata?: {
+    level?: number;
+    sourceItemId?: string;
+    sourceItemName?: string;
+    platformDate?: string;
+    subscriptionId?: string;
+    feeAmount?: number;
+    payoutAmount?: number;
+    feePercent?: number;
+    requestedAmount?: number;
+    externalReference?: string;
+  } & Record<string, any>;
+  balanceAppliedAt?: string;
+  timestamp: string;
 }
 
 export interface ReferralStat {

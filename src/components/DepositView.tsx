@@ -178,7 +178,7 @@ export default function DepositView({
           depositPhone: phoneTrim,
           amount: finalAmount,
           operator,
-          type: payType === "balance" ? "deposit" : payType,
+          type: payType === "balance" ? "deposit" : "product_activation",
           itemId: payType === "gpu" ? selectedGpu?.id : undefined,
         }),
       });
