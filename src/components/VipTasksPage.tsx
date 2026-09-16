@@ -87,8 +87,8 @@ export default function VipTasksPage({ phone, userProfile, onClaimSuccess, onBac
               </div>
               <div className="relative mt-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-[13px] font-sans font-semibold opacity-90">VIP {board.vipLevel||0} → VIP {(board.vipLevel||0)+1}</span>
-                  <span className="text-[11px] font-sans font-semibold px-2.5 py-1 rounded-full bg-[var(--theme-primary)]/10 text-[var(--theme-primary)] border border-[var(--theme-primary)]/15">{formatCurrency(toGo)} to go</span>
+                  <span className="text-[11px] font-sans font-semibold px-2.5 py-1 rounded-full bg-[var(--theme-primary)]/10 text-[var(--theme-primary)] border border-[var(--theme-primary)]/15">{formatCurrency(toGo)} to VIP {(board.vipLevel||0)+1}</span>
+                  <span className="text-[11px] font-sans opacity-50">{formatCurrency(accumulatedBonus)} / {formatCurrency(nextReq)}</span>
                 </div>
                 <div className="w-full h-2 bg-black/10 rounded-full overflow-hidden mt-2 border border-white/10">
                   <div className="h-full bg-[var(--theme-primary)] rounded-full transition-all" style={{width:`${overall}%`}}/>
@@ -130,7 +130,7 @@ export default function VipTasksPage({ phone, userProfile, onClaimSuccess, onBac
                       <div className="flex items-start justify-between gap-3">
                         <span className={`inline-flex items-center gap-1.5 text-[11px] font-sans font-semibold px-2.5 py-1 rounded-full border ${trophyBg(i, board.tasks.length)} ${isLast?"bg-transparent":""}`}>
                           <img src={trophy3d} alt="" className="w-3.5 h-3.5 object-contain"/>
-                          VIP {i}
+                          {task.category}
                         </span>
                         <div className="text-right shrink-0">
                           <div className={`flex items-center gap-1 justify-end text-[13px] font-sans font-bold ${state==="locked"?"opacity-40":"text-[var(--theme-primary)]"}`}>+{formatCurrency(task.reward)}</div>

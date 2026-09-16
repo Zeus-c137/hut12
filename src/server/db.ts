@@ -2061,9 +2061,15 @@ export async function getVipTaskboard(phone: string) {
   // VIP rank follows the published task ladder, not referral-count guesses or
   // task-id parsing. A user reaches the highest task that their server-side
   // Combined Level 1–4 bonus has unlocked or that they have already claimed.
-  const vipLevel = tasks.reduce((highest, task, index) => (
-    task.unlocked || task.claimed ? index + 1 : highest
-  ), 0);
+  // If categories are labeled 0..N (e.g. VIP 0 → VIP 4), respect the numeric
+  // category value so a user with 4 unlocked 0..3 shows VIP 3 not VIP 4.
+  const vipLevel = tasks.reduce((highest, task) => {
+    if (!(task.unlocked || task.claimed)) return highest;
+    const raw = String(task.category || "");
+    const parsed = parseInt(raw.replace(/\D/g, ""), 10);
+    const level = Number.isFinite(parsed) && raw.replace(/\D/g, "") !== "" ? parsed : tasks.indexOf(task) + 1;
+    return Math.max(highest, level);
+  }, 0);
 
   return {
     tasks,
