@@ -93,7 +93,7 @@ export default function IncomeView({
     <div className="space-y-5 select-none bg-transparent text-[var(--theme-text)] p-1 rounded-[var(--theme-radius)] relative">
       
       {/* Aggregate Stats — sticky so product list scrolls below */}
-      <div className="sticky top-0 z-20 -mx-1 px-1 pt-1 pb-2 bg-[var(--theme-bg)]/85 backdrop-blur-xl">
+      <div className="sticky top-0 z-20 -mx-1 px-1 pt-1 pb-2">
         <VisaMetricCard
           leftValue={formatCurrency(totalDailyYield)}
           leftLabel="Total Daily"

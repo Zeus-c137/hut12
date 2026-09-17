@@ -626,7 +626,10 @@ export async function subscribeToItem(phone: string, itemId: string): Promise<Su
     userId: phone,
     itemId: item.id,
     itemName: item.name,
-    image: item.image,
+    // Store a renderable image URL on the node. `item.image` is historically
+    // a Tailwind gradient key (not a URL) — claims copy sub.image into the
+    // ledger, so a gradient here poisons every future daily_yield row.
+    image: item.imageUrl || item.image,
     amount: item.amount,
     duration: item.duration,
     dailyYield: item.dailyYield,
@@ -842,6 +845,16 @@ export async function getUserTransactions(phone: string): Promise<any[]> {
   });
 }
 
+/**
+ * Browsers can only render URL-like image sources. Catalog `image` values
+ * are historically Tailwind gradient keys (e.g. "from-blue-600 ..."), so
+ * anything written into transaction metadata must pass this check first.
+ */
+function isUrlLikeImage(value: unknown): boolean {
+  const v = String(value || "").trim().toLowerCase();
+  return v.startsWith("http://") || v.startsWith("https://") || v.startsWith("data:") || v.startsWith("/") || v.startsWith("blob:");
+}
+
 export async function claimDailyReward(arg1: string, arg2: string): Promise<{ success: boolean; reward: number }> {
   let subId = arg1;
   let phone = arg2;
@@ -910,6 +923,21 @@ export async function claimDailyReward(arg1: string, arg2: string): Promise<{ su
       totalEarned: sql`${schema.subscribedNodes.totalEarned} + ${reward}`
     }).where(eq(schema.subscribedNodes.id, sub.id));
 
+    // Resolve a renderable image for the ledger row. sub.image historically
+    // holds a Tailwind gradient key, so prefer the live catalog imageUrl and
+    // only fall back to sub.image when it is URL-like. Never store a gradient.
+    let claimImage = "";
+    try {
+      const catalogRows = await tx.select().from(schema.catalogProducts)
+        .where(eq(schema.catalogProducts.id, sub.itemId))
+        .limit(1);
+      const catalogImage = String(catalogRows[0]?.imageUrl || catalogRows[0]?.image || "");
+      if (isUrlLikeImage(catalogImage)) claimImage = catalogImage;
+      else if (isUrlLikeImage(sub.image)) claimImage = String(sub.image);
+    } catch {
+      if (isUrlLikeImage(sub.image)) claimImage = String(sub.image);
+    }
+
     await tx.insert(schema.transactions).values({
       id: transactionId,
       userId: user.phone,
@@ -921,7 +949,7 @@ export async function claimDailyReward(arg1: string, arg2: string): Promise<{ su
       phone: user.phone,
       itemId: sub.itemId,
       mode: "auto",
-      metadata: { platformDate: today, subscriptionId: sub.id, sourceItemId: sub.itemId, sourceItemName: itemName, sourceItemImage: sub.image },
+      metadata: { platformDate: today, subscriptionId: sub.id, sourceItemId: sub.itemId, sourceItemName: itemName, sourceItemImage: claimImage },
       timestamp: creditedAt
     });
   });

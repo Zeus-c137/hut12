@@ -127,7 +127,7 @@ export default function CatalogView({
           className="space-y-4 px-1"
         >
             {/* Top Metrics — sticky so product list scrolls below */}
-            <div className="sticky top-0 z-20 -mx-1 px-1 pt-1 pb-2 bg-[var(--theme-bg)]/85 backdrop-blur-xl">
+            <div className="sticky top-0 z-20 -mx-1 px-1 pt-1 pb-2">
               <VisaMetricCard
                 leftValue={String(activeSubscriptions.filter((s) => s.status === "active").length)}
                 leftLabel="My products"

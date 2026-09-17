@@ -668,15 +668,17 @@ export default function App() {
         </header>
 
         {/* Main interactive tabs content view block */}
-        <main className={`flex-1 relative min-h-0 flex flex-col isolate ${(activeTab === "chat" || activeTab === "history" || activeTab === "vip" || (activeTab === "alerts" && (previousTab === "history" || previousTab === "vip"))) ? "p-0 overflow-hidden h-full" : "px-1.5 sm:px-2 py-3 overflow-y-auto overscroll-y-contain"}`}
+        <main className="flex-1 relative min-h-0 flex flex-col isolate overflow-hidden"
               style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-          <AnimatePresence mode="wait">
+          <AnimatePresence mode="wait" initial={false}>
             {(activeTab === "dashboard" || (activeTab === "alerts" && previousTab === "dashboard")) && (
               <motion.div
                 key="dash"
-                initial={{ opacity: 0, scale: 0.96 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.96 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.12 }}
+                className="w-full flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-1.5 sm:px-2 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               >
                 <DashboardView
                   profile={userProfile}
@@ -701,9 +703,11 @@ export default function App() {
             {(activeTab === "catalog" || (activeTab === "alerts" && previousTab === "catalog")) && (
               <motion.div
                 key="cat"
-                initial={{ opacity: 0, scale: 0.96 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.96 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.12 }}
+                className="w-full flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-1.5 sm:px-2 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               >
                 <CatalogView
                   items={items}
@@ -722,9 +726,11 @@ export default function App() {
             {(activeTab === "income" || (activeTab === "alerts" && previousTab === "income")) && (
               <motion.div
                 key="inc"
-                initial={{ opacity: 0, scale: 0.96 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.96 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.12 }}
+                className="w-full flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-1.5 sm:px-2 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               >
                 <IncomeView
                   profile={userProfile}
@@ -743,10 +749,11 @@ export default function App() {
             {(activeTab === "history" || (activeTab === "alerts" && previousTab === "history")) && (
               <motion.div
                 key="hist"
-                initial={{ opacity: 0, scale: 0.96 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.96 }}
-                className="h-full flex flex-col min-h-0"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.12 }}
+                className="w-full flex-1 min-h-0 h-full flex flex-col overflow-hidden"
               >
                 <TransactionHistoryView phone={userProfile.phone} siteConfig={siteConfig} onBack={() => setActiveTab("profile")} />
               </motion.div>
@@ -755,9 +762,11 @@ export default function App() {
             {(activeTab === "deposit" || (activeTab === "alerts" && previousTab === "deposit")) && (
               <motion.div
                 key="dep"
-                initial={{ opacity: 0, scale: 0.96 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.96 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.12 }}
+                className="w-full flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               >
                 <DepositView
                   userProfile={userProfile}
@@ -777,9 +786,11 @@ export default function App() {
             {(activeTab === "withdraw" || (activeTab === "alerts" && previousTab === "withdraw")) && (
               <motion.div
                 key="wit"
-                initial={{ opacity: 0, scale: 0.96 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.96 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.12 }}
+                className="w-full flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               >
                 <WithdrawView
                   userProfile={userProfile}
@@ -794,9 +805,11 @@ export default function App() {
             {(activeTab === "referral" || (activeTab === "alerts" && previousTab === "referral")) && (
               <motion.div
                 key="ref"
-                initial={{ opacity: 0, scale: 0.96 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.96 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.12 }}
+                className="w-full flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-1.5 sm:px-2 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               >
                 <ReferralView userProfile={userProfile} siteConfig={siteConfig} onBack={() => setActiveTab("profile")} />
               </motion.div>
@@ -805,10 +818,11 @@ export default function App() {
             {(activeTab === "chat" || (activeTab === "alerts" && previousTab === "chat")) && (
               <motion.div
                 key="chat"
-                initial={{ opacity: 0, scale: 0.96 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.96 }}
-                className="flex-1 flex flex-col min-h-0 h-full w-full"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.12 }}
+                className="w-full flex-1 flex flex-col min-h-0 h-full overflow-hidden"
               >
                 <ChatView userProfile={userProfile} initialRoom={chatRoomDefault} canUpload={userProfile.phone === siteConfig?.adminPhone} brandName={siteConfig?.brandName} activeNodes={activeNodes} siteConfig={siteConfig} />
               </motion.div>
@@ -817,10 +831,11 @@ export default function App() {
             {(activeTab === "vip" || (activeTab === "alerts" && previousTab === "vip")) && (
               <motion.div
                 key="vip"
-                initial={{ opacity: 0, scale: 0.96 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.96 }}
-                className="h-full flex flex-col min-h-0"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.12 }}
+                className="w-full flex-1 min-h-0 h-full flex flex-col overflow-hidden"
               >
                 <VipTasksPage phone={userProfile.phone} siteConfig={siteConfig} userProfile={userProfile} onClaimSuccess={handleProfileChange} onBack={() => setActiveTab("profile")} />
               </motion.div>
@@ -829,9 +844,11 @@ export default function App() {
             {(activeTab === "guide" || (activeTab === "alerts" && previousTab === "guide")) && (
               <motion.div
                 key="guide"
-                initial={{ opacity: 0, scale: 0.96 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.96 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.12 }}
+                className="w-full flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-1.5 sm:px-2 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               >
                 <GuideView
                   siteConfig={siteConfig}
@@ -843,9 +860,11 @@ export default function App() {
             {(activeTab === "account" || (activeTab === "alerts" && previousTab === "account")) && (
               <motion.div
                 key="account"
-                initial={{ opacity: 0, scale: 0.96 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.96 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.12 }}
+                className="w-full flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-1.5 sm:px-2 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               >
                 <BindAccountView
                   userProfile={userProfile!}
@@ -858,9 +877,11 @@ export default function App() {
             {(activeTab === "profile" || (activeTab === "alerts" && previousTab === "profile")) && (
               <motion.div
                 key="prof"
-                initial={{ opacity: 0, scale: 0.96 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.96 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.12 }}
+                className="w-full flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-1.5 sm:px-2 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               >
                 <ProfileView
                   userProfile={userProfile!}

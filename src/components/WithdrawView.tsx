@@ -141,7 +141,7 @@ export default function WithdrawView({
 
   if (paymentStatus === "SUCCESS") {
     return (
-      <div className="bg-transparent text-[var(--theme-text)] p-1 space-y-4 select-none">
+      <div className="bg-transparent text-[var(--theme-text)] p-4 min-h-[100dvh] space-y-4 select-none">
         <div className="flex items-center justify-between gap-3">
           <button
             onClick={() => {
@@ -197,7 +197,7 @@ export default function WithdrawView({
   }
 
   return (
-    <div className="bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 rounded-[24px] p-4 text-[var(--theme-text)] space-y-4 select-none">
+    <div className="bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] text-[var(--theme-text)] space-y-4 select-none p-4 min-h-[100dvh]">
       <div className="flex items-center justify-between gap-3">
         <button
           onClick={onBack}
@@ -217,11 +217,10 @@ export default function WithdrawView({
         leftValue={formatCurrency(userProfile.points || 0)}
       />
 
-      <div className="rounded-[var(--theme-radius)] bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] shadow-sm overflow-hidden">
+      <div className="rounded-[var(--theme-radius)] overflow-hidden">
         <div className="p-3 border-b border-[var(--theme-card-border)] space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-[11px] font-black uppercase tracking-[0.14em] opacity-60">Payout method</h2>
-            <span className="text-[10px] font-bold opacity-50">Fee {feePct}%</span>
           </div>
           <div className="flex gap-1 border-b border-[var(--theme-card-border)]">
             <PillBtn
@@ -411,9 +410,6 @@ export default function WithdrawView({
               </>
             )}
           </Button>
-          <p className="text-center text-[11px] font-bold opacity-50">
-            {formatCurrency(minimumWithdrawal)} min{maximumWithdrawal > 0 ? ` • ${formatCurrency(maximumWithdrawal)} max` : " • no max"} • Fee {feePct}%
-          </p>
         </form>
       </div>
     </div>

@@ -271,6 +271,28 @@ export async function ensureDatabaseSchema(): Promise<void> {
     }
   }
 
+  // Repair daily_yield rows whose sourceItemImage is a non-URL value (legacy
+  // catalog `image` fields hold Tailwind gradient keys, not URLs). The
+  // backfill above only covers NULLs; these rows carry an explicit gradient
+  // string that browsers cannot render, so resolve them from the catalog.
+  try {
+    await connection.query(`UPDATE transactions t
+      LEFT JOIN catalog_products cp ON cp.id = COALESCE(JSON_UNQUOTE(JSON_EXTRACT(t.metadata, '$.sourceItemId')), t.item_id)
+      SET t.metadata = JSON_SET(
+        t.metadata,
+        '$.sourceItemImage', COALESCE(cp.image_url, cp.image)
+      )
+      WHERE LOWER(t.type) = 'daily_yield'
+        AND JSON_EXTRACT(t.metadata, '$.sourceItemImage') IS NOT NULL
+        AND JSON_UNQUOTE(JSON_EXTRACT(t.metadata, '$.sourceItemImage')) NOT LIKE 'http%'
+        AND JSON_UNQUOTE(JSON_EXTRACT(t.metadata, '$.sourceItemImage')) NOT LIKE 'data:%'
+        AND COALESCE(cp.image_url, cp.image) LIKE 'http%'`);
+  } catch (error: any) {
+    if (!String(error?.code || "").includes("ER_NO_SUCH_TABLE") && !String(error?.message || "").includes("JSON")) {
+      throw error;
+    }
+  }
+
   try {
     await connection.query("UPDATE transactions SET status = UPPER(status) WHERE LOWER(status) IN ('completed','successful','pending','failed') AND status != UPPER(status)");
   } catch (error: any) {

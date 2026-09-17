@@ -35,6 +35,14 @@ const ICON_BY_CANON: Record<string, string> = {
   vip_task: trophy3d,
 };
 
+// Browsers can only render URL-like sources. Legacy ledger rows carry
+// Tailwind gradient keys (e.g. "from-blue-600 ...") as product images —
+// those must fall back to the bundled icon instead of a broken <img>.
+const isUrlLike = (v: unknown) => {
+  const s = String(v || "").trim().toLowerCase();
+  return s.startsWith("http://") || s.startsWith("https://") || s.startsWith("data:") || s.startsWith("/") || s.startsWith("blob:");
+};
+
 export default function TransactionHistoryView({ phone, siteConfig, onBack }: Props) {
   const { formatCurrency } = useCurrency();
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -214,11 +222,11 @@ export default function TransactionHistoryView({ phone, siteConfig, onBack }: Pr
                 ? `${productName} Income`
                 : meta.label;
 
-            const iconSrc = meta.canon === "daily_yield" && productImage
-              ? productImage
+            const iconSrc = meta.canon === "daily_yield" && isUrlLike(productImage)
+              ? String(productImage)
               : meta.icon3d;
 
-            const isProductIcon = meta.canon === "daily_yield" && !!productImage;
+            const isProductIcon = meta.canon === "daily_yield" && isUrlLike(productImage);
 
             return (
               <div key={tx.id} className={`rounded-[20px] border-0 p-3.5 flex items-center gap-3 bg-transparent ${meta.card}`}>

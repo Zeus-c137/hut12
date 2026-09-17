@@ -307,7 +307,7 @@ export default function DepositView({
   );
 
   return (
-    <div className="bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 rounded-[24px] p-4 text-[var(--theme-text)] space-y-4 select-none">
+    <div className="bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] text-[var(--theme-text)] space-y-4 select-none p-4 min-h-[100dvh]">
       {/* Top bar — back + title */}
       <div className="flex items-center justify-between gap-3">
         <button
@@ -356,7 +356,7 @@ export default function DepositView({
       />
 
       {paymentStatus === "IDLE" ? (
-        <div className="rounded-[var(--theme-radius)] bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] shadow-sm overflow-hidden">
+        <div className="rounded-[var(--theme-radius)] overflow-hidden">
           {/* Method picker — segmented pill */}
           <div className="p-3 border-b border-[var(--theme-card-border)] space-y-3">
             <div className="flex items-center justify-between">
@@ -679,7 +679,7 @@ export default function DepositView({
                 {/* Step 1 — QR + wallet */}
                 <div className="space-y-3">
                   <p className="text-[10.5px] font-sans font-bold uppercase tracking-[0.12em] opacity-50">1 — Send USDT</p>
-                    <div className="rounded-[var(--theme-radius)] bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] p-5 space-y-4">
+                    <div className="p-5 space-y-4">
                     {config.usdtQrUrl && (
                       <div className="flex justify-center">
                         <div className="w-48 h-48 sm:w-56 sm:h-56 rounded-2xl overflow-hidden bg-white p-2.5 border border-[var(--theme-card-border)] shadow-sm">
@@ -688,7 +688,6 @@ export default function DepositView({
                       </div>
                     )}
                     <div className="flex items-center justify-center gap-2">
-                      <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-[10px] font-bold uppercase tracking-[0.12em]">{config.usdtNetwork || "USDT TRC20"}</span>
                       <span className="text-[11px] font-medium opacity-50">Scan or copy address</span>
                     </div>
                     <div className="text-center space-y-1">
