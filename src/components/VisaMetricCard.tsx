@@ -82,7 +82,7 @@ export default function VisaMetricCard({
           <p
             className={`text-[10px] font-sans font-black uppercase tracking-[0.14em] leading-none ${
               isDark ? "text-white/40" : "text-black/40"
-            }`}
+            }${pulse ? " animate-shimmer-slow" : ""}`}
           >
             {leftLabel}
           </p>
@@ -103,7 +103,7 @@ export default function VisaMetricCard({
           <p
             className={`text-[10px] font-sans font-black uppercase tracking-[0.14em] leading-none ${
               isDark ? "text-white/40" : "text-black/40"
-            }`}
+            }${pulse ? " animate-shimmer-slow" : ""}`}
           >
             {leftLabel}
           </p>
@@ -122,7 +122,7 @@ export default function VisaMetricCard({
           <p
             className={`text-[10px] font-sans font-black uppercase tracking-[0.14em] leading-none ${
               isDark ? "text-white/40" : "text-black/40"
-            }`}
+            }${pulse ? " animate-shimmer-slow" : ""}`}
           >
             {rightLabel}
           </p>
