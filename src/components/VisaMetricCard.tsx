@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useTheme } from "../context/ThemeContext";
 import { BrandLogo } from "./BrandLogo";
+import { useGatedInterval } from "../hooks/useGatedInterval";
 
 interface VisaMetricCardProps {
   leftValue: string;
@@ -25,6 +26,23 @@ export default function VisaMetricCard({
 }: VisaMetricCardProps) {
   const { siteConfig } = useTheme();
   const isDark = variant === "bank-dark";
+
+  // Slow balance shimmer pulse: one 2.6s sweep per minute. Page-gated by
+  // mount (tab views unmount off-page, killing the interval) + hidden-tab
+  // gate (no queued pulses while the browser tab is hidden).
+  const [pulse, setPulse] = useState(false);
+  const pulseTimer = useRef<number | null>(null);
+  const firePulse = () => {
+    setPulse(true);
+    if (pulseTimer.current) window.clearTimeout(pulseTimer.current);
+    pulseTimer.current = window.setTimeout(() => setPulse(false), 2600);
+  };
+  useGatedInterval(() => { firePulse(); }, 60000, { enabled: true, visibilityGate: true });
+  useEffect(() => {
+    firePulse(); // opening sweep so the effect reads on arrival; interval sustains it
+    return () => { if (pulseTimer.current) window.clearTimeout(pulseTimer.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div
@@ -83,7 +101,7 @@ export default function VisaMetricCard({
           <p
             className={`text-[20px] sm:text-[22px] font-display font-black tracking-tight leading-none mt-1.5 truncate ${
               isDark ? "text-white" : "text-[#1a1a1a]"
-            }`}
+            }${pulse ? " animate-shimmer-slow" : ""}`}
           >
             {leftValue}
           </p>
@@ -104,7 +122,7 @@ export default function VisaMetricCard({
           <p
             className={`text-[20px] sm:text-[22px] font-display font-black tracking-tight leading-none mt-1.5 truncate ${
               isDark ? "text-white" : "text-[#1a1a1a]"
-            }`}
+            }${pulse ? " animate-shimmer-slow" : ""}`}
           >
             {leftValue}
           </p>
@@ -123,7 +141,7 @@ export default function VisaMetricCard({
           <p
             className={`text-[20px] sm:text-[22px] font-display font-black tracking-tight leading-none mt-1.5 truncate ${
               isDark ? "text-white" : "text-[#1a1a1a]"
-            }`}
+            }${pulse ? " animate-shimmer-slow" : ""}`}
           >
             {rightValue}
           </p>
