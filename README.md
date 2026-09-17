@@ -1,4 +1,8 @@
 # Hut12
+---
+
+## Overview
+This platform allows users to sign up, rent products of any category, and earn daily passive income in UGX. Users can also invite friends, earn bonuses, complete VIP tasks, and withdraw their earnings. The application includes a comprehensive Admin Dashboard to manage users, transactions, the product catalog, and global configurations.
 
 Built on Vite + React 19 + Express + Drizzle/MySQL.
 
@@ -11,20 +15,21 @@ npm run dev            # http://localhost:3000
 npm run build && npm run start  # production
 ```
 
+## Setup & Local Development
+...see previous docs / .env.example for full SmarterASP & Render deploy guides.
+
+---
+## SmarterASP deployment
+1. Download the full project on your PC and navigate into it.
+2. Run `npm install` to install the node modules.
+3. Run `npm run build` to compile the production build of the application (outputs the `dist` folder).
+4. Zip the `dist` folder and `node_modules`, copy them to `site1` or your SmarterASP root, and unzip them there.
+5. Upload `package.json` and `.env` as well, with the database URL added inside.
+---
+
 
 ## Admin
 Set `ADMIN_PHONE/ADMIN_PASSWORD/ADMIN_USERNAME` in `.env`, then visit `/api/admin/access/activate` or `#/admin/access/activate`.
-
-## Stack
-React 19 · Vite 6 · Tailwind 4 · motion · three · @paper-design/shaders · Recharts · Express · Drizzle ORM · MySQL
-
----
-
-## Overview
-This platform allows users to sign up, rent products of any category, and earn daily passive income in UGX. Users can also invite friends, earn bonuses, complete VIP tasks, and withdraw their earnings. The application includes a comprehensive Admin Dashboard to manage users, transactions, the product catalog, and global configurations.
-
-## Setup & Local Development
-...see previous docs / .env.example for full SmarterASP & Render deploy guides.
 
 ## Screenshots
 ![Profile](src/assets/screenshots/profile.png)
