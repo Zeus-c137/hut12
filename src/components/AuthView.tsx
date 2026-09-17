@@ -44,7 +44,7 @@ export default function AuthView({ onAuthSuccess, siteConfig }: AuthViewProps) {
 
   const activeConfig = localSiteConfig || siteConfig;
 
-  // Sitename shimmer pulse — same gated 60s system as the balance cards.
+  // Sitename shimmer pulse — same gated interval system as the balance cards.
   // AuthView only mounts pre-login, so the interval dies on sign-in.
   const sitenamePulse = useShimmerPulse();
 

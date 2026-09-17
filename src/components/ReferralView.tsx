@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Copy, Users, ArrowLeft, Check, Share2 } from "lucide-react";
 import { useCurrency } from "@/src/currency";
 import { Button } from "@/src/components/ui/button";
@@ -58,11 +58,13 @@ function CopyLinkButton({ copied, onCopy }: { copied: boolean; onCopy: () => voi
 function ShareLinkBox({ inviteLink, inviteCode, copied, onCopy, copiedCode, onCopyCode }: { inviteLink: string; inviteCode: string; copied: boolean; onCopy: () => void; copiedCode: boolean; onCopyCode: () => void }) {
   const { cardStyle } = useTheme();
   const cardCls = twMerge(clsx("theme-card p-4 rounded-[var(--theme-radius)] space-y-3", CARD_VARIANTS[cardStyle]));
+  // One-shot intro shimmer on the referral link — plays once per view mount.
+  const [intro, setIntro] = useState(true);
   return (
     <div className={cardCls}>
       <CodePill inviteCode={inviteCode} copiedCode={copiedCode} onCopyCode={onCopyCode} />
       <div className="flex items-center gap-2">
-        <p className="text-xs font-mono opacity-80 truncate flex-1 select-text select-all">{inviteLink || "No link"}</p>
+        <p onAnimationEnd={() => setIntro(false)} className={`text-xs font-mono opacity-80 truncate flex-1 select-text select-all${intro ? " animate-shimmer-slow" : ""}`}>{inviteLink || "No link"}</p>
         <button onClick={onCopy} className="p-1.5 rounded-lg bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] hover:border-[var(--theme-primary)]/30 transition-colors shrink-0">
           {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5 opacity-60" />}
         </button>
@@ -84,6 +86,17 @@ function HeroMetrics({
     cardStyle === "glass"
       ? "bg-[var(--theme-card-bg)]/60 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 shadow-sm"
       : "bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] shadow-sm";
+  // One-shot intro shimmer on the four level amounts. Latched to first data
+  // arrival (not mount) so the sweep isn't wasted on the loading skeleton,
+  // and never replays on background polls.
+  const [intro, setIntro] = useState(false);
+  const latched = useRef(false);
+  useEffect(() => {
+    if (!isLoading && !latched.current) {
+      latched.current = true;
+      setIntro(true);
+    }
+  }, [isLoading]);
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
       {metrics.map((m) => (
@@ -102,7 +115,7 @@ function HeroMetrics({
             {isLoading ? (
               <div className="h-6 w-28 bg-[var(--theme-card-border)]/40 rounded-xl animate-pulse" />
             ) : (
-              <span className="font-display font-black text-[18px] leading-none tracking-tight select-text text-[var(--theme-primary)]">{formatCurrency(m.earned)}</span>
+              <span onAnimationEnd={() => setIntro(false)} className={`font-display font-black text-[18px] leading-none tracking-tight select-text text-[var(--theme-primary)]${intro ? " animate-shimmer-slow" : ""}`}>{formatCurrency(m.earned)}</span>
             )}
             <p className="text-[11px] font-bold opacity-50">{m.count} invites</p>
           </div>
@@ -114,10 +127,12 @@ function HeroMetrics({
 
 function CollectedRow({ amount }: { amount: number }) {
   const { formatCurrency } = useCurrency();
+  // One-shot intro shimmer on the Team income title + value.
+  const [intro, setIntro] = useState(true);
   return (
     <div className="flex flex-col gap-0.5">
-      <p className="text-[10px] font-black uppercase tracking-wider opacity-60">Team income</p>
-      <strong className="text-lg font-black text-[var(--theme-primary)] whitespace-nowrap leading-none">
+      <p onAnimationEnd={() => setIntro(false)} className={`text-[10px] font-black uppercase tracking-wider opacity-60${intro ? " animate-shimmer-slow" : ""}`}>Team income</p>
+      <strong onAnimationEnd={() => setIntro(false)} className={`text-lg font-black text-[var(--theme-primary)] whitespace-nowrap leading-none${intro ? " animate-shimmer-slow" : ""}`}>
         {formatCurrency(Number(amount || 0))}
       </strong>
     </div>

@@ -2,12 +2,12 @@ import { useState, useEffect, useRef } from "react";
 import { useGatedInterval } from "./useGatedInterval";
 
 /**
- * Slow shimmer pulse: fires one sweep per `intervalMs` (default 60s) plus an
+ * Slow shimmer pulse: fires one sweep per `intervalMs` (default 18s) plus an
  * opening sweep on mount. Page-gated by mount (tab views unmount off-page,
  * killing the interval) + hidden-tab gate (no queued pulses while the
  * browser tab is hidden). Pair with the `.animate-shimmer-slow` CSS class.
  */
-export function useShimmerPulse(intervalMs = 60000, sweepMs = 15000): boolean {
+export function useShimmerPulse(intervalMs = 18000, sweepMs = 15000): boolean {
   const [pulse, setPulse] = useState(false);
   const timer = useRef<number | null>(null);
 
