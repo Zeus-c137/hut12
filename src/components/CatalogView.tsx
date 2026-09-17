@@ -126,13 +126,15 @@ export default function CatalogView({
           transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
           className="space-y-4 px-1"
         >
-            {/* Top Metrics — Visa prototype (split stays inside one card) */}
-            <VisaMetricCard
-              leftValue={String(activeSubscriptions.filter((s) => s.status === "active").length)}
-              leftLabel="My products"
-              rightValue={formatCurrency(userProfile.rechargeBalance || 0)}
-              rightLabel="Recharge balance"
-            />
+            {/* Top Metrics — sticky so product list scrolls below */}
+            <div className="sticky top-0 z-20 -mx-1 px-1 pt-1 pb-2 bg-[var(--theme-bg)]/85 backdrop-blur-xl">
+              <VisaMetricCard
+                leftValue={String(activeSubscriptions.filter((s) => s.status === "active").length)}
+                leftLabel="My products"
+                rightValue={formatCurrency(userProfile.rechargeBalance || 0)}
+                rightLabel="Recharge balance"
+              />
+            </div>
 
             {/* Category selection Tabs — no container bg (transparent) */}
             <div className="relative p-1.5 -mx-1 mb-2">

@@ -715,6 +715,13 @@ export async function subscribeToItem(phone: string, itemId: string): Promise<Su
     });
   }
 
+  await sendChatMessage({
+    roomId: "shared",
+    sender: "system",
+    senderName: "SYSTEM BROADCAST",
+    text: `User ${phone.slice(0, 4)}*** rented "${item.name}"!`
+  });
+
   return node;
 }
 
@@ -968,6 +975,11 @@ export function getMaximumWithdrawalAmount(config: SiteConfig): number {
   return getConfiguredMaximum(config.maximumWithdrawal, 5_000_000);
 }
 
+function usdtLabel(ugxAmount: number, usdtRate?: number): string {
+  const rate = Number(usdtRate) > 0 ? Number(usdtRate) : 3700;
+  return `≈ $${(Number(ugxAmount) / rate).toFixed(2)} USDT`;
+}
+
 export async function requestCashout(phone: string, amount: number, paymentMethodOrTransId?: string, mode?: string, withdrawPhone?: string, operator?: string, extraMetadata?: any): Promise<any> {
   const siteConfig = await getSiteConfig();
   const minimumWithdrawal = getMinimumWithdrawalAmount(siteConfig);
@@ -1038,23 +1050,19 @@ export async function requestCashout(phone: string, amount: number, paymentMetho
   if (!updatedProfile) throw new Error("Withdrawal was recorded, but the account could not be reloaded.");
 
   const isAutomatic = currentWithdrawMode === "automatic";
+  const isUsdt = operator === "USDT";
+  const usdtRate = Number(siteConfig.usdtRate) > 0 ? Number(siteConfig.usdtRate) : 3700;
+  const requestedLabel = isUsdt
+    ? `${usdtLabel(payoutAmount, usdtRate)} (UGX ${amount.toLocaleString()} requested)`
+    : `UGX ${amount.toLocaleString()}`;
   await createNotification(
     phone,
     "Withdrawal Submitted",
     isAutomatic
-      ? `Your withdrawal request of UGX ${amount.toLocaleString()} (${paymentMethod}) was sent for automatic processing and is pending payment-provider confirmation.`
-      : `Your withdrawal request of UGX ${amount.toLocaleString()} (${paymentMethod}) was submitted and is currently pending admin approval.`,
+      ? `Your withdrawal request of UGX ${amount.toLocaleString()} (${paymentMethod}) was received and is pending confirmation.`
+      : `Your withdrawal request of ${requestedLabel} (${paymentMethod}) was received and is pending approval.`,
     "withdraw"
   );
-  await sendChatMessage({
-    roomId: "shared",
-    sender: "system",
-    senderName: "SYSTEM BROADCAST",
-    text: isAutomatic
-      ? `User ${phone.slice(0, 4)}*** submitted an automatic withdrawal of UGX ${amount.toLocaleString()} (${paymentMethod})!`
-      : `User ${phone.slice(0, 4)}*** submitted a manual withdrawal of UGX ${amount.toLocaleString()} (${paymentMethod})!`
-  });
-
   return {
     id: txId,
     userId: phone,
@@ -1523,13 +1531,25 @@ export async function completeSuccessfulDeposit(
   const settledUser = await getUserProfile(settledTransaction?.userId || userIdOrTxId);
   if (!settledUser) throw new Error("Deposit was settled, but the account could not be reloaded.");
   if (settled && settledTransaction) {
+    const settledAmount = Number(settledTransaction.amount);
+    const isUsdtDeposit = String((settledTransaction as any).operator || "").toUpperCase() === "USDT";
+    const depConfig = isUsdtDeposit ? await getSiteConfig().catch(() => null) : null;
+    const depositLabel = isUsdtDeposit
+      ? `${usdtLabel(settledAmount, Number((depConfig as any)?.usdtRate) || 3700)} (UGX ${settledAmount.toLocaleString()})`
+      : `UGX ${settledAmount.toLocaleString()}`;
     await createNotification(
       settledTransaction.userId,
       "Deposit Successful",
-      `Your deposit of UGX ${Number(settledTransaction.amount).toLocaleString()} has been confirmed and credited to your recharge balance. Reference: ${transactionId}.`,
+      `Your deposit of ${depositLabel} has been confirmed and credited to your recharge balance. Reference: ${transactionId}.`,
       "deposit",
-      Number(settledTransaction.amount)
+      settledAmount
     );
+    await sendChatMessage({
+      roomId: "shared",
+      sender: "system",
+      senderName: "SYSTEM BROADCAST",
+      text: `User ${settledTransaction.userId.slice(0, 4)}*** topped up ${depositLabel}!`
+    });
   }
   return settledUser;
 }
@@ -1580,13 +1600,25 @@ export async function completeSuccessfulWithdrawal(txId: string): Promise<any> {
 
   const profile = await getUserProfile(userId);
   if (settled && profile) {
+    const settledTx = await getTransaction(txId);
+    const isUsdtSettle = String((settledTx as any)?.operator || "").toUpperCase() === "USDT";
+    const settleConfig = isUsdtSettle ? await getSiteConfig().catch(() => null) : null;
+    const settledLabel = isUsdtSettle
+      ? `${usdtLabel(settledPayoutAmount, Number((settleConfig as any)?.usdtRate) || 3700)}`
+      : `UGX ${settledPayoutAmount.toLocaleString()}`;
     await createNotification(
       userId,
       "Withdrawal Approved",
-      `Your withdrawal request has been approved and UGX ${settledPayoutAmount.toLocaleString()} is marked as settled. Reference: ${txId}.`,
+      `Your withdrawal request has been approved and ${settledLabel} is marked as settled. Reference: ${txId}.`,
       "withdraw",
       settledPayoutAmount
     );
+    await sendChatMessage({
+      roomId: "shared",
+      sender: "system",
+      senderName: "SYSTEM BROADCAST",
+      text: `User ${userId.slice(0, 4)}*** received ${settledLabel}!`
+    });
   }
   return { status: "SUCCESSFUL", profile };
 }
@@ -1796,7 +1828,7 @@ export async function adminUpdateTransactionStatus(txId: string, status: string)
   const isWithdrawal = transaction.type === "withdrawal";
   const isAutomaticWithdrawal = isWithdrawal && String(transaction.mode || "").toLowerCase() === "automatic";
   if (isAutomaticWithdrawal && normalizedStatus !== "PENDING") {
-    throw new Error("Automatic withdrawals are settled only by the payment-provider webhook.");
+    throw new Error("This withdrawal is settled only by the payment-provider webhook.");
   }
 
   if (normalizedStatus === "SUCCESSFUL" || normalizedStatus === "COMPLETED") {
@@ -2141,6 +2173,13 @@ export async function claimVipTask(phone: string, taskId: string) {
     `Successfully claimed VIP task reward of UGX ${task.reward.toLocaleString()} credited to your withdrawable balance!`,
     "rewards"
   );
+
+  await sendChatMessage({
+    roomId: "shared",
+    sender: "system",
+    senderName: "SYSTEM BROADCAST",
+    text: `User ${phone.slice(0, 4)}*** claimed a VIP task reward of UGX ${task.reward.toLocaleString()}!`
+  });
 
   return { bonus: task.reward, claimedVipTasks };
 }

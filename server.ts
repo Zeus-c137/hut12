@@ -493,7 +493,7 @@ app.post("/api/profile/withdraw", async (req, res) => {
     // webhook; current clients must use /api/payment/withdraw.
     const config = await getSiteConfig();
     if (getConfiguredWithdrawMode(config) === "automatic") {
-      return res.status(409).json({ error: "Automatic withdrawals must be submitted through the payment gateway flow." });
+      return res.status(409).json({ error: "Withdrawals must be submitted through the payment flow." });
     }
 
     const result = await requestCashout(phone, numPoints, undefined, "manual");
@@ -669,7 +669,7 @@ app.post("/api/manual/deposit", async (req, res) => {
   const depAmt = parseInt(amount);
 
   if (!phone || isNaN(depAmt) || depAmt <= 0 || !operator || !senderPhone || !transId) {
-    return res.status(400).json({ error: "Please fill in all manual deposit fields with a valid amount." });
+    return res.status(400).json({ error: "Please fill in all deposit fields with a valid amount." });
   }
 
   try {

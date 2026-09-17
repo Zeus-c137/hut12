@@ -92,14 +92,16 @@ export default function IncomeView({
   return (
     <div className="space-y-5 select-none bg-transparent text-[var(--theme-text)] p-1 rounded-[var(--theme-radius)] relative">
       
-      {/* Aggregate Stats — Visa prototype (unified with Products) */}
-      <VisaMetricCard
-        leftValue={formatCurrency(totalDailyYield)}
-        leftLabel="Total Daily"
-        leftSub="/ day"
-        rightValue={formatCurrency(sumCollected)}
-        rightLabel="Income Collected"
-      />
+      {/* Aggregate Stats — sticky so product list scrolls below */}
+      <div className="sticky top-0 z-20 -mx-1 px-1 pt-1 pb-2 bg-[var(--theme-bg)]/85 backdrop-blur-xl">
+        <VisaMetricCard
+          leftValue={formatCurrency(totalDailyYield)}
+          leftLabel="Total Daily"
+          leftSub="/ day"
+          rightValue={formatCurrency(sumCollected)}
+          rightLabel="Income Collected"
+        />
+      </div>
 
       {/* Active Subscriptions Miner Nodes list section */}
       <div className="space-y-4">
