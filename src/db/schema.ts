@@ -156,7 +156,7 @@ export const transactions = mysqlTable(
   {
     id: varchar("id", { length: 64 }).primaryKey(),
     userId: varchar("user_id", { length: 32 }).notNull(),
-    type: varchar("type", { length: 32 }).notNull(), // 'deposit' | 'withdrawal' | 'yield' | 'referral' | 'vip_task' | 'gpu_activation' | 'checkin' | 'gift'
+    type: varchar("type", { length: 32 }).notNull(), // 'deposit'|'withdrawal'|'registration_bonus'|'daily_checkin_bonus'|'gift_code'|'referral_signup_bonus'|'referral_level_income'|'vip_task'|'product_activation'|'daily_yield'
     amount: double("amount").notNull(),
     currency: varchar("currency", { length: 8 }).default("UGX").notNull(),
     status: varchar("status", { length: 32 }).default("pending").notNull(), // 'pending' | 'completed' | 'failed'

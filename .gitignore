@@ -8,3 +8,6 @@ coverage/
 !.env.example
 dist.zip
 node_modules.zip
+.hermes/
+.hut12/
+.zeta/

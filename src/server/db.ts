@@ -3,6 +3,9 @@ import path from "path";
 import { ensureDatabaseSchema, getDb, schema } from "../db/index";
 import { and, eq, desc, asc, isNull, inArray, sql } from "drizzle-orm";
 import { UserProfile, SubscriptionItem, SubscribedNode, ChatMessage, ReferralStat, NotificationItem, SiteConfig } from "../types";
+import { sanitizeSiteConfig } from "../utils/themeTokens";
+import { canonicalTypeOf } from "../utils/transactionMeta";
+import { dedupeCategories, normalizeVipTask } from "../utils/vip";
 
 
 export class DatabaseOperationError extends Error {
@@ -266,7 +269,7 @@ export async function seedDatabaseIfEmpty() {
           amount
         )) AS settled_withdrawals
       FROM transactions
-      WHERE type IN ('withdrawal', 'withdraw')
+      WHERE type = 'withdrawal'
         AND UPPER(status) IN ('SUCCESSFUL', 'COMPLETED')
       GROUP BY user_id
     ) w ON w.user_id = u.phone
@@ -389,7 +392,7 @@ export async function registerUserProfile(data: any): Promise<any> {
     await saveTransaction({
       id: "reg_bonus_" + crypto.randomBytes(8).toString("hex"),
       userId: phone,
-      type: "gift",
+      type: "registration_bonus",
       amount: regBonus,
       currency: "UGX",
       status: "SUCCESSFUL",
@@ -434,7 +437,7 @@ export async function registerUserProfile(data: any): Promise<any> {
         await saveTransaction({
           id: "ref_bonus_" + crypto.randomBytes(8).toString("hex"),
           userId: referrer.phone,
-          type: "referral",
+          type: "referral_signup_bonus",
           amount: inviteBonusAmt,
           currency: "UGX",
           status: "SUCCESSFUL",
@@ -639,7 +642,7 @@ export async function subscribeToItem(phone: string, itemId: string): Promise<Su
   await saveTransaction({
     id: createTransactionId("RNT", now),
     userId: phone,
-    type: "gpu",
+    type: "product_activation",
     amount: item.amount,
     currency: "UGX",
     status: "SUCCESSFUL",
@@ -647,6 +650,7 @@ export async function subscribeToItem(phone: string, itemId: string): Promise<Su
     phone: phone,
     itemId: item.id,
     mode: "auto",
+    metadata: { sourceItemId: item.id, sourceItemName: item.name },
     timestamp: now.toISOString()
   });
 
@@ -655,7 +659,7 @@ export async function subscribeToItem(phone: string, itemId: string): Promise<Su
     await saveTransaction({
       id: "yield_init_" + crypto.randomBytes(8).toString("hex"),
       userId: phone,
-      type: "yield",
+      type: "daily_yield",
       amount: immediateYield,
       currency: "UGX",
       status: "SUCCESSFUL",
@@ -663,6 +667,7 @@ export async function subscribeToItem(phone: string, itemId: string): Promise<Su
       phone: phone,
       itemId: item.id,
       mode: "auto",
+      metadata: { sourceItemId: item.id, sourceItemName: item.name, sourceItemImage: item.imageUrl || item.image },
       timestamp: now.toISOString()
     });
   }
@@ -710,6 +715,13 @@ export async function subscribeToItem(phone: string, itemId: string): Promise<Su
     });
   }
 
+  await sendChatMessage({
+    roomId: "shared",
+    sender: "system",
+    senderName: "SYSTEM BROADCAST",
+    text: `User ${phone.slice(0, 4)}*** rented "${item.name}"!`
+  });
+
   return node;
 }
 
@@ -753,7 +765,7 @@ export async function distributeReferralBonus(
       await saveTransaction({
         id: "ref_income_" + crypto.randomBytes(8).toString("hex"),
         userId: current.phone,
-        type: "referral",
+        type: "referral_level_income",
         amount: bonus,
         currency: "UGX",
         status: "SUCCESSFUL",
@@ -901,7 +913,7 @@ export async function claimDailyReward(arg1: string, arg2: string): Promise<{ su
     await tx.insert(schema.transactions).values({
       id: transactionId,
       userId: user.phone,
-      type: "yield",
+      type: "daily_yield",
       amount: reward,
       currency: "UGX",
       status: "SUCCESSFUL",
@@ -909,7 +921,7 @@ export async function claimDailyReward(arg1: string, arg2: string): Promise<{ su
       phone: user.phone,
       itemId: sub.itemId,
       mode: "auto",
-      metadata: { platformDate: today, subscriptionId: sub.id },
+      metadata: { platformDate: today, subscriptionId: sub.id, sourceItemId: sub.itemId, sourceItemName: itemName, sourceItemImage: sub.image },
       timestamp: creditedAt
     });
   });
@@ -961,6 +973,11 @@ export function getMaximumWithdrawalAmount(config: SiteConfig): number {
   // Preserve the existing five-million-UGX UI ceiling unless an administrator
   // explicitly changes it. Setting zero clears the ceiling.
   return getConfiguredMaximum(config.maximumWithdrawal, 5_000_000);
+}
+
+function usdtLabel(ugxAmount: number, usdtRate?: number): string {
+  const rate = Number(usdtRate) > 0 ? Number(usdtRate) : 3700;
+  return `≈ $${(Number(ugxAmount) / rate).toFixed(2)} USDT`;
 }
 
 export async function requestCashout(phone: string, amount: number, paymentMethodOrTransId?: string, mode?: string, withdrawPhone?: string, operator?: string, extraMetadata?: any): Promise<any> {
@@ -1033,23 +1050,19 @@ export async function requestCashout(phone: string, amount: number, paymentMetho
   if (!updatedProfile) throw new Error("Withdrawal was recorded, but the account could not be reloaded.");
 
   const isAutomatic = currentWithdrawMode === "automatic";
+  const isUsdt = operator === "USDT";
+  const usdtRate = Number(siteConfig.usdtRate) > 0 ? Number(siteConfig.usdtRate) : 3700;
+  const requestedLabel = isUsdt
+    ? `${usdtLabel(payoutAmount, usdtRate)} (UGX ${amount.toLocaleString()} requested)`
+    : `UGX ${amount.toLocaleString()}`;
   await createNotification(
     phone,
     "Withdrawal Submitted",
     isAutomatic
-      ? `Your withdrawal request of UGX ${amount.toLocaleString()} (${paymentMethod}) was sent for automatic processing and is pending payment-provider confirmation.`
-      : `Your withdrawal request of UGX ${amount.toLocaleString()} (${paymentMethod}) was submitted and is currently pending admin approval.`,
+      ? `Your withdrawal request of UGX ${amount.toLocaleString()} (${paymentMethod}) was received and is pending confirmation.`
+      : `Your withdrawal request of ${requestedLabel} (${paymentMethod}) was received and is pending approval.`,
     "withdraw"
   );
-  await sendChatMessage({
-    roomId: "shared",
-    sender: "system",
-    senderName: "SYSTEM BROADCAST",
-    text: isAutomatic
-      ? `User ${phone.slice(0, 4)}*** submitted an automatic withdrawal of UGX ${amount.toLocaleString()} (${paymentMethod})!`
-      : `User ${phone.slice(0, 4)}*** submitted a manual withdrawal of UGX ${amount.toLocaleString()} (${paymentMethod})!`
-  });
-
   return {
     id: txId,
     userId: phone,
@@ -1120,7 +1133,8 @@ export async function getReferreeStatsList(phoneOrCode: string): Promise<Referra
   const referralTransactions = await drizzleDb.select().from(schema.transactions)
     .where(eq(schema.transactions.userId, user.phone));
   for (const transaction of referralTransactions) {
-    if (transaction.type !== "referral" || !["SUCCESSFUL", "COMPLETED"].includes(String(transaction.status).toUpperCase())) continue;
+    const canon = canonicalTypeOf(String(transaction.type), transaction.metadata) as string;
+    if (!["referral_signup_bonus", "referral_level_income"].includes(canon) || !["SUCCESSFUL", "COMPLETED"].includes(String(transaction.status).toUpperCase())) continue;
     const metadata = transaction.metadata && typeof transaction.metadata === "object"
       ? transaction.metadata as Record<string, any>
       : {};
@@ -1240,9 +1254,9 @@ export async function fetchSystemDashboardStats() {
       drizzleDb.select({ count: sql<number>`count(*)` }).from(schema.users),
       drizzleDb.select({ count: sql<number>`count(*)` }).from(schema.subscribedNodes).where(eq(schema.subscribedNodes.status, "active")),
       drizzleDb.select({ total: sql<number>`coalesce(sum(amount), 0)` }).from(schema.transactions)
-        .where(sql`type in ('deposit', 'balance') and upper(status) in ('SUCCESSFUL', 'COMPLETED')`),
+        .where(sql`type = 'deposit' and upper(status) in ('SUCCESSFUL', 'COMPLETED')`),
       drizzleDb.select({ total: sql<number>`coalesce(sum(amount), 0)` }).from(schema.transactions)
-        .where(sql`type in ('withdrawal', 'withdraw') and upper(status) in ('SUCCESSFUL', 'COMPLETED')`)
+        .where(sql`type = 'withdrawal' and upper(status) in ('SUCCESSFUL', 'COMPLETED')`)
     ]);
 
     return {
@@ -1381,11 +1395,22 @@ export async function saveTransaction(
   let tx: any;
   if (typeof txOrId === "object" && txOrId !== null) {
     tx = txOrId;
+    // Canonicalize legacy types on write (full migration, no users: always canonical)
+    try {
+      const { canonicalTypeOf } = await import("../utils/transactionMeta");
+      tx.type = canonicalTypeOf(String(tx.type || "deposit"), tx.metadata) as string;
+    } catch {}
   } else {
+    let canonType = String(type || "deposit");
+    try {
+      const { canonicalTypeOf: c } = await import("../utils/transactionMeta");
+      canonType = c(canonType, undefined) as string;
+      if (!canonType || typeof canonType !== "string") canonType = "deposit";
+    } catch {}
     tx = {
       id: txOrId,
       userId: phone || "",
-      type: type || "deposit",
+      type: canonType,
       amount: amount || 0,
       currency: "UGX",
       status: "pending",
@@ -1506,13 +1531,25 @@ export async function completeSuccessfulDeposit(
   const settledUser = await getUserProfile(settledTransaction?.userId || userIdOrTxId);
   if (!settledUser) throw new Error("Deposit was settled, but the account could not be reloaded.");
   if (settled && settledTransaction) {
+    const settledAmount = Number(settledTransaction.amount);
+    const isUsdtDeposit = String((settledTransaction as any).operator || "").toUpperCase() === "USDT";
+    const depConfig = isUsdtDeposit ? await getSiteConfig().catch(() => null) : null;
+    const depositLabel = isUsdtDeposit
+      ? `${usdtLabel(settledAmount, Number((depConfig as any)?.usdtRate) || 3700)} (UGX ${settledAmount.toLocaleString()})`
+      : `UGX ${settledAmount.toLocaleString()}`;
     await createNotification(
       settledTransaction.userId,
       "Deposit Successful",
-      `Your deposit of UGX ${Number(settledTransaction.amount).toLocaleString()} has been confirmed and credited to your recharge balance. Reference: ${transactionId}.`,
+      `Your deposit of ${depositLabel} has been confirmed and credited to your recharge balance. Reference: ${transactionId}.`,
       "deposit",
-      Number(settledTransaction.amount)
+      settledAmount
     );
+    await sendChatMessage({
+      roomId: "shared",
+      sender: "system",
+      senderName: "SYSTEM BROADCAST",
+      text: `User ${settledTransaction.userId.slice(0, 4)}*** topped up ${depositLabel}!`
+    });
   }
   return settledUser;
 }
@@ -1538,7 +1575,7 @@ export async function completeSuccessfulWithdrawal(txId: string): Promise<any> {
     if (currentStatus === "FAILED" || currentStatus === "REJECTED") {
       throw new Error("This withdrawal was already rejected.");
     }
-    if (transaction.type !== "withdrawal" && transaction.type !== "withdraw") {
+    if (transaction.type !== "withdrawal") {
       throw new Error("The transaction is not a withdrawal.");
     }
 
@@ -1563,13 +1600,25 @@ export async function completeSuccessfulWithdrawal(txId: string): Promise<any> {
 
   const profile = await getUserProfile(userId);
   if (settled && profile) {
+    const settledTx = await getTransaction(txId);
+    const isUsdtSettle = String((settledTx as any)?.operator || "").toUpperCase() === "USDT";
+    const settleConfig = isUsdtSettle ? await getSiteConfig().catch(() => null) : null;
+    const settledLabel = isUsdtSettle
+      ? `${usdtLabel(settledPayoutAmount, Number((settleConfig as any)?.usdtRate) || 3700)}`
+      : `UGX ${settledPayoutAmount.toLocaleString()}`;
     await createNotification(
       userId,
       "Withdrawal Approved",
-      `Your withdrawal request has been approved and UGX ${settledPayoutAmount.toLocaleString()} is marked as settled. Reference: ${txId}.`,
+      `Your withdrawal request has been approved and ${settledLabel} is marked as settled. Reference: ${txId}.`,
       "withdraw",
       settledPayoutAmount
     );
+    await sendChatMessage({
+      roomId: "shared",
+      sender: "system",
+      senderName: "SYSTEM BROADCAST",
+      text: `User ${userId.slice(0, 4)}*** received ${settledLabel}!`
+    });
   }
   return { status: "SUCCESSFUL", profile };
 }
@@ -1613,7 +1662,7 @@ export async function completeFailedTransaction(txId: string) {
       throw new Error("This transaction was already completed.");
     }
 
-    if (transaction.type === "withdrawal" || transaction.type === "withdraw") {
+    if (transaction.type === "withdrawal") {
       const metadata = transaction.metadata && typeof transaction.metadata === "object"
         ? transaction.metadata as Record<string, any>
         : {};
@@ -1776,10 +1825,10 @@ export async function adminUpdateTransactionStatus(txId: string, status: string)
   const transaction = await getTransaction(txId);
   if (!transaction) throw new Error("Transaction was not found.");
 
-  const isWithdrawal = transaction.type === "withdrawal" || transaction.type === "withdraw";
+  const isWithdrawal = transaction.type === "withdrawal";
   const isAutomaticWithdrawal = isWithdrawal && String(transaction.mode || "").toLowerCase() === "automatic";
   if (isAutomaticWithdrawal && normalizedStatus !== "PENDING") {
-    throw new Error("Automatic withdrawals are settled only by the payment-provider webhook.");
+    throw new Error("This withdrawal is settled only by the payment-provider webhook.");
   }
 
   if (normalizedStatus === "SUCCESSFUL" || normalizedStatus === "COMPLETED") {
@@ -1944,9 +1993,11 @@ export async function redeemGiftCode(phone: string, code: string) {
     await drizzleDb.insert(schema.transactions).values({
       id: newTxId,
       userId: phone,
-      type: "voucher",
+      type: "gift_code",
       amount: gift.amount,
-      status: "completed",
+      status: "SUCCESSFUL",
+      currency: "UGX",
+      paymentMethod: "GIFT_CODE",
       mode: "auto",
       timestamp: new Date().toISOString()
     });
@@ -1981,7 +2032,7 @@ export async function dailyCheckin(phone: string) {
   await saveTransaction({
     id: "chk_" + crypto.randomBytes(8).toString("hex"),
     userId: phone,
-    type: "checkin",
+    type: "daily_checkin_bonus",
     amount: bonus,
     currency: "UGX",
     status: "SUCCESSFUL",
@@ -2042,9 +2093,15 @@ export async function getVipTaskboard(phone: string) {
   // VIP rank follows the published task ladder, not referral-count guesses or
   // task-id parsing. A user reaches the highest task that their server-side
   // Combined Level 1–4 bonus has unlocked or that they have already claimed.
-  const vipLevel = tasks.reduce((highest, task, index) => (
-    task.unlocked || task.claimed ? index + 1 : highest
-  ), 0);
+  // If categories are labeled 0..N (e.g. VIP 0 → VIP 4), respect the numeric
+  // category value so a user with 4 unlocked 0..3 shows VIP 3 not VIP 4.
+  const vipLevel = tasks.reduce((highest, task) => {
+    if (!(task.unlocked || task.claimed)) return highest;
+    const raw = String(task.category || "");
+    const parsed = parseInt(raw.replace(/\D/g, ""), 10);
+    const level = Number.isFinite(parsed) && raw.replace(/\D/g, "") !== "" ? parsed : tasks.indexOf(task) + 1;
+    return Math.max(highest, level);
+  }, 0);
 
   return {
     tasks,
@@ -2116,6 +2173,13 @@ export async function claimVipTask(phone: string, taskId: string) {
     `Successfully claimed VIP task reward of UGX ${task.reward.toLocaleString()} credited to your withdrawable balance!`,
     "rewards"
   );
+
+  await sendChatMessage({
+    roomId: "shared",
+    sender: "system",
+    senderName: "SYSTEM BROADCAST",
+    text: `User ${phone.slice(0, 4)}*** claimed a VIP task reward of UGX ${task.reward.toLocaleString()}!`
+  });
 
   return { bonus: task.reward, claimedVipTasks };
 }
@@ -2205,7 +2269,10 @@ export async function updateSiteConfig(newConfig: Partial<SiteConfig>): Promise<
   const drizzleDb = requireDatabase("save site configuration");
   try {
     const current = await getSiteConfig().catch(() => ({}));
-    const updated = { ...current, ...newConfig } as SiteConfig & Record<string, any>;
+    // hut12 tokens — sanitize merged config to heal stale presets
+    const mergedRaw = { ...current, ...newConfig } as SiteConfig & Record<string, any>;
+    const sanitizedTokens = sanitizeSiteConfig(mergedRaw);
+    const updated = { ...mergedRaw, ...sanitizedTokens } as SiteConfig & Record<string, any>;
 
     if ("adminPass" in newConfig) {
       const incoming = (newConfig as any).adminPass;
@@ -2217,25 +2284,13 @@ export async function updateSiteConfig(newConfig: Partial<SiteConfig>): Promise<
     }
 
     if (Array.isArray(updated.vipTaskCategories)) {
-      updated.vipTaskCategories = Array.from(new Set(
-        updated.vipTaskCategories
-          .map((category) => String(category || "").trim())
-          .filter(Boolean)
-      ));
+      updated.vipTaskCategories = dedupeCategories(updated.vipTaskCategories);
     }
 
     if (Array.isArray(updated.vipTasks)) {
       updated.vipTasks = updated.vipTasks
         .filter((task: any) => task && String(task.id || "").trim() && String(task.title || "").trim())
-        .map((task: any) => ({
-          id: String(task.id).trim(),
-          title: String(task.title).trim(),
-          description: String(task.description || "").trim(),
-          category: String(task.category || "").trim(),
-          requiredBonus: Math.max(0, Number(task.requiredBonus || 0)),
-          reward: Math.max(0, Number(task.reward || 0)),
-          active: task.active !== false
-        }));
+        .map((task: any) => normalizeVipTask(task));
     }
 
     updated.minimumDeposit = getMinimumDepositAmount(updated);

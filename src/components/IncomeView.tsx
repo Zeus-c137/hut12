@@ -37,9 +37,13 @@ export default function IncomeView({
   const [claimingId, setClaimingId] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
-  // Calculate Cumulative total earnings
+  // Calculate Cumulative total earnings — resolve daily rate from catalog so every product counts
+  const rateOf = (node: SubscribedNode) => {
+    const mapped = items.find((item) => item.id === node.itemId || item.name === node.itemName);
+    return mapped?.dailyYield !== undefined ? mapped.dailyYield : (node.dailyYield || 0);
+  };
   const sumCollected = activeNodes.reduce((acc, node) => acc + (node.totalEarned || 0), 0);
-  const totalDailyYield = activeNodes.filter(n => n.status === "active").reduce((acc, node) => acc + (node.dailyYield || 0), 0);
+  const totalDailyYield = activeNodes.filter(n => n.status === "active").reduce((acc, node) => acc + rateOf(node), 0);
 
   const getElapsedDays = (node: any, totalDays: number, dailyYield: number): number => {
     try {
@@ -88,14 +92,16 @@ export default function IncomeView({
   return (
     <div className="space-y-5 select-none bg-transparent text-[var(--theme-text)] p-1 rounded-[var(--theme-radius)] relative">
       
-      {/* Aggregate Stats — Visa prototype (unified with Products) */}
-      <VisaMetricCard
-        leftValue={formatCurrency(totalDailyYield)}
-        leftLabel="Total Daily"
-        leftSub="/ day"
-        rightValue={formatCurrency(sumCollected)}
-        rightLabel="Income Collected"
-      />
+      {/* Aggregate Stats — sticky so product list scrolls below */}
+      <div className="sticky top-0 z-20 -mx-1 px-1 pt-1 pb-2 bg-[var(--theme-bg)]/85 backdrop-blur-xl">
+        <VisaMetricCard
+          leftValue={formatCurrency(totalDailyYield)}
+          leftLabel="Total Daily"
+          leftSub="/ day"
+          rightValue={formatCurrency(sumCollected)}
+          rightLabel="Income Collected"
+        />
+      </div>
 
       {/* Active Subscriptions Miner Nodes list section */}
       <div className="space-y-4">
@@ -141,20 +147,20 @@ export default function IncomeView({
               return (
                 <div
                   key={node.id}
-                  className="group flex flex-row theme-card card-playful-3d border-2 border-[var(--theme-card-border)] rounded-[var(--theme-radius)] p-3 overflow-hidden relative shadow-sm hover:border-[var(--theme-primary)]/30"
+                  className="group flex flex-row bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 rounded-[24px] p-3 overflow-hidden relative shadow-sm hover:border-[var(--theme-primary)]/30"
                 >
-                  {/* Left portion: Hardware Image full height */}
-                  <div onClick={() => imageUrl && setPreviewImage(imageUrl)} className="w-36 h-36 md:w-44 md:h-44 relative overflow-hidden rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border-2 border-[var(--theme-card-border)] shrink-0 cursor-zoom-in group-hover:border-[var(--theme-primary)]/30 transition-colors">
+                  {/* Left portion: Hardware Image full height — transparent bg like income, contain */}
+                  <div onClick={() => imageUrl && setPreviewImage(imageUrl)} className="w-28 h-28 sm:w-32 sm:h-32 md:w-44 md:h-44 relative overflow-hidden rounded-[var(--theme-radius)] bg-transparent border-0 shrink-0 cursor-zoom-in group-hover:border-[var(--theme-primary)]/30 transition-colors p-2 flex items-center justify-center">
                     {imageUrl ? (
                       <img
                         src={imageUrl}
                         alt=""
                         loading="lazy"
                         referrerPolicy="no-referrer"
-                        className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform"
+                        className="w-full h-full object-contain group-hover:scale-[1.02] transition-transform"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-[var(--theme-bg)] text-[var(--theme-text)] opacity-40">
+                      <div className="w-full h-full flex items-center justify-center bg-transparent text-[var(--theme-text)] opacity-40">
                         <Cpu className="w-8 h-8" />
                       </div>
                     )}
@@ -168,18 +174,18 @@ export default function IncomeView({
                         {itemName}
                       </h4>
 
-                      <div className="space-y-0.5 text-xs text-[var(--theme-text)]">
-                        <p className="flex items-baseline gap-1.5">
-                          <span className="text-[11px] text-[var(--theme-text)] opacity-60 font-semibold shrink-0">Duration:</span>
-                          <span className="font-bold">{elapsedDays}/{totalDays} Days</span>
+                      <div className="space-y-2 text-[var(--theme-text)] min-w-0">
+                        <p className="flex items-center justify-between gap-3 min-w-0 leading-relaxed">
+                          <span className="text-[10.5px] font-display font-black uppercase tracking-[0.14em] text-[var(--theme-text)] opacity-60 shrink-0">Cycle</span>
+                          <span className="font-display font-black text-[13px] tracking-tight text-[var(--theme-text)] truncate text-right min-w-0">{elapsedDays}/{totalDays} Days</span>
                         </p>
-                        <p className="flex items-baseline gap-1.5">
-                          <span className="text-[11px] text-[var(--theme-text)] opacity-60 font-semibold shrink-0">Daily income:</span>
-                          <span className="font-bold">{formatCurrency(dailyYield)}</span>
+                        <p className="flex items-center justify-between gap-3 min-w-0 leading-relaxed">
+                          <span className="text-[10.5px] font-display font-black uppercase tracking-[0.14em] text-[var(--theme-text)] opacity-60 shrink-0">Daily income</span>
+                          <span className="font-display font-black text-[13px] tracking-tight text-[var(--theme-text)] truncate text-right min-w-0">{formatCurrency(dailyYield)}</span>
                         </p>
-                        <p className="flex items-baseline gap-1.5">
-                          <span className="text-[11px] text-[var(--theme-text)] opacity-60 font-semibold shrink-0">Collected:</span>
-                          <span className="font-bold">{formatCurrency(node.totalEarned || (dailyYield * elapsedDays))}</span>
+                        <p className="flex items-center justify-between gap-3 min-w-0 leading-relaxed">
+                          <span className="text-[10.5px] font-display font-black uppercase tracking-[0.14em] text-[var(--theme-text)] opacity-60 shrink-0">Collected</span>
+                          <span className="font-display font-black text-[13px] tracking-tight text-[var(--theme-text)] truncate text-right min-w-0">{formatCurrency(node.totalEarned || (dailyYield * elapsedDays))}</span>
                         </p>
                       </div>
                     </div>
@@ -187,10 +193,10 @@ export default function IncomeView({
                     {/* Progress Bar & Status Indicator */}
                     <div className="pt-1.5 space-y-1">
                       {/* Progress Bar */}
-                      <div className="w-full bg-[var(--theme-bg)] h-2 rounded-full overflow-hidden border border-[var(--theme-card-border)] p-0.5">
+                      <div className="w-full bg-[var(--theme-card-bg)] h-3 rounded-full overflow-hidden border border-[var(--theme-card-border)] p-0.5">
                         <div 
                           className={`h-full rounded-full transition-all duration-500 ${
-                            isExpired ? 'bg-gray-400' : 'btn-3d-primary'
+                            isExpired ? 'bg-[var(--theme-text)] opacity-30' : 'bg-[var(--theme-primary)]'
                           }`}
                           style={{ width: `${progressPercent}%` }}
                         />

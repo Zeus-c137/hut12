@@ -71,6 +71,7 @@ import {
   publicProfile,
   verifyPassword
 } from "./src/server/db";
+import { migratePreset as migratePresetServer, migrateCardStyle as migrateCardStyleServer, migrateFontFamily as migrateFontFamilyServer, sanitizeSiteConfig as sanitizeSiteConfigServer } from "./src/utils/themeTokens";
 
 // Ensure .env is loaded robustly in production iisnode and custom hosting environments (like SmarterASP)
 const envFiles = [".env", "env.txt", "env", ".env.local"];
@@ -492,7 +493,7 @@ app.post("/api/profile/withdraw", async (req, res) => {
     // webhook; current clients must use /api/payment/withdraw.
     const config = await getSiteConfig();
     if (getConfiguredWithdrawMode(config) === "automatic") {
-      return res.status(409).json({ error: "Automatic withdrawals must be submitted through the payment gateway flow." });
+      return res.status(409).json({ error: "Withdrawals must be submitted through the payment flow." });
     }
 
     const result = await requestCashout(phone, numPoints, undefined, "manual");
@@ -540,8 +541,8 @@ app.post("/api/profile/vip-tasks/claim", async (req, res) => {
   }
 });
 
-// Helper to authenticate with ZuluPay API
-async function getZuluPayToken(): Promise<string> {
+// Helper to authenticate with the payment gateway API
+async function getGatewayToken(): Promise<string> {
   const publicKey = process.env.PAYMENT_PUBLIC_KEY;
   if (!publicKey) {
     throw new Error(`environment configuration is missing (PAYMENT_PUBLIC_KEY). Env loaded path: "${appliedEnvPath || "None"}". Checked paths: [${searchPaths.slice(0, 10).join(", ")}]. Loaded env keys: ${Object.keys(process.env).filter(k => k.includes("PAYMENT") || k.includes("PORT") || k.includes("APP")).join(", ")}`);
@@ -576,7 +577,7 @@ async function getZuluPayToken(): Promise<string> {
   return token;
 }
 
-// 1. ZULUPAY DEPOSIT / COLLECTION
+// 1. GATEWAY DEPOSIT / COLLECTION
 app.post("/api/payment/deposit", async (req, res) => {
   const { phone, amount, operator, depositPhone, type, itemId } = req.body;
   const depAmt = parseInt(amount);
@@ -601,8 +602,9 @@ app.post("/api/payment/deposit", async (req, res) => {
       throw new Error(` configuration secret key is missing (PAYMENT_SECRET_KEY). Env loaded path: "${appliedEnvPath || "None"}". Checked paths: [${searchPaths.slice(0, 10).join(", ")}]. Loaded env keys: ${Object.keys(process.env).filter(k => k.includes("PAYMENT") || k.includes("PORT") || k.includes("APP")).join(", ")}`);
     }
 
-    const token = await getZuluPayToken();
-    const trans_id = String(type || "").toLowerCase() === "gpu"
+    const token = await getGatewayToken();
+    const rawType = String(type || "").toLowerCase();
+    const trans_id = ["gpu", "product_activation", "subscription"].includes(rawType)
       ? createTransactionId("RNT")
       : createTransactionId("DEP");
     const webhookUrl = process.env.PAYMENT_WEBHOOK_URL || `${req.protocol}://${req.get("host")}/api/payment/webhook`;
@@ -667,7 +669,7 @@ app.post("/api/manual/deposit", async (req, res) => {
   const depAmt = parseInt(amount);
 
   if (!phone || isNaN(depAmt) || depAmt <= 0 || !operator || !senderPhone || !transId) {
-    return res.status(400).json({ error: "Please fill in all manual deposit fields with a valid amount." });
+    return res.status(400).json({ error: "Please fill in all deposit fields with a valid amount." });
   }
 
   try {
@@ -692,7 +694,7 @@ app.post("/api/manual/deposit", async (req, res) => {
     await saveTransaction({
       id: internalTransactionId,
       userId: phone,
-      type: itemId ? "gpu" : "deposit",
+      type: itemId ? "product_activation" : "deposit",
       amount: depAmt,
       currency: "UGX",
       status: "pending",
@@ -725,7 +727,7 @@ app.post("/api/manual/deposit", async (req, res) => {
   }
 });
 
-// 2. ZULUPAY TRANSACTION STATUS CHECK & PROVISIONING
+// 2. GATEWAY TRANSACTION STATUS CHECK & PROVISIONING
 app.post("/api/payment/status", async (req, res) => {
   const { trans_id } = req.body;
 
@@ -751,7 +753,7 @@ app.post("/api/payment/status", async (req, res) => {
       return res.json({ success: true, status: String(tx.status || "PENDING").toUpperCase(), transaction: tx });
     }
 
-    const token = await getZuluPayToken();
+    const token = await getGatewayToken();
     const zKey = process.env.PAYMENT_SECRET_KEY;
 
     const queryRes = await fetchWithTimeout(`${PAYMENT_GATEWAY_URL}/api/transaction`, {
@@ -763,7 +765,7 @@ app.post("/api/payment/status", async (req, res) => {
         "Authorization": `Bearer ${token}`
       },
       body: JSON.stringify({
-        type: (tx.type === "withdrawal" || tx.type === "withdraw") ? "withdraw" : "deposit",
+        type: tx.type === "withdrawal" ? "withdraw" : "deposit",
         trans_id
       })
     });
@@ -834,7 +836,7 @@ app.post("/api/payment/status", async (req, res) => {
   }
 });
 
-// 3. ZULUPAY WITHDRAW / DISBURSEMENT
+// 3. GATEWAY WITHDRAW / DISBURSEMENT
 app.post("/api/payment/withdraw", async (req, res) => {
   const phone = normalizePhone(req.body?.phone);
   const operator = String(req.body?.operator || "").trim().toUpperCase();
@@ -884,7 +886,10 @@ app.post("/api/payment/withdraw", async (req, res) => {
       return res.status(400).json({ error: `Insufficient withdrawable balance. Available: UGX ${Number(currentUser.points || 0).toLocaleString()}.` });
     }
 
-    if (withdrawMode === "manual") {
+    // USDT has no gateway provider (the gateway is mobile-money only), so it is
+    // always settled manually by admin — even in automatic mode and even
+    // when no Mobile Money credentials are configured.
+    if (withdrawMode === "manual" || operator === "USDT") {
       const cashoutResult = await requestCashout(phone, withAmt, undefined, "manual", withdrawPhone, operator, {
         feePercent: withdrawFeePercent,
         feeAmount: withdrawFeeAmount,
@@ -907,7 +912,7 @@ app.post("/api/payment/withdraw", async (req, res) => {
     }
 
     const trans_id = createTransactionId("WDR");
-    const token = await getZuluPayToken();
+    const token = await getGatewayToken();
     const webhookUrl = process.env.PAYMENT_WEBHOOK_URL || `${req.protocol}://${req.get("host")}/api/payment/webhook`;
 
     // Record the pending withdrawal before contacting the provider. A fast
@@ -984,7 +989,7 @@ app.post("/api/payment/withdraw", async (req, res) => {
   }
 });
 
-// 4. ZULUPAY WEBHOOK / CALLBACK (Provide this URL to your provider)
+// 4. GATEWAY WEBHOOK / CALLBACK (Provide this URL to your provider)
 app.post("/api/payment/webhook", async (req, res) => {
   try {
     console.log("Received Webhook Callback:", JSON.stringify(req.body, null, 2));
@@ -1003,7 +1008,7 @@ app.post("/api/payment/webhook", async (req, res) => {
       return res.status(200).json({ received: true, status: "ignored_missing_status" });
     }
 
-    // Normalize incoming status from ZuluPay
+    // Normalize incoming status from the gateway
     let normalizedStatus = "PENDING";
     const upperStatus = String(rawStatus).toUpperCase();
     if (upperStatus === "SUCCESS" || upperStatus === "SUCCESSFUL" || upperStatus === "COMPLETED") {
@@ -1205,13 +1210,13 @@ const copilotRateLimit = new Map<string, { count: number, date: string }>();
 app.post("/api/copilot/chat", async (req, res) => {
   const { messages, userProfile, activeSubscriptions } = req.body;
   
-  // Rate Limiting (5 msgs / day)
+  // Rate Limiting (50 msgs / day — cap is silent in UI)
   if (userProfile?.phone) {
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     const userLimit = copilotRateLimit.get(userProfile.phone);
     if (userLimit && userLimit.date === today) {
-      if (userLimit.count >= 5) {
-        return res.status(429).json({ error: "Daily limit of 5 AI messages reached. Please try again tomorrow!" });
+      if (userLimit.count >= 50) {
+        return res.status(429).json({ error: "You've reached today's AI message limit. Please try again tomorrow!" });
       }
       userLimit.count += 1;
     } else {
@@ -1268,7 +1273,7 @@ app.post("/api/copilot/chat", async (req, res) => {
   }
 
   try {
-    const systemInstruction = `You are "${brand} AI", the official Mining Advisor & Assistant of "${brand}".
+    const systemInstruction = `You are "${brand} AI", the official Support Consultant of "${brand}".
 Description: ${manifestDesc}
 
 Platform Config & Financial Parameters:
@@ -1285,30 +1290,38 @@ Platform Config & Financial Parameters:
 Active Gift Codes / Vouchers:
 ${activeCodesList}
 
-Available Node Categories:
+Available Product Categories:
 ${categoriesList}
 
-Available Machines Catalog:
+Available Products Catalog:
 ${catalogProductsList || "No products currently listed."}
 
 Current User Details:
-- Username: ${userProfile?.username || "Guest Miner"}
+- Username: ${userProfile?.username || "Guest"}
 - Phone: ${userProfile?.phone || "None"}
 - Balance: ${userProfile?.points || 0} UGX Shs
 - Invites count: ${userProfile?.invitesCount || 0} users referred
-- Active sub nodes count: ${activeSubscriptions?.length || 0} active miners
+- Active products count: ${activeSubscriptions?.length || 0} active products
+
+How ${brand} works (always explain it this way):
+- Users deposit funds into their rechargeable balance. That balance is used to rent products in the system.
+- Each product has a cycle (duration in days) and earns daily income. Daily income is credited to the user's withdrawable balance.
+- Withdrawals come from the withdrawable balance to Mobile Money or USDT. Withdrawals only work if the user has a product — users without any product cannot withdraw.
+- We support both instant Mobile Money (MTN/Airtel) and USDT payments.
 
 Knowledge & Capabilities:
-- **Recharge (Deposit)**: Users can deposit UGX via MTN/Airtel Mobile Money or USDT TRC20 to buy server nodes.
-- **Withdrawal**: Cash out balance directly to Mobile Money or USDT. Withdrawal fee is exactly ${siteConfig?.withdrawFee || 0}%.
-- **Invite Program**: Users earn ${siteConfig?.level1InviteIncomePct ?? 15}% on Level 1, ${siteConfig?.level2InviteIncomePct ?? 5}% on Level 2, ${siteConfig?.level3InviteIncomePct ?? 0}% on Level 3, and ${siteConfig?.level4InviteIncomePct ?? 0}% on Level 4 when invited friends activate GPU nodes.
+- **Recharge (Deposit)**: Users can deposit via instant Mobile Money (MTN/Airtel) or USDT TRC20 into their rechargeable balance to rent products.
+- **Withdrawal**: Withdraw from the withdrawable balance to Mobile Money or USDT. Only works with an active product. Withdrawal fee is exactly ${siteConfig?.withdrawFee || 0}%.
+- **Invite Program**: Users share referral links and earn ${siteConfig?.level1InviteIncomePct ?? 15}% on Level 1, ${siteConfig?.level2InviteIncomePct ?? 5}% on Level 2, ${siteConfig?.level3InviteIncomePct ?? 0}% on Level 3, and ${siteConfig?.level4InviteIncomePct ?? 0}% on Level 4 when invited friends activate products (referrals only pay while the invitee has an active product).
+- **Gift Codes**: New gift codes are given out daily in the community groups set by the admin (WhatsApp: ${siteConfig?.whatsappLink || "N/A"}, Telegram: ${siteConfig?.telegramLink || "N/A"}). Tell users to join the community groups to claim them.
 - **VIP Tasks**: Complete referral targets to unlock rewards up to UGX 50,000,000.
 - **Support Links**: WhatsApp (${siteConfig?.whatsappLink || "N/A"}) and Telegram (${siteConfig?.telegramLink || "N/A"}).
 
 Instructions:
-1. Speak confidently, warmly, and helpfully like a knowledgeable crypto advisor and developer.
-2. Provide exact facts when users ask about withdrawal fees (${siteConfig?.withdrawFee || 0}%), invite rates (${siteConfig?.level1InviteIncomePct ?? 15}% L1, ${siteConfig?.level2InviteIncomePct ?? 5}% L2, ${siteConfig?.level3InviteIncomePct ?? 0}% L3, ${siteConfig?.level4InviteIncomePct ?? 0}% L4), support links, or active gift codes.
-3. Keep replies concise, friendly, and structured. Limit responses below 70 words.
+1. Speak confidently, warmly, and helpfully like a knowledgeable support consultant. Never mention mining, miners, nodes, or GPUs — always say products.
+2. The platform is called "${brand}". Always refer to it by this name wherever a name fits.
+3. Provide exact facts when users ask about withdrawal fees (${siteConfig?.withdrawFee || 0}%), invite rates (${siteConfig?.level1InviteIncomePct ?? 15}% L1, ${siteConfig?.level2InviteIncomePct ?? 5}% L2, ${siteConfig?.level3InviteIncomePct ?? 0}% L3, ${siteConfig?.level4InviteIncomePct ?? 0}% L4), support links, or active gift codes.
+4. Keep replies concise, friendly, and well structured: use short lines, **bold** key figures (amounts, rates), and bullet lists (-) for multi-step answers. Never send a wall of text. Limit responses below 120 words.
 4. Format response strictly as simple JSON object:
 {
   "text": "Your response in clean markdown layout."
@@ -1753,19 +1766,19 @@ app.get("/api/config/site", async (req, res) => {
       inviteBonus: config.inviteBonus !== undefined ? config.inviteBonus : 3000,
       checkinBaseBonus: config.checkinBaseBonus !== undefined ? config.checkinBaseBonus : 100,
       checkinIncrement: config.checkinIncrement !== undefined ? config.checkinIncrement : 50,
-      themePreset: config.themePreset || "duolingo-playful",
+      themePreset: migratePresetServer(config.themePreset as string) || "hut12-light",
       themeMode: config.themeMode || "light",
       authBgImage: config.authBgImage || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1600&q=80",
       dashboardBgImage: config.dashboardBgImage || "",
-      cardStyle: config.cardStyle || "playful-3d",
-      buttonStyle: config.buttonStyle || "playful-3d",
-      borderRadius: config.borderRadius || "rounded-2xl",
-      primaryColor: config.primaryColor || "#58cc02",
-      accentColor: config.accentColor || "#ff4b4b",
-      secondaryColor: config.secondaryColor || "#1cb0f6",
+      cardStyle: migrateCardStyleServer(config.cardStyle as string) || "solid",
+      buttonStyle: "pill-gradient",
+      borderRadius: "rounded-2xl",
+      primaryColor: config.primaryColor || "#c27a2e",
+      accentColor: config.accentColor || "#f59e0b",
+      secondaryColor: config.secondaryColor || "#0ea5e9",
       bgColor: config.bgColor || "",
       cardBgColor: config.cardBgColor || "",
-      fontFamily: config.fontFamily || "Fredoka",
+      fontFamily: migrateFontFamilyServer(config.fontFamily) || "Sora",
       fontSizeScale: config.fontSizeScale || "md",
       textColor: config.textColor || "",
       updatedAt: (config as any).updatedAt || 0
@@ -1897,7 +1910,8 @@ app.get("/api/admin/config", async (req, res) => {
 
 app.put("/api/admin/config", async (req, res) => {
   try {
-    const updated = await updateSiteConfig(req.body);
+    const sanitized = sanitizeSiteConfigServer(req.body);
+    const updated = await updateSiteConfig(sanitized);
     res.json({ success: true, config: updated });
   } catch (err: any) {
     const response = errorResponse(err, "Unable to save site configuration.", 500);
@@ -1977,6 +1991,18 @@ async function startServer() {
   try {
     // Verify the connection and create any missing application tables.
     await seedDatabaseIfEmpty();
+    // hut12 tokens migration — heal stale site_config once at boot
+    try {
+      const rawConfig = await getSiteConfig();
+      const rawPreset = String((rawConfig as any).themePreset || "");
+      if (rawPreset && rawPreset !== "hut12-light" && rawPreset !== "hut12-dark") {
+        const sanitized = sanitizeSiteConfigServer(rawConfig as any);
+        await updateSiteConfig(sanitized);
+        console.log(`[Startup] Migrated site_config themePreset ${rawPreset} -> ${(sanitized as any).themePreset}`);
+      }
+    } catch (e) {
+      console.warn("[Startup] tokens migration check failed:", e);
+    }
     databaseReady = true;
     console.log(`[Startup] Database ready in ${Date.now() - startupStartedAt}ms.`);
   } catch (seedErr) {

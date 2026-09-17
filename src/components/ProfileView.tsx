@@ -3,8 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { useGatedInterval } from "../hooks/useGatedInterval";
 import { UserProfile, SubscribedNode } from "../types";
+import { canonicalTypeOf, getTransactionDisplayMeta, isPositiveTransaction, getWithdrawalDisplayAmounts } from "../utils/transactionMeta";
 import { usePwaInstall } from "../hooks/usePwaInstall";
 import {
   Phone,
@@ -26,6 +28,7 @@ import {
   Settings,
   LogOut,
   X,
+  ExternalLink,
   Loader2,
   CheckCircle2,
   Crown,
@@ -39,10 +42,20 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { useCurrency } from "../currency";
+import history3d from "@/src/assets/3d/3dicons-calender-iso-premium.png"; // lazy via img attrs
+import invite3d from "@/src/assets/3d/3dicons-link-iso-premium.png";
+import vip3d from "@/src/assets/3d/3dicons-trophy-iso-premium.png";
+import gift3d2 from "@/src/assets/3d/3dicons-gift-box-iso-premium.png";
+import checkin3d from "@/src/assets/3d/3dicons-calendar-iso-premium.png";
+import install3d from "@/src/assets/3d/3dicons-rocket-iso-premium.png";
+import bank3d from "@/src/assets/3d/3dicons-wallet-iso-premium.png";
+import update3d from "@/src/assets/3d/3dicons-tools-iso-premium.png";
+import guide3d from "@/src/assets/3d/3dicons-pencil-iso-premium.png";
+import community3d from "@/src/assets/3d/3dicons-megaphone-iso-premium.png";
+import { Button } from "./ui/button";
 import confetti from "canvas-confetti";
 import ParticleBg from "./ParticleBg";
 import NewsCarousel from "./NewsCarousel";
-import VipTasksSheet from "./VipTasksSheet";
 import VisaMetricCard from "./VisaMetricCard";
 
 interface ProfileViewProps {
@@ -53,7 +66,7 @@ interface ProfileViewProps {
   onProfileUpdate: (newProfile: UserProfile) => void;
   onNavigateToDeposit: () => void;
   onNavigateToWithdraw?: () => void;
-  onNavigate: (tab: "dashboard" | "catalog" | "income" | "history" | "referral" | "chat" | "profile" | "deposit" | "withdraw" | "alerts", chatRoom?: "shared" | "admin") => void;
+  onNavigate: (tab: "dashboard" | "catalog" | "income" | "history" | "referral" | "chat" | "profile" | "account" | "guide" | "deposit" | "withdraw" | "alerts" | "vip", chatRoom?: "shared" | "admin") => void;
   onLogout: () => void;
   autoOpenWithdraw?: boolean;
   onCloseAutoWithdraw?: () => void;
@@ -115,22 +128,28 @@ export default function ProfileView({
     }).catch(() => {});
   }, []);
 
+  const updateAbortRef = useRef<AbortController | null>(null);
   const checkForAppUpdate = async () => {
+    if (document.hidden) return;
     if (!("serviceWorker" in navigator)) {
       setUpdateState("unsupported");
       toast.info("Update checks need the installed production build.");
       return;
     }
+    if (updateAbortRef.current) updateAbortRef.current.abort();
+    const ctrl = new AbortController();
+    updateAbortRef.current = ctrl;
     setUpdateState("checking");
     try {
       const reg = await navigator.serviceWorker.getRegistration();
-      if (!reg) {
+      if (!reg || ctrl.signal.aborted) {
         setUpdateState("unsupported");
         toast.info("Open the installed app to check.");
         return;
       }
       await reg.update().catch(() => {});
       await new Promise((r) => setTimeout(r, 1200));
+      if (ctrl.signal.aborted) return;
       const fresh = await navigator.serviceWorker.getRegistration();
       const at = Date.now();
       try { localStorage.setItem("app_update_last_checked", String(at)); } catch {}
@@ -143,6 +162,7 @@ export default function ProfileView({
         toast.success("You're on the latest version.");
       }
     } catch {
+      if (ctrl.signal.aborted) return;
       setUpdateState("idle");
       toast.error("Could not check for updates. Try again.");
     }
@@ -173,8 +193,9 @@ export default function ProfileView({
 
   useEffect(() => {
     if (!checkedInToday) {
+      if (document.hidden) return;
       const timer = setTimeout(() => {
-        setShowCheckinSheet(true);
+        if (!document.hidden) setShowCheckinSheet(true);
       }, 5 * 60 * 1000);
       return () => clearTimeout(timer);
     }
@@ -319,19 +340,24 @@ export default function ProfileView({
 
   // States to trigger minimal sheets
   const [showWithdrawSheet, setShowWithdrawSheet] = useState(false);
-  const [showSettingsSheet, setShowSettingsSheet] = useState(false);
-  const [showHistorySheet, setShowHistorySheet] = useState(false);
-  const [showVipTasksSheet, setShowVipTasksSheet] = useState(false);
 
-  // Edit Profile form fields
-  const [username, setUsername] = useState(userProfile.username || "");
-  const [operator, setOperator] = useState<"MTN" | "Airtel">(userProfile.operator || "MTN");
+  const [showHistorySheet, setShowHistorySheet] = useState(false);
+  const [showCommunitySheet, setShowCommunitySheet] = useState(false);
+  const communityConfettiRef = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    if (!showCommunitySheet) return;
+    const canvas = communityConfettiRef.current;
+    if (!canvas) return;
+    const myConfetti = confetti.create(canvas, { resize: true, useWorker: true });
+    const id = window.setInterval(() => {
+      myConfetti({ particleCount: 2, spread: 60, startVelocity: 12, gravity: 0.5, scalar: 0.8, ticks: 300, origin: { x: Math.random() * 0.6 + 0.2, y: 0 }, colors: ["#CF7500", "#FFE8A3", "#9A4F00"] });
+    }, 450);
+    return () => window.clearInterval(id);
+  }, [showCommunitySheet]);
+
+  // Withdraw form fields (bind-account settings moved to BindAccountView page)
   const [usdtAddress, setUsdtAddress] = useState(userProfile.usdtAddress || "");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [withdrawalPhone, setWithdrawalPhone] = useState(userProfile.phone || "");
-  const [isSavingProfile, setIsSavingProfile] = useState(false);
-  const [successUpdate, setSuccessUpdate] = useState(false);
 
   // Cashout request form fields
   const [pointsToWithdraw, setPointsToWithdraw] = useState<number>(0);
@@ -346,13 +372,11 @@ export default function ProfileView({
   // Sync profile details when userProfile changes
   useEffect(() => {
     if (userProfile) {
-      setUsername(userProfile.username || "");
-      setOperator(userProfile.operator || "MTN");
       setUsdtAddress(userProfile.usdtAddress || "");
       setWithdrawalPhone(userProfile.phone || "");
       setWithdrawOperator(userProfile.operator || "MTN");
     }
-  }, [userProfile, showSettingsSheet, showWithdrawSheet]);
+  }, [userProfile, showWithdrawSheet]);
 
   // Fetch non-simulated user transaction logs
   const fetchTxHistory = async () => {
@@ -367,60 +391,6 @@ export default function ProfileView({
       console.error("Failed to fetch transaction histories:", err);
     } finally {
       setTxLoading(false);
-    }
-  };
-
-  // Profile Save
-  const handleSaveProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSuccessUpdate(false);
-    
-    if (newPassword && newPassword !== confirmPassword) {
-      toast.error("Passwords do not match.");
-      return;
-    }
-
-    if (!/^\d{9,10}$/.test(withdrawalPhone)) {
-      toast.error("Withdrawal phone number must be 9 or 10 digits.");
-      return;
-    }
-
-    setIsSavingProfile(true);
-    try {
-      const res = await fetch("/api/auth/profile", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phone: userProfile.phone,
-          username,
-          operator,
-          customPhone: withdrawalPhone,
-          usdtAddress,
-          newPassword: newPassword || undefined
-        })
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Profile ledger update failed.");
-      }
-
-      onProfileUpdate(data.profile);
-      setSuccessUpdate(true);
-      toast.success("Account preferences updated successfully.");
-      if (newPassword) {
-        setNewPassword("");
-        setConfirmPassword("");
-        toast.info("Password saved.");
-      }
-      setTimeout(() => {
-        setSuccessUpdate(false);
-        setShowSettingsSheet(false);
-      }, 1500);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to edit user settings.");
-    } finally {
-      setIsSavingProfile(false);
     }
   };
 
@@ -507,149 +477,74 @@ export default function ProfileView({
 
       {/* 1. Balance — Visa card (recharge + withdrawable) */}
       <VisaMetricCard
+        variant="bank-dark"
         leftLabel="Recharge balance"
         leftValue={`${currency === 'USD' ? '$' : 'UGX'} ${currency === 'USD' ? ((userProfile.rechargeBalance || 0) / 3700).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : (userProfile.rechargeBalance || 0).toLocaleString()}`}
         rightLabel="Withdrawable"
         rightValue={`${currency === 'USD' ? '$' : 'UGX'} ${currency === 'USD' ? ((userProfile.points || 0) / 3700).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : (userProfile.points || 0).toLocaleString()}`}
       />
-      <div className="flex gap-2">
-        <button
-          onClick={onNavigateToDeposit}
-          className="flex-1 py-2.5 rounded-full bg-[var(--theme-primary)] text-white font-black text-xs uppercase tracking-wider shadow-[0_3px_0_0_var(--theme-primary-shadow)] active:translate-y-[1px] active:shadow-none transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-        >
+      <div className="grid grid-cols-2 gap-2 bg-transparent border-0 p-0">
+        <Button variant="gold-glossy" size="sm" onClick={onNavigateToDeposit} className="w-full" glow={false}>
           <ArrowDownLeft className="w-4 h-4" /> Deposit
-        </button>
-        <button
-          onClick={() => (onNavigateToWithdraw ? onNavigateToWithdraw() : setShowWithdrawSheet(true))}
-          className="flex-1 py-2.5 rounded-full bg-[var(--theme-card-bg)] border-2 border-[var(--theme-card-border)] text-[var(--theme-text)] font-black text-xs uppercase tracking-wider hover:border-[var(--theme-primary)]/30 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-        >
-          <ArrowUpRight className="w-4 h-4 text-[var(--theme-primary)]" /> Withdraw
-        </button>
+        </Button>
+        <Button variant="gold-matte" size="sm" onClick={() => (onNavigateToWithdraw ? onNavigateToWithdraw() : setShowWithdrawSheet(true))} className="w-full" glow={false}>
+          <ArrowUpRight className="w-4 h-4" /> Withdraw
+        </Button>
       </div>
 
-        {/* More Actions Section Header */}
-        <h4 className="font-display font-black text-xs uppercase tracking-wider text-[var(--theme-text)] opacity-70 font-extrabold pt-2">
-          More Actions
-        </h4>
-
-        {/* Integrated Squircle Icon Menu Grid */}
-        <div id="quick-action-menu-grid" className="grid grid-cols-4 gap-x-2 gap-y-5 pt-1">
-          {/* History — now a page */}
-          <button
-            onClick={() => onNavigate("history")}
-            className="flex flex-col items-center gap-1.5 focus:outline-none group"
-          >
-            <div className="w-12 h-12 flex items-center justify-center rounded-2xl border-2 bg-[var(--theme-bg)] border-[var(--theme-card-border)] text-[var(--theme-text)] shadow-sm active:scale-95 group-active:border-[var(--theme-primary)] transition-all">
-              <History className="w-5 h-5 text-[var(--theme-primary)]" />
-            </div>
-            <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">History</span>
+        {/* More Actions — frosted container with flat 3D icons */}
+        <div className="bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 rounded-[24px] p-4 space-y-4">
+          <h4 className="font-display font-black text-xs uppercase tracking-wider text-[var(--theme-text)] opacity-70">More Actions</h4>
+          <div id="quick-action-menu-grid" className="grid grid-cols-4 gap-x-2 gap-y-5">
+            <button onClick={() => onNavigate("history")} className="flex flex-col items-center gap-1.5 focus:outline-none group">
+              <img src={history3d} loading="lazy" decoding="async" alt="" className="w-12 h-12 object-contain drop-shadow-sm" />
+              <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">History</span>
+            </button>
+            <button onClick={() => onNavigate("referral")} className="flex flex-col items-center gap-1.5 focus:outline-none group">
+              <img src={invite3d} alt="" loading="lazy" decoding="async" className="w-12 h-12 object-contain drop-shadow-sm" />
+              <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">Team Invite</span>
+            </button>
+            <button onClick={() => setShowCommunitySheet(true)} className="flex flex-col items-center gap-1.5 focus:outline-none group">
+              <img src={community3d} alt="" loading="lazy" decoding="async" className="w-12 h-12 object-contain drop-shadow-sm" />
+              <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">Community</span>
+            </button>
+            <button onClick={() => onNavigate("vip")} className="flex flex-col items-center gap-1.5 focus:outline-none group">
+              <img src={vip3d} alt="" loading="lazy" decoding="async" className="w-12 h-12 object-contain drop-shadow-sm" />
+              <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">VIP Tasks</span>
+            </button>
+            <button onClick={() => setShowGiftCodeSheet(true)} className="flex flex-col items-center gap-1.5 focus:outline-none group">
+              <img src={gift3d2} alt="" className="w-12 h-12 object-contain drop-shadow-sm" />
+              <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">Gift Code</span>
+            </button>
+            <button onClick={() => setShowCheckinSheet(true)} className="flex flex-col items-center gap-1.5 focus:outline-none group">
+              <img src={checkin3d} alt="" className="w-12 h-12 object-contain drop-shadow-sm" />
+              <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">Check-in</span>
           </button>
 
-          {/* Invite */}
-          <button
-            onClick={() => onNavigate("referral")}
-            className="flex flex-col items-center gap-1.5 focus:outline-none group"
-          >
-            <div className="w-12 h-12 flex items-center justify-center btn-3d-primary rounded-[var(--theme-radius)] aspect-square text-white shadow-md active:scale-95 transition-all cursor-pointer">
-              <UserPlus className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">Invite</span>
-          </button>
-
-          {/* VIP Tasks */}
-          <button
-            onClick={() => setShowVipTasksSheet(true)}
-            className="flex flex-col items-center gap-1.5 focus:outline-none group"
-          >
-            <div className="w-12 h-12 flex items-center justify-center btn-3d-primary rounded-[var(--theme-radius)] aspect-square text-white shadow-md active:scale-95 transition-all cursor-pointer">
-              <Crown className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">VIP Tasks</span>
-          </button>
-
-          {/* Gift Code */}
-          <button
-            onClick={() => setShowGiftCodeSheet(true)}
-            className="flex flex-col items-center gap-1.5 focus:outline-none group"
-          >
-            <div className="w-12 h-12 flex items-center justify-center btn-3d-primary rounded-[var(--theme-radius)] aspect-square text-white shadow-md active:scale-95 transition-all cursor-pointer">
-              <Gift className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">Gift Code</span>
-          </button>
-
-          {/* Check-in */}
-          <button
-            onClick={() => setShowCheckinSheet(true)}
-            className="flex flex-col items-center gap-1.5 focus:outline-none group"
-          >
-            <div className="w-12 h-12 flex items-center justify-center btn-3d-primary rounded-[var(--theme-radius)] aspect-square text-white shadow-md active:scale-95 transition-all cursor-pointer">
-              <CalendarCheck className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">Check-in</span>
-          </button>
-
-          {/* Download App */}
-          <button
-            onClick={async () => {
-              if (isInstalled) {
-                toast.success("App is already installed and running!");
-              } else if (canInstall) {
-                const accepted = await install();
-                if (!accepted) {
-                  toast.info("Installation was cancelled. You can retry from your browser's install menu.");
-                }
-              } else {
-                const instructions = platform === "Safari iOS"
-                  ? "Tap Share, then choose Add to Home Screen."
-                  : platform === "Safari macOS"
-                    ? "Choose Add to Dock from Safari's File menu."
-                    : platform === "Firefox"
-                      ? "Firefox does not expose an automatic install prompt here. Use Chrome or Edge, or add this page to your bookmarks."
-                      : "Open this page in a normal browser tab over HTTPS, then use the install icon in the address bar or browser menu.";
-                toast.info(`Automatic install is unavailable in this browser context. ${instructions}`);
-              }
-            }}
-            className="flex flex-col items-center gap-1.5 focus:outline-none group"
-          >
-            <div className={`w-12 h-12 flex items-center justify-center rounded-[var(--theme-radius)] aspect-square text-white shadow-md active:scale-95 transition-all cursor-pointer ${
-              isInstalled 
-                ? "bg-emerald-600 shadow-emerald-600/10" 
-                : "btn-3d-primary"
-            }`}>
-              {isInstalled ? (
-                <CheckCircle2 className="w-5 h-5 text-white" />
-              ) : (
-                <Download className="w-5 h-5 text-white animate-bounce" />
-              )}
-            </div>
-            <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">
-              {isInstalled ? "Installed" : "Install App"}
-            </span>
-          </button>
-
-          {/* Settings / Account Settings */}
-          <button
-            onClick={() => {
-              setSuccessUpdate(false);
-              setShowSettingsSheet(true);
-            }}
-            className="flex flex-col items-center gap-1.5 focus:outline-none group"
-          >
-            <div className="w-12 h-12 flex items-center justify-center btn-3d-secondary rounded-[var(--theme-radius)] aspect-square text-[var(--theme-text)] shadow-md active:scale-95 transition-all cursor-pointer border border-[var(--theme-card-border)]">
-              <Wallet className="w-5 h-5 text-[var(--theme-text)]" />
-            </div>
-            <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">Bank Account</span>
-          </button>
-        </div>
-
-        {/* App updates — manual check + status */}
-        <div className="border border-[var(--theme-card-border)]  rounded-[var(--theme-radius)] p-3.5 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[var(--theme-primary)]/10 border border-[var(--theme-primary)]/20 flex items-center justify-center shrink-0">
-            <RefreshCw className={`w-5 h-5 text-[var(--theme-primary)] ${updateState === "checking" ? "animate-spin" : ""}`} />
+            <button onClick={async () => {
+              if (isInstalled) { toast.success("App is already installed and running!"); } else if (canInstall) { const accepted = await install(); if (!accepted) toast.info("Installation was cancelled."); } else { toast.info("Automatic install is unavailable. Use browser install menu."); }
+            }} className="flex flex-col items-center gap-1.5 focus:outline-none group">
+              <img src={install3d} alt="" className="w-12 h-12 object-contain drop-shadow-sm" />
+              <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">{isInstalled ? "Installed" : "Install App"}</span>
+            </button>
+            <button onClick={() => onNavigate("account")} className="flex flex-col items-center gap-1.5 focus:outline-none group">
+              <img src={bank3d} alt="" className="w-12 h-12 object-contain drop-shadow-sm" />
+              <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">Bank Account</span>
+            </button>
+            <button onClick={() => onNavigate("guide")} className="flex flex-col items-center gap-1.5 focus:outline-none group">
+              <img src={guide3d} alt="" loading="lazy" decoding="async" className="w-12 h-12 object-contain drop-shadow-sm" />
+              <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">Guide</span>
+            </button>
+          </div>
+          <div className="h-px bg-[var(--theme-card-border)]/60" />
+          {/* App updates — inside frosted container */}
+          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center shrink-0">
+            <img src={update3d} alt="" className="w-10 h-10 object-contain shrink-0 drop-shadow-sm" />
+            <RefreshCw className={`w-5 h-5 text-[var(--theme-primary)] ${updateState === "checking" ? "animate-spin" : "hidden"}`} />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-display font-black text-[var(--theme-text)] leading-none">App updates</p>
+            <p className="text-xs font-display font-black text-[var(--theme-text)] leading-none">Software updates</p>
             <p className="text-[11px] font-sans font-bold text-[var(--theme-text)] opacity-60 leading-none mt-1.5 truncate">
               {updateState === "checking" ? "Checking…" :
                updateState === "ready" ? "New version available" :
@@ -670,11 +565,12 @@ export default function ProfileView({
             <button
               onClick={checkForAppUpdate}
               disabled={updateState === "checking"}
-              className="shrink-0 px-4 py-2 rounded-xl bg-[var(--theme-bg)] border-2 border-[var(--theme-card-border)] text-[var(--theme-text)] text-[11px] font-black uppercase tracking-wide hover:border-[var(--theme-primary)]/30 transition-colors cursor-pointer active:scale-95 disabled:opacity-50"
+              className="shrink-0 px-4 py-2 rounded-full bg-[var(--theme-primary)]/12 border border-[var(--theme-primary)]/20 text-[var(--theme-primary)] text-[11px] font-black uppercase tracking-wide hover:bg-[var(--theme-primary)]/20 transition-colors cursor-pointer active:scale-95 disabled:opacity-50"
             >
               {updateState === "checking" ? "…" : "Check"}
             </button>
           )}
+        </div>
         </div>
 
         {/* Defined Logout Button */}
@@ -698,9 +594,7 @@ export default function ProfileView({
                       <X className="w-4 h-4" />
                     </button>
                     <div className="flex flex-col items-center justify-center mb-5 mt-1">
-                      <div className="w-14 h-14 btn-3d-primary text-white rounded-2xl flex items-center justify-center mb-3 shadow-md">
-                        <Gift className="w-7 h-7" />
-                      </div>
+                      <img src={gift3d2} alt="" className="w-14 h-14 object-contain drop-shadow-sm mb-3" loading="lazy" decoding="async" />
                       <h3 className="text-lg font-display font-black text-[var(--theme-text)] tracking-tight">Gift code</h3>
                       <p className="text-[12px] text-[var(--theme-text)] opacity-70 mt-1 text-center font-sans">Enter your code below</p>
                     </div>
@@ -712,16 +606,20 @@ export default function ProfileView({
                           value={giftCodeValue}
                           onChange={e => setGiftCodeValue(e.target.value.toUpperCase())}
                           placeholder="ENTER CODE"
-                          className="w-full px-4 py-3 bg-[var(--theme-bg)] border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-sm font-display font-black text-center tracking-[0.2em] text-[var(--theme-text)] outline-none focus:border-[var(--theme-primary)] uppercase transition-all shadow-inner placeholder-[var(--theme-text)]/40"
+                          className="w-full px-4 py-3 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-sm font-display font-black text-center tracking-[0.2em] text-[var(--theme-text)] outline-none focus:border-[var(--theme-primary)] uppercase transition-all shadow-inner placeholder-[var(--theme-text)]/40"
                         />
                       </div>
-                      <button
-                        type="submit"
-                        disabled={isRedeemingGiftCode || !giftCodeValue}
-                        className="w-full py-3.5 btn-3d-primary text-white text-xs font-display font-black uppercase tracking-wider rounded-[var(--theme-radius)] transition-all shadow-md flex items-center justify-center cursor-pointer active:scale-95 disabled:opacity-50"
-                      >
-                        {isRedeemingGiftCode ? <Loader2 className="w-5 h-5 animate-spin mx-auto text-white" /> : "get gift"}
-                      </button>
+                    <Button
+                      variant="gold-glossy"
+                      size="sm"
+                      type="submit"
+                      loading={isRedeemingGiftCode}
+                      disabled={!giftCodeValue}
+                      className="w-full"
+                      glow={false}
+                    >
+                      get gift
+                    </Button>
                     </form>
                   </motion.div>
                 </div>
@@ -749,7 +647,7 @@ export default function ProfileView({
                     className="relative w-full max-w-[440px] max-h-[90vh] bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] rounded-[24px] shadow-2xl text-[var(--theme-text)] text-left flex flex-col overflow-hidden backdrop-blur-xl"
                   >
                     {/* Top Banner - Theme Aware */}
-                    <div className=" relative border-b border-[var(--theme-card-border)] px-5 py-4 text-[var(--theme-text)] flex flex-col gap-3 shrink-0">
+                    <div className=" relative px-5 py-4 text-[var(--theme-text)] flex flex-col gap-3 shrink-0">
                       <button 
                         onClick={() => setShowCheckinSheet(false)} 
                         className="absolute right-4 top-4 text-[var(--theme-text)] opacity-60 hover:opacity-100 p-2 rounded-full hover:bg-[var(--theme-bg)] transition-colors cursor-pointer"
@@ -757,17 +655,9 @@ export default function ProfileView({
                         <X className="w-5 h-5" />
                       </button>
                       <div className="flex items-center gap-3">
-                        <div className="w-11 h-11 rounded-2xl bg-[var(--theme-primary)]/10 border border-[var(--theme-primary)]/20 flex items-center justify-center">
-                          <Calendar className="w-5 h-5 text-[var(--theme-primary)]" />
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-[10px] uppercase tracking-[0.35em] text-[var(--theme-primary)] opacity-80 font-semibold">Daily check-in</p>
-                          <h3 className="font-display font-black text-xl tracking-tight text-[var(--theme-text)]">Keep your streak rolling</h3>
-                        </div>
+                        <img src={checkin3d} alt="" className="w-11 h-11 object-contain drop-shadow-sm" loading="lazy" decoding="async" />
+                        <h3 className="font-display font-black text-xl tracking-tight text-[var(--theme-text)]">Daily check-in</h3>
                       </div>
-                      <p className="text-sm text-[var(--theme-text)] opacity-70 max-w-[32rem] leading-6">
-                        Claim a bonus once every 24 hours and return tomorrow to grow your streak and rewards.
-                      </p>
                     </div>
 
                     <div className="p-4 sm:p-5 flex-1 overflow-y-auto space-y-5 scrollbar-none">
@@ -845,7 +735,7 @@ export default function ProfileView({
                                         isClaimed
                                           ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white font-bold shadow-lg"
                                           : isToday && !checkedInToday
-                                          ? "bg-[var(--theme-accent)] border-[var(--theme-accent)] text-white font-black ring-2 ring-[var(--theme-accent)]/40 shadow-sm cursor-pointer"
+                                          ? "hut-btn-3d hut-gold-glossy cursor-pointer"
                                           : isMissed
                                           ? "bg-[var(--theme-card-bg)]/70 border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70"
                                           : "bg-[var(--theme-bg)]/60 border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-60"
@@ -873,38 +763,8 @@ export default function ProfileView({
                         );
                       })()}
 
-                      {/* Quick Guide */}
-                      <div className="rounded-3xl border border-[var(--theme-card-border)] bg-[var(--theme-bg)]/70 px-4 py-3 text-sm text-[var(--theme-text)] opacity-90">
-                        <p className="font-semibold">How to claim</p>
-                        <p className="mt-1 text-xs opacity-70 leading-5">
-                          Tap today's tile when it is available. Check in daily to keep your streak alive and increase future rewards.
-                        </p>
-                      </div>
-
-                      {/* Bottom CTA Button */}
-                      <div className="pt-1">
-                        {checkedInToday ? (
-                          <div className="w-full py-3 rounded-full bg-[var(--theme-primary)]/15 text-[var(--theme-text)] text-xs font-display font-black uppercase tracking-wider flex items-center justify-center gap-2 cursor-not-allowed select-none">
-                            <Check className="w-4 h-4 stroke-[3]" />
-                            <span>Already claimed</span>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={handleCheckin}
-                            disabled={spinningIndex !== null}
-                            className="btn-3d-primary w-full py-3 rounded-full text-xs font-display font-black uppercase tracking-wider text-white flex items-center justify-center gap-2 cursor-pointer shadow-lg active:scale-98"
-                          >
-                            {spinningIndex !== null ? (
-                              <Loader2 className="w-4 h-4 animate-spin text-white" />
-                            ) : (
-                              <>
-                                <Gift className="w-4 h-4 text-white" />
-                                <span>Claim reward now</span>
-                              </>
-                            )}
-                          </button>
-                        )}
-                      </div>
+                      {/* Quick Guide - removed */}
+                      {/* Tiles handle claim directly */}
                     </div>
                   </motion.div>
                 </div>
@@ -916,132 +776,6 @@ export default function ProfileView({
 
 
 {/* ================= SHEETS & DRAWERS OVERLAYS ================= */}
-
-      {/* 2. Nice Minimal Settings Sheet */}
-      <AnimatePresence>
-        {showSettingsSheet && (
-          <div className="fixed inset-0 z-50 flex items-end justify-center">
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowSettingsSheet(false)}
-              className="absolute inset-0 bg-black/60 backdrop-blur-xs"
-            />
-            {/* Sheet - 85vh max height */}
-            <motion.div
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              transition={{ type: "spring", damping: 26, stiffness: 220 }}
-              className="relative w-full max-w-md h-[85vh] max-h-[85vh] theme-card bg-[var(--theme-card-bg)] border-t border-[var(--theme-card-border)] text-[var(--theme-text)] rounded-t-[var(--theme-radius)] p-6 pb-8 flex flex-col z-10 overflow-hidden shadow-2xl"
-            >
-              {/* Header */}
-              <div className="flex justify-between items-center pb-2 border-b border-[var(--theme-card-border)] shrink-0 mb-4">
-                <div className="space-y-0.5">
-                  <h4 className="font-display font-black text-base text-[var(--theme-text)] uppercase tracking-tight">Bind Account</h4>
-                  <p className="text-[12px] font-sans text-[var(--theme-text)] opacity-60">Configure your billing & security</p>
-                </div>
-                <button
-                  onClick={() => setShowSettingsSheet(false)}
-                  className="p-1.5 rounded-full btn-3d-secondary border border-[var(--theme-card-border)] text-[var(--theme-text)] cursor-pointer focus:outline-none"
-                  id="close-settings-btn"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Form */}
-              <form onSubmit={handleSaveProfile} className="space-y-4 flex-1 overflow-y-auto pr-1 pb-16">
-                <div className="space-y-1">
-                  <label className="text-[12px] font-sans uppercase text-[var(--theme-text)] opacity-70 font-bold block">Display Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] text-[var(--theme-text)] text-xs rounded-[var(--theme-radius)] outline-none font-sans font-medium transition-colors"
-                    placeholder="Username display"
-                    id="settings-username-input"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[12px] font-sans uppercase text-[var(--theme-text)] opacity-70 font-bold block">Phone Number</label>
-                  <div className="relative">
-                    <Phone className="w-3.5 h-3.5 text-[var(--theme-text)] opacity-50 absolute left-3 top-3.5" />
-                    <input
-                      type="tel"
-                      required
-                      value={withdrawalPhone}
-                      disabled={true} readOnly
-                      className="w-full pl-9 pr-4 py-2.5 bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] text-[var(--theme-text)] text-xs rounded-[var(--theme-radius)] outline-none font-sans opacity-70"
-                      placeholder="+25677..."
-                      id="settings-phone-input"
-                    />
-                  </div>
-                </div>
-
-                
-
-                <div className="space-y-1">
-                  <label className="text-[12px] font-sans uppercase text-[var(--theme-text)] opacity-70 font-bold block">USDT Wallet Address (Optional)</label>
-                  <div className="relative">
-                    <Wallet className="w-3.5 h-3.5 text-[var(--theme-text)] opacity-50 absolute left-3 top-3.5" />
-                    <input
-                      type="text"
-                      value={usdtAddress}
-                      onChange={(e) => setUsdtAddress(e.target.value)}
-                      className="w-full pl-9 pr-4 py-2.5 bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] text-[var(--theme-text)] text-xs rounded-[var(--theme-radius)] outline-none font-sans transition-colors"
-                      placeholder="T..."
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1 pt-2 border-t border-[var(--theme-card-border)]">
-                  <label className="text-[12px] font-sans uppercase text-[var(--theme-text)] opacity-70 font-bold block">Update Password (Optional)</label>
-                  <input
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] text-[var(--theme-text)] text-xs rounded-[var(--theme-radius)] outline-none font-sans transition-colors"
-                    placeholder="New password"
-                  />
-                </div>
-                
-                {newPassword && (
-                  <div className="space-y-1">
-                    <input
-                      type="password"
-                      required
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="w-full px-4 py-2.5 bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] text-[var(--theme-text)] text-xs rounded-[var(--theme-radius)] outline-none font-sans transition-colors"
-                      placeholder="Confirm new password"
-                    />
-                  </div>
-                )}
-
-                {successUpdate && (
-                  <div className="text-center text-[11px] text-emerald-400 font-sans py-1 flex items-center justify-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>✓ System settings saved offline!</span>
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={isSavingProfile}
-                  className="w-full py-3 rounded-[var(--theme-radius)] bg-[var(--theme-primary)] hover:brightness-110 text-white font-sans font-bold text-xs shadow-md transition-all cursor-pointer outline-none active:scale-[0.99] flex items-center justify-center"
-                >
-                  {isSavingProfile ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : "Save Account Data"}
-                </button>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
 
       {/* 3. Transaction History Sheet */}
       <AnimatePresence>
@@ -1079,8 +813,10 @@ export default function ProfileView({
                   { id: "all", label: "All" },
                   { id: "deposit", label: "Recharge" },
                   { id: "withdraw", label: "Withdrawal" },
-                  { id: "checkin", label: "Check-in" },
+                  { id: "product", label: "Product" },
+                  { id: "yield", label: "Yield" },
                   { id: "referral", label: "Referral" },
+                  { id: "checkin", label: "Check-in" },
                   { id: "voucher", label: "Voucher" },
                   { id: "vip_task", label: "VIP Tasks" }
                 ].map((tab) => (
@@ -1115,59 +851,67 @@ export default function ProfileView({
                   transactions
                     .filter((tx) => {
                       if (historyFilter === "all") return true;
-                      const t = (tx.type || "").toLowerCase();
-                      if (historyFilter === "deposit") return t === "deposit" || t === "balance" || t === "manual";
-                      if (historyFilter === "withdraw") return t === "withdrawal" || t === "withdraw";
-                      if (historyFilter === "checkin") return t === "checkin" || t === "checkin_bonus";
-                      if (historyFilter === "referral") return t === "referral";
-                      if (historyFilter === "voucher") return t === "voucher";
-                      if (historyFilter === "vip_task") return t === "vip_task";
+                      const canon = canonicalTypeOf(tx.type, tx.metadata) as string;
+                      if (historyFilter === "deposit") return canon === "deposit";
+                      if (historyFilter === "withdraw") return canon === "withdrawal";
+                      if (historyFilter === "product") return canon === "product_activation";
+                      if (historyFilter === "yield") return canon === "daily_yield";
+                      if (historyFilter === "checkin") return canon === "daily_checkin_bonus";
+                      if (historyFilter === "referral") return canon === "referral_signup_bonus" || canon === "referral_level_income";
+                      if (historyFilter === "voucher") return canon === "gift_code";
+                      if (historyFilter === "vip_task") return canon === "vip_task";
+                      if (historyFilter === "registration_bonus") return canon === "registration_bonus";
                       return true;
                     })
                     .map((tx) => {
-                      const t = (tx.type || "").toLowerCase();
+                      const canon = canonicalTypeOf(tx.type, tx.metadata) as string;
                       const txStatus = String(tx.status || "").toUpperCase();
-                      const isPositive = t === "deposit" || t === "balance" || t === "manual" || t === "checkin" || t === "checkin_bonus" || t === "referral" || t === "voucher" || t === "vip_task" || t === "reward";
+                      const isPositive = isPositiveTransaction(tx.type, tx.metadata);
 
-                      // Compute display amounts: for withdrawals prefer payoutAmount (after fee), falling back to amount - fee
-                      const metadata = tx.metadata || {};
-                      const requestedAmount = Number(metadata.requestedAmount ?? tx.amount ?? 0);
-                      const feeAmount = Number(metadata.feeAmount ?? 0);
-                      const payoutAmount = Number(metadata.payoutAmount ?? Math.max(0, (tx.amount || 0) - feeAmount));
+                      const { fee: feeAmount, payout: payoutAmount } = getWithdrawalDisplayAmounts(tx);
+                      const meta = getTransactionDisplayMeta(tx.type, tx.metadata);
 
-                      let badgeLabel = "Transaction";
+                      let badgeLabel = meta.label;
                       let badgeStyle = "bg-blue-500/15 text-blue-500 border-blue-500/30";
                       let IconComponent = Coins;
 
-                      if (t === "deposit" || t === "balance" || t === "manual") {
+                      if (canon === "deposit") {
                         badgeLabel = "Recharge";
                         badgeStyle = "bg-emerald-500/15 text-emerald-500 border-emerald-500/30";
                         IconComponent = ArrowDownLeft;
-                      } else if (t === "withdrawal" || t === "withdraw") {
+                      } else if (canon === "withdrawal") {
                         badgeLabel = "Withdrawal";
                         badgeStyle = "bg-rose-500/15 text-rose-500 border-rose-500/30";
                         IconComponent = ArrowUpRight;
-                      } else if (t === "gpu" || t === "subscription") {
-                        badgeLabel = "Product Rental";
+                      } else if (canon === "product_activation") {
+                        badgeLabel = meta.isProductWithName && meta.productName ? meta.productName : "Product Rental";
                         badgeStyle = "bg-blue-500/15 text-blue-500 border-blue-500/30";
                         IconComponent = Cpu;
-                      } else if (t === "checkin" || t === "daily accumulation") {
+                      } else if (canon === "daily_yield") {
+                        badgeLabel = "Daily Yield";
+                        badgeStyle = "bg-amber-500/15 text-amber-500 border-amber-500/30";
+                        IconComponent = Flame;
+                      } else if (canon === "daily_checkin_bonus") {
                         badgeLabel = "Daily Check-in";
                         badgeStyle = "bg-amber-500/15 text-amber-500 border-amber-500/30";
                         IconComponent = Flame;
-                      } else if (t === "referral") {
+                      } else if (canon === "registration_bonus") {
+                        badgeLabel = "Registration Bonus";
+                        badgeStyle = "bg-teal-500/15 text-teal-500 border-teal-500/30";
+                        IconComponent = CheckCircle2;
+                      } else if (canon === "referral_signup_bonus") {
                         badgeLabel = "Referral Bonus";
                         badgeStyle = "bg-purple-500/15 text-purple-500 border-purple-500/30";
                         IconComponent = Users;
-                      } else if (t === "voucher") {
-                        badgeLabel = "Voucher Cut";
+                      } else if (canon === "referral_level_income") {
+                        badgeLabel = `Referral L${meta.level ?? "?"}`;
+                        badgeStyle = "bg-purple-500/15 text-purple-500 border-purple-500/30";
+                        IconComponent = Users;
+                      } else if (canon === "gift_code") {
+                        badgeLabel = "Gift Code";
                         badgeStyle = "bg-indigo-500/15 text-indigo-500 border-indigo-500/30";
                         IconComponent = Gift;
-                      } else if (t === "checkin_bonus" || t === "register") {
-                        badgeLabel = "Check-in Bonus";
-                        badgeStyle = "bg-teal-500/15 text-teal-500 border-teal-500/30";
-                        IconComponent = CheckCircle2;
-                      } else if (t === "vip_task") {
+                      } else if (canon === "vip_task") {
                         badgeLabel = "VIP Task";
                         badgeStyle = "bg-yellow-500/15 text-yellow-500 border-yellow-500/30";
                         IconComponent = Trophy;
@@ -1196,10 +940,10 @@ export default function ProfileView({
 
                           <div className="text-right space-y-0.5">
                             <span className={`text-xs font-sans font-black ${isPositive ? "text-emerald-500" : "text-[var(--theme-text)]"}`}>
-                              {isPositive ? "+" : "-"} {formatCurrency((t === "withdrawal" || t === "withdraw") ? payoutAmount : (tx.amount || 0))}
+                              {isPositive ? "+" : "-"} {formatCurrency(canon === "withdrawal" ? payoutAmount : (tx.amount || 0))}
                             </span>
 
-                            {(t === "withdrawal" || t === "withdraw") && feeAmount > 0 && (
+                            {canon === "withdrawal" && feeAmount > 0 && (
                               <p className="text-[11px] text-[var(--theme-text)] opacity-60 font-sans font-medium">
                                 Fees: {formatCurrency(feeAmount)}
                               </p>
@@ -1207,7 +951,7 @@ export default function ProfileView({
 
                             {((tx.operator === "USDT" || tx.withdrawOperator === "USDT" || (tx.senderPhone || "").startsWith("T")) && siteConfig?.usdtRate) && (
                               <p className="text-[11px] font-sans text-[var(--theme-primary)] font-bold">
-                                ≈ ${(((t === "withdrawal" || t === "withdraw") ? payoutAmount : (tx.amount || 0)) / siteConfig.usdtRate).toFixed(2)} USDT
+                                ≈ ${((canon === "withdrawal" ? payoutAmount : (tx.amount || 0)) / siteConfig.usdtRate).toFixed(2)} USDT
                               </p>
                             )}
 
@@ -1227,15 +971,62 @@ export default function ProfileView({
         )}
       </AnimatePresence>
 
-      {/* 4. VIP Tasks Sheet Overlay */}
+      {/* 3.5 Community Sheet — same as DashboardView */}
       <AnimatePresence>
-        {showVipTasksSheet && (
-          <VipTasksSheet
-            isOpen={showVipTasksSheet}
-            onClose={() => setShowVipTasksSheet(false)}
-            userProfile={userProfile}
-            onClaimSuccess={onProfileUpdate}
-          />
+        {showCommunitySheet && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowCommunitySheet(false)}
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ y: 40, opacity: 0, scale: 0.97 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 40, opacity: 0, scale: 0.97 }}
+              transition={{ type: "spring", damping: 26, stiffness: 340 }}
+              className="relative w-full max-w-sm rounded-[28px] overflow-hidden border border-[var(--theme-card-border)] shadow-[0_20px_60px_rgba(0,0,0,0.3)] bg-[var(--theme-card-bg)]"
+            >
+              <div className="relative p-5 pb-6 overflow-hidden">
+                <canvas ref={communityConfettiRef} className="absolute inset-0 pointer-events-none" />
+                <div className="w-10 h-1 rounded-full bg-[var(--theme-card-border)] mx-auto mb-4 relative" />
+                <div className="flex items-center justify-between mb-3 relative">
+                  <h3 className="text-[11px] font-black uppercase tracking-[0.14em] text-[var(--theme-text)] opacity-70">Join our community</h3>
+                  <button onClick={() => setShowCommunitySheet(false)} className="w-8 h-8 rounded-full bg-transparent hover:opacity-80 flex items-center justify-center text-[var(--theme-text)] opacity-60 transition-colors border-0">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <p className="text-[11px] font-sans text-[var(--theme-text)] opacity-60 leading-relaxed text-center mb-4 relative">Connect with like minded people from all over the globe — share tips, get support, and grow together.</p>
+                <div className="space-y-2.5 relative">
+                  {siteConfig?.whatsappLink && (
+                    <a href={siteConfig.whatsappLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-2xl bg-transparent border-0 hover:opacity-80 transition-colors group">
+                      <img src="/whatsapp.svg" alt="WhatsApp" className="w-10 h-10 rounded-xl shrink-0 object-contain bg-transparent p-0 shadow-none" />
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-[13px] font-black text-[var(--theme-text)] leading-none">WhatsApp Support</span>
+                        <span className="block text-[11px] font-bold text-[var(--theme-text)] opacity-60 leading-none mt-1 truncate">{siteConfig.whatsappLink}</span>
+                      </span>
+                      <ExternalLink className="w-4 h-4 text-[var(--theme-text)] opacity-40 group-hover:opacity-60 shrink-0" />
+                    </a>
+                  )}
+                  {siteConfig?.telegramLink && (
+                    <a href={siteConfig.telegramLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-2xl bg-transparent border-0 hover:opacity-80 transition-colors group">
+                      <img src="/telegram.svg" alt="Telegram" className="w-10 h-10 rounded-xl shrink-0 object-contain bg-transparent p-0 shadow-none" />
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-[13px] font-black text-[var(--theme-text)] leading-none">Telegram Channel</span>
+                        <span className="block text-[11px] font-bold text-[var(--theme-text)] opacity-60 leading-none mt-1 truncate">{siteConfig.telegramLink}</span>
+                      </span>
+                      <ExternalLink className="w-4 h-4 text-[var(--theme-text)] opacity-40 group-hover:opacity-60 shrink-0" />
+                    </a>
+                  )}
+                  {!siteConfig?.telegramLink && !siteConfig?.whatsappLink && (
+                    <p className="text-center text-sm font-bold text-[var(--theme-text)] opacity-60 py-6">No community links configured yet.</p>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { useGatedInterval } from "../hooks/useGatedInterval";
 import { SubscriptionItem, UserProfile } from "../types";
 import {
   ArrowLeft,
@@ -14,6 +15,7 @@ import {
 import { toast } from "sonner";
 import { useCurrency } from "../currency";
 import VisaMetricCard from "./VisaMetricCard";
+import { Button } from "./ui/button";
 
 interface DepositViewProps {
   userProfile: UserProfile;
@@ -94,62 +96,71 @@ export default function DepositView({
     }
   }, [preselectedItem]);
 
+  const backoffRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
+  const BACKOFF = [3000, 5000, 10000] as const;
+  const getBackoff = () => BACKOFF[Math.min(backoffRef.current, 2)];
+
   useEffect(() => {
-    let intervalId: any;
-    if (paymentStatus === "PENDING" && currentTransId) {
-      const checkStatus = async () => {
-        try {
-          const res = await fetch("/api/payment/status", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ trans_id: currentTransId }),
-          });
-          if (res.ok) {
-            const data = await res.json();
-            if (data.status === "SUCCESSFUL") {
-              setPaymentStatus("SUCCESSFUL");
-              toast.success("Payment completed successfully!");
-              const finalAmt =
-                depositMode === "usdt"
-                  ? payType === "gpu"
-                    ? selectedGpu?.amount || 0
-                    : usdtAmountUSD * config.usdtRate
-                  : depositMode === "manual"
-                  ? payType === "gpu"
-                    ? selectedGpu?.amount || 0
-                    : manualAmount
-                  : payType === "gpu"
-                  ? selectedGpu?.amount || 0
-                  : depositAmount;
-              if (payType === "balance") {
-                if (data.profile) onDepositSuccess(data.profile);
-                else {
-                  const fallbackProfile = {
-                    ...userProfile,
-                    rechargeBalance: (userProfile.rechargeBalance || 0) + finalAmt,
-                    totalDeposits: (userProfile.totalDeposits || 0) + finalAmt,
-                  };
-                  onDepositSuccess(fallbackProfile);
-                }
-              } else if (data.subscription) {
-                onGpuSuccess(data.subscription, selectedGpu?.amount || 0);
-              }
-            } else if (data.status === "FAILED") {
-              setPaymentStatus("FAILED");
-              toast.error("Transaction was declined or failed.");
-              setErrorMsg("Transaction was declined or failed.");
-            }
-          }
-        } catch (err) {
-          console.error("Error polling payment status:", err);
-        }
-      };
-      intervalId = setInterval(checkStatus, 3000);
+    if (paymentStatus !== "PENDING" || !currentTransId) {
+      backoffRef.current = 0;
+      if (abortRef.current) abortRef.current.abort();
+      return;
     }
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-    };
-  }, [paymentStatus, currentTransId, payType, depositAmount, manualAmount, usdtAmountUSD, selectedGpu, userProfile, depositMode]);
+    backoffRef.current = 0;
+  }, [paymentStatus, currentTransId]);
+
+  const checkStatus = async () => {
+    if (document.hidden) return;
+    if (paymentStatus !== "PENDING" || !currentTransId) return;
+    if (abortRef.current) abortRef.current.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    try {
+      const res = await fetch("/api/payment/status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ trans_id: currentTransId }),
+        signal: ctrl.signal,
+      });
+      if (ctrl.signal.aborted) return;
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status === "SUCCESSFUL") {
+          setPaymentStatus("SUCCESSFUL");
+          toast.success("Payment completed successfully!");
+          const finalAmt =
+            depositMode === "usdt"
+              ? payType === "gpu" ? selectedGpu?.amount || 0 : usdtAmountUSD * config.usdtRate
+              : depositMode === "manual"
+              ? payType === "gpu" ? selectedGpu?.amount || 0 : manualAmount
+              : payType === "gpu" ? selectedGpu?.amount || 0 : depositAmount;
+          if (payType === "balance") {
+            if (data.profile) onDepositSuccess(data.profile);
+            else {
+              const fallbackProfile = { ...userProfile, rechargeBalance: (userProfile.rechargeBalance || 0) + finalAmt, totalDeposits: (userProfile.totalDeposits || 0) + finalAmt };
+              onDepositSuccess(fallbackProfile);
+            }
+          } else if (data.subscription) {
+            onGpuSuccess(data.subscription, selectedGpu?.amount || 0);
+          }
+        } else if (data.status === "FAILED") {
+          setPaymentStatus("FAILED");
+          toast.error("Transaction was declined or failed.");
+          setErrorMsg("Transaction was declined or failed.");
+        } else {
+          backoffRef.current = Math.min(backoffRef.current + 1, 2);
+        }
+      }
+    } catch (err: unknown) {
+      if ((err as Error)?.name === "AbortError") return;
+      console.error("Error polling payment status:", err);
+    }
+  };
+
+  useGatedInterval(() => { void checkStatus(); }, getBackoff(), { enabled: paymentStatus === "PENDING" && !!currentTransId, visibilityGate: true });
+
+  useEffect(() => () => { if (abortRef.current) abortRef.current.abort(); }, []);
 
   const handleStartPayment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -178,7 +189,7 @@ export default function DepositView({
           depositPhone: phoneTrim,
           amount: finalAmount,
           operator,
-          type: payType === "balance" ? "deposit" : payType,
+          type: payType === "balance" ? "deposit" : "product_activation",
           itemId: payType === "gpu" ? selectedGpu?.id : undefined,
         }),
       });
@@ -296,7 +307,7 @@ export default function DepositView({
   );
 
   return (
-    <div className="bg-transparent text-[var(--theme-text)] p-1 space-y-4 select-none">
+    <div className="bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 rounded-[24px] p-4 text-[var(--theme-text)] space-y-4 select-none">
       {/* Top bar — back + title */}
       <div className="flex items-center justify-between gap-3">
         <button
@@ -336,12 +347,12 @@ export default function DepositView({
         </div>
       )}
 
-      {/* Visa balance card — recharge + withdrawable */}
+      {/* Visa balance card — rechargeable only */}
       <VisaMetricCard
-        leftLabel="Recharge balance"
+        variant="bank-dark"
+        mode="single"
+        leftLabel="Rechargeable balance"
         leftValue={formatCurrency(userProfile.rechargeBalance || 0)}
-        rightLabel="Withdrawable"
-        rightValue={formatCurrency(userProfile.points || 0)}
       />
 
       {paymentStatus === "IDLE" ? (
@@ -416,11 +427,11 @@ export default function DepositView({
                   </span>
                   <span className="opacity-30">—</span>
                   <span className="inline-flex items-center gap-1.5">
-                    <span className="w-5 h-5 rounded-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] flex items-center justify-center text-[10px] font-black">2</span> Amount
+                    <span className="w-5 h-5 rounded-full bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] flex items-center justify-center text-[10px] font-black">2</span> Amount
                   </span>
                   <span className="opacity-30">—</span>
                   <span className="inline-flex items-center gap-1.5 opacity-70">
-                    <span className="w-5 h-5 rounded-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] flex items-center justify-center text-[10px] font-black">3</span> PIN on phone
+                    <span className="w-5 h-5 rounded-full bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] flex items-center justify-center text-[10px] font-black">3</span> PIN on phone
                   </span>
                 </>
               )}
@@ -431,11 +442,11 @@ export default function DepositView({
                   </span>
                   <span className="opacity-30">—</span>
                   <span className="inline-flex items-center gap-1.5">
-                    <span className="w-5 h-5 rounded-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] flex items-center justify-center text-[10px] font-black">2</span> Paste TxID
+                    <span className="w-5 h-5 rounded-full bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] flex items-center justify-center text-[10px] font-black">2</span> Paste TxID
                   </span>
                   <span className="opacity-30">—</span>
                   <span className="inline-flex items-center gap-1.5 opacity-70">
-                    <span className="w-5 h-5 rounded-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] flex items-center justify-center text-[10px] font-black">3</span> 5–15 min review
+                    <span className="w-5 h-5 rounded-full bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] flex items-center justify-center text-[10px] font-black">3</span> 5–15 min review
                   </span>
                 </>
               )}
@@ -446,11 +457,11 @@ export default function DepositView({
                   </span>
                   <span className="opacity-30">—</span>
                   <span className="inline-flex items-center gap-1.5">
-                    <span className="w-5 h-5 rounded-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] flex items-center justify-center text-[10px] font-black">2</span> Paste hash
+                    <span className="w-5 h-5 rounded-full bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] flex items-center justify-center text-[10px] font-black">2</span> Paste hash
                   </span>
                   <span className="opacity-30">—</span>
                   <span className="inline-flex items-center gap-1.5 opacity-70">
-                    <span className="w-5 h-5 rounded-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] flex items-center justify-center text-[10px] font-black">3</span> Confirm
+                    <span className="w-5 h-5 rounded-full bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] flex items-center justify-center text-[10px] font-black">3</span> Confirm
                   </span>
                 </>
               )}
@@ -467,26 +478,26 @@ export default function DepositView({
             )}
 
             {depositMode === "auto" && (
-              <form onSubmit={handleStartPayment} className="space-y-4">
+              <form onSubmit={handleStartPayment} className="space-y-5">
                 <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-black uppercase tracking-wider opacity-60">Mobile money number</label>
+                  <div className="space-y-2">
+                    <label className="text-[10.5px] font-sans font-bold uppercase tracking-[0.12em] opacity-50">Mobile money number</label>
                     <div className="relative">
-                      <span className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] px-2.5 py-1 text-[11px] font-black">+256</span>
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] px-2.5 py-1 text-[11px] font-black">+256</span>
                       <input
                         type="text"
                         required
                         placeholder="7XX XXX XXX"
                         value={mobileNumber}
                         onChange={(e) => setMobileNumber(e.target.value)}
-                        className="w-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] rounded-full py-3 pl-[72px] pr-4 text-sm font-bold outline-none transition-colors"
+                        className="w-full bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] rounded-full py-3 pl-[72px] pr-4 text-sm font-bold outline-none transition-colors"
                       />
                       <Smartphone className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 opacity-40" />
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-black uppercase tracking-wider opacity-60">Amount (UGX)</label>
+                  <div className="space-y-2">
+                    <label className="text-[10.5px] font-sans font-bold uppercase tracking-[0.12em] opacity-50">Amount (UGX)</label>
                     <div className="relative">
                       <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-black opacity-50">UGX</span>
                       <input
@@ -496,19 +507,23 @@ export default function DepositView({
                         disabled={payType === "gpu"}
                         value={payType === "gpu" ? selectedGpu?.amount || 0 : depositAmount}
                         onChange={(e) => setDepositAmount(Number(e.target.value.replace(/[^0-9]/g, "")) || 0)}
-                        className="w-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] rounded-full py-3 pl-12 pr-4 text-sm font-black outline-none transition-colors disabled:opacity-60"
+                        className="w-full bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] rounded-full py-3 pl-12 pr-4 text-sm font-black outline-none transition-colors disabled:opacity-60"
                       />
                     </div>
                   </div>
                 </div>
 
-                <button
+                <Button
+                  variant="gold-glossy"
+                  size="md"
                   type="submit"
-                  disabled={isSubmitting || (payType === "gpu" && !selectedGpu)}
-                  className="w-full py-3.5 rounded-full bg-[var(--theme-primary)] text-white font-black text-sm uppercase tracking-wider shadow-[0_3px_0_0_var(--theme-primary-shadow)] active:translate-y-[1px] active:shadow-none transition-all flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer"
+                  loading={isSubmitting}
+                  disabled={payType === "gpu" && !selectedGpu}
+                  className="w-full"
+                  glow={false}
                 >
-                  {isSubmitting ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <span>Pay {formatCurrency(finalAmount)}</span>}
-                </button>
+                  <span>Pay {formatCurrency(finalAmount)}</span>
+                </Button>
                 <p className="text-center text-[11px] font-bold opacity-50">
                   {formatCurrency(minimumDeposit)} min{maximumDeposit > 0 ? ` • ${formatCurrency(maximumDeposit)} max` : " • no max"}
                 </p>
@@ -516,13 +531,13 @@ export default function DepositView({
             )}
 
             {depositMode === "manual" && (
-              <form onSubmit={handleStartManualPayment} className="space-y-4">
+              <form onSubmit={handleStartManualPayment} className="space-y-5">
                 {/* Receiver cards */}
                 <div className="space-y-2">
-                  <p className="text-[11px] font-black uppercase tracking-wider opacity-60">1 — Send exact amount to</p>
+                  <p className="text-[10.5px] font-sans font-bold uppercase tracking-[0.12em] opacity-50">1 — Send exact amount to</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {config.mtnReceiverPhone ? (
-                      <div className="rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border border-[var(--theme-card-border)] p-3 flex items-center justify-between gap-2">
+                      <div className="rounded-[var(--theme-radius)] bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] p-3 flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">
                           {config.mtnLogoUrl ? (
                             <img src={config.mtnLogoUrl} alt="MTN" className="w-8 h-8 rounded-full bg-white p-1 object-contain border border-[var(--theme-card-border)] shrink-0" />
@@ -550,7 +565,7 @@ export default function DepositView({
                       <div className="rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border border-dashed border-[var(--theme-card-border)] p-3 text-xs font-bold opacity-50">MTN offline</div>
                     )}
                     {config.airtelReceiverPhone ? (
-                      <div className="rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border border-[var(--theme-card-border)] p-3 flex items-center justify-between gap-2">
+                      <div className="rounded-[var(--theme-radius)] bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] p-3 flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">
                           {config.airtelLogoUrl ? (
                             <img src={config.airtelLogoUrl} alt="Airtel" className="w-8 h-8 rounded-full bg-white p-1 object-contain border border-[var(--theme-card-border)] shrink-0" />
@@ -597,24 +612,24 @@ export default function DepositView({
                 </div>
 
                 <div className="space-y-3 pt-1">
-                  <p className="text-[11px] font-black uppercase tracking-wider opacity-60">2 — Paste proof after sending</p>
+                  <p className="text-[10.5px] font-sans font-bold uppercase tracking-[0.12em] opacity-50">2 — Paste proof after sending</p>
                   <div className="space-y-3">
-                    <div className="space-y-1.5">
-                      <label className="text-[11px] font-black uppercase tracking-wider opacity-60">Your sender number</label>
+                    <div className="space-y-2">
+                      <label className="text-[10.5px] font-sans font-bold uppercase tracking-[0.12em] opacity-50">Your sender number</label>
                       <div className="relative">
-                        <span className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] px-2.5 py-1 text-[11px] font-black">+256</span>
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] px-2.5 py-1 text-[11px] font-black">+256</span>
                         <input
                           type="text"
                           required
                           placeholder="7XX XXX XXX"
                           value={senderPhone}
                           onChange={(e) => setSenderPhone(e.target.value)}
-                          className="w-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] rounded-full py-3 pl-[72px] pr-4 text-sm font-bold outline-none"
+                          className="w-full bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] rounded-full py-3 pl-[72px] pr-4 text-sm font-bold outline-none"
                         />
                       </div>
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[11px] font-black uppercase tracking-wider opacity-60">Amount sent (UGX)</label>
+                    <div className="space-y-2">
+                      <label className="text-[10.5px] font-sans font-bold uppercase tracking-[0.12em] opacity-50">Amount sent (UGX)</label>
                       <div className="relative">
                         <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-black opacity-50">UGX</span>
                         <input
@@ -624,31 +639,35 @@ export default function DepositView({
                           disabled={payType === "gpu"}
                           value={payType === "gpu" ? selectedGpu?.amount || 0 : manualAmount}
                           onChange={(e) => setManualAmount(Number(e.target.value.replace(/[^0-9]/g, "")) || 0)}
-                          className="w-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] rounded-full py-3 pl-12 pr-4 text-sm font-black outline-none disabled:opacity-60"
+                          className="w-full bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] rounded-full py-3 pl-12 pr-4 text-sm font-black outline-none disabled:opacity-60"
                         />
                       </div>
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[11px] font-black uppercase tracking-wider opacity-60">Transaction ID</label>
+                    <div className="space-y-2">
+                      <label className="text-[10.5px] font-sans font-bold uppercase tracking-[0.12em] opacity-50">Transaction ID</label>
                       <input
                         type="text"
                         required
                         placeholder="Paste mobile money TxID"
                         value={manualRef}
                         onChange={(e) => setManualRef(e.target.value)}
-                        className="w-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] rounded-full py-3 px-4 text-sm font-bold outline-none"
+                        className="w-full bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] rounded-full py-3 px-4 text-sm font-bold outline-none"
                       />
                     </div>
                   </div>
                 </div>
 
-                <button
+                <Button
+                  variant="gold-glossy"
+                  size="md"
                   type="submit"
-                  disabled={isSubmitting || (payType === "gpu" && !selectedGpu)}
-                  className="w-full py-3.5 rounded-full bg-[var(--theme-primary)] text-white font-black text-sm uppercase tracking-wider shadow-[0_3px_0_0_var(--theme-primary-shadow)] active:translate-y-[1px] active:shadow-none transition-all flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer"
+                  loading={isSubmitting}
+                  disabled={payType === "gpu" && !selectedGpu}
+                  className="w-full"
+                  glow={false}
                 >
-                  {isSubmitting ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <span>Submit proof • {formatCurrency(finalAmount)}</span>}
-                </button>
+                  <span>Submit proof • {formatCurrency(finalAmount)}</span>
+                </Button>
                 <p className="text-center text-[11px] font-bold opacity-50">
                   {formatCurrency(minimumDeposit)} min{maximumDeposit > 0 ? ` • ${formatCurrency(maximumDeposit)} max` : " • no max"}
                 </p>
@@ -656,31 +675,32 @@ export default function DepositView({
             )}
 
             {depositMode === "usdt" && (
-              <form onSubmit={handleStartManualPayment} className="space-y-4">
+              <form onSubmit={handleStartManualPayment} className="space-y-5">
                 {/* Step 1 — QR + wallet */}
                 <div className="space-y-3">
-                  <p className="text-[11px] font-black uppercase tracking-wider opacity-60">1 — Send USDT</p>
-                  <div className="rounded-[var(--theme-radius)] bg-[var(--theme-bg)] border border-[var(--theme-card-border)] p-4 space-y-3">
+                  <p className="text-[10.5px] font-sans font-bold uppercase tracking-[0.12em] opacity-50">1 — Send USDT</p>
+                    <div className="rounded-[var(--theme-radius)] bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] p-5 space-y-4">
                     {config.usdtQrUrl && (
                       <div className="flex justify-center">
-                        <div className="w-48 h-48 sm:w-56 sm:h-56 rounded-2xl overflow-hidden bg-white p-2 border border-[var(--theme-card-border)] shadow-sm">
+                        <div className="w-48 h-48 sm:w-56 sm:h-56 rounded-2xl overflow-hidden bg-white p-2.5 border border-[var(--theme-card-border)] shadow-sm">
                           <img src={config.usdtQrUrl} alt="USDT QR" className="w-full h-full object-contain" />
                         </div>
                       </div>
                     )}
                     <div className="flex items-center justify-center gap-2">
-                      <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-[10px] font-black uppercase tracking-wider">{config.usdtNetwork || "USDT TRC20"}</span>
-                      <span className="text-[11px] font-bold opacity-50">Scan or copy address</span>
+                      <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-[10px] font-bold uppercase tracking-[0.12em]">{config.usdtNetwork || "USDT TRC20"}</span>
+                      <span className="text-[11px] font-medium opacity-50">Scan or copy address</span>
                     </div>
-                    <div className="text-center">
-                      <p className="text-[11px] font-bold opacity-60">Send exactly</p>
-                      <p className="text-base font-black text-[var(--theme-primary)] mt-0.5">{formatCurrency(finalAmount)} <span className="text-xs font-bold opacity-60">{config.usdtRate ? `(≈ $${(finalAmount / config.usdtRate).toFixed(2)})` : ""}</span></p>
+                    <div className="text-center space-y-1">
+                      <p className="text-[10.5px] font-sans font-bold uppercase tracking-[0.12em] opacity-50">Send exactly</p>
+                      <p className="text-xl font-display font-black text-[var(--theme-primary)] tracking-tight leading-none">{formatCurrency(finalAmount)}</p>
+                      {config.usdtRate ? <p className="text-[11px] font-semibold opacity-60">≈ ${(finalAmount / config.usdtRate).toFixed(2)}</p> : null}
                     </div>
-                    <div className="rounded-xl bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] p-3 flex items-center gap-3">
+                    <div className="rounded-xl bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] p-3.5 flex items-center gap-3">
                       <div className="w-9 h-9 rounded-xl bg-[#26A17B] text-white flex items-center justify-center shrink-0 text-sm font-black">₮</div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[9px] font-black uppercase tracking-widest opacity-50 leading-none">{config.usdtNetwork || "USDT TRC20"} address</p>
-                        <p className="text-xs font-bold select-all truncate mt-1 font-mono">{config.usdtAddress || "Wallet not configured"}</p>
+                        <p className="text-[10px] font-sans font-bold uppercase tracking-[0.12em] opacity-50 leading-none">{config.usdtNetwork || "USDT TRC20"} address</p>
+                        <p className="text-[13px] font-semibold select-all truncate mt-1.5 font-mono">{config.usdtAddress || "Wallet not configured"}</p>
                       </div>
                       <button
                         type="button"
@@ -690,7 +710,7 @@ export default function DepositView({
                             toast.success("Wallet copied");
                           }
                         }}
-                        className="shrink-0 w-9 h-9 rounded-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] flex items-center justify-center hover:border-[var(--theme-primary)]/30 transition-colors cursor-pointer"
+                        className="shrink-0 w-9 h-9 rounded-full bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] flex items-center justify-center hover:border-[var(--theme-primary)]/30 transition-colors cursor-pointer"
                       >
                         <Copy className="w-4 h-4" />
                       </button>
@@ -699,9 +719,9 @@ export default function DepositView({
                 </div>
 
                 <div className="space-y-3 pt-1">
-                  <p className="text-[11px] font-black uppercase tracking-wider opacity-60">2 — Paste proof</p>
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-black uppercase tracking-wider opacity-60">Amount sent (USD)</label>
+                  <p className="text-[10.5px] font-sans font-bold uppercase tracking-[0.12em] opacity-50">2 — Paste proof</p>
+                  <div className="space-y-2">
+                    <label className="text-[10.5px] font-sans font-bold uppercase tracking-[0.12em] opacity-50">Amount sent (USD)</label>
                     <div className="relative">
                       <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-black opacity-50">USD</span>
                       <input
@@ -711,33 +731,37 @@ export default function DepositView({
                         disabled={payType === "gpu"}
                         value={payType === "gpu" ? ((selectedGpu?.amount || 0) / (config.usdtRate || 3700)).toFixed(2) : usdtAmountUSD}
                         onChange={(e) => setUsdtAmountUSD(Number(e.target.value) || 0)}
-                        className="w-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] rounded-full py-3 pl-12 pr-4 text-sm font-black outline-none disabled:opacity-60"
+                        className="w-full bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] rounded-full py-3 pl-12 pr-4 text-sm font-black outline-none disabled:opacity-60"
                       />
                     </div>
                     {payType !== "gpu" && (
                       <p className="text-[11px] font-bold opacity-50 px-1">≈ {formatCurrency(usdtAmountUSD * config.usdtRate)} • rate {config.usdtRate} UGX/USDT</p>
                     )}
                   </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-black uppercase tracking-wider opacity-60">Transaction hash / TxID</label>
+                  <div className="space-y-2">
+                    <label className="text-[10.5px] font-sans font-bold uppercase tracking-[0.12em] opacity-50">Transaction hash / TxID</label>
                     <input
                       type="text"
                       required
                       placeholder="Paste USDT hash"
                       value={manualRef}
                       onChange={(e) => setManualRef(e.target.value)}
-                      className="w-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] rounded-full py-3 px-4 text-sm font-bold outline-none"
+                      className="w-full bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] rounded-full py-3 px-4 text-sm font-bold outline-none"
                     />
                   </div>
                 </div>
 
-                <button
+                <Button
+                  variant="gold-glossy"
+                  size="md"
                   type="submit"
-                  disabled={isSubmitting || (payType === "gpu" && !selectedGpu)}
-                  className="w-full py-3.5 rounded-full bg-[var(--theme-primary)] text-white font-black text-sm uppercase tracking-wider shadow-[0_3px_0_0_var(--theme-primary-shadow)] active:translate-y-[1px] active:shadow-none transition-all flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer"
+                  loading={isSubmitting}
+                  disabled={payType === "gpu" && !selectedGpu}
+                  className="w-full"
+                  glow={false}
                 >
-                  {isSubmitting ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <span>Submit USDT proof</span>}
-                </button>
+                  <span>Submit USDT proof</span>
+                </Button>
                 <p className="text-center text-[11px] font-bold opacity-50">
                   {formatCurrency(minimumDeposit)} min{maximumDeposit > 0 ? ` • ${formatCurrency(maximumDeposit)} max` : " • no max"}
                 </p>
@@ -771,7 +795,7 @@ export default function DepositView({
                 setPaymentStatus("IDLE");
                 setErrorMsg("Check History for updates.");
               }}
-              className="px-4 py-2 rounded-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] text-xs font-black hover:border-[var(--theme-primary)]/30 transition-colors cursor-pointer"
+              className="px-4 py-2 rounded-full bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] text-xs font-black hover:border-[var(--theme-primary)]/30 transition-colors cursor-pointer"
             >
               Submit another proof
             </button>
@@ -790,7 +814,7 @@ export default function DepositView({
               Settled <span className="text-[var(--theme-text)] opacity-100">{formatCurrency(finalAmount)}</span> {currentTransId ? `• Ref ${currentTransId}` : ""}
             </p>
           </div>
-          <div className="rounded-xl bg-[var(--theme-bg)] border border-[var(--theme-card-border)] p-4 max-w-xs mx-auto text-left space-y-2 text-xs font-bold">
+          <div className="rounded-xl bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] p-4 max-w-xs mx-auto text-left space-y-2 text-xs font-bold">
             <div className="flex justify-between">
               <span className="opacity-60">Total</span>
               <span>{formatCurrency(finalAmount)}</span>
@@ -826,7 +850,7 @@ export default function DepositView({
                 setPaymentStatus("IDLE");
                 setErrorMsg("");
               }}
-              className="px-5 py-2.5 rounded-full bg-[var(--theme-bg)] border border-[var(--theme-card-border)] text-xs font-black cursor-pointer"
+              className="px-5 py-2.5 rounded-full bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] text-xs font-black cursor-pointer"
             >
               Try again
             </button>

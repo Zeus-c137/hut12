@@ -3,7 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import { useGatedInterval } from "../hooks/useGatedInterval";
+import { fetchJsonWithSignal } from "../utils/abortableFetch";
 import { UserProfile, SubscribedNode, SystemStats, NotificationItem, SubscriptionItem } from "../types";
 import {
   Coins,
@@ -31,12 +33,22 @@ import {
   Cpu,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import confetti from "canvas-confetti";
 
+import money3d from "@/src/assets/3d/3dicons-money-iso-premium.png";
+import medal3d from "@/src/assets/3d/3dicons-medal-iso-premium.png";
+import gift3d from "@/src/assets/3d/3dicons-gift-iso-premium.png";
+import shield3d from "@/src/assets/3d/3dicons-shield-iso-premium.png";
+import link3d from "@/src/assets/3d/3dicons-link-iso-premium.png";
+import megaphone3d from "@/src/assets/3d/3dicons-megaphone-iso-premium.png";
+import chart3d from "@/src/assets/3d/3dicons-chart-iso-premium.png";
+import dollar3d from "@/src/assets/3d/3dicons-dollar-iso-premium.png";
 import ParticleBg from "./ParticleBg";
 import NewsCarousel from "./NewsCarousel";
 import MetricCard from "./MetricCard";
 import FeaturedProducts from "./FeaturedProducts";
 import { useCurrency } from "../currency";
+import { Button } from "./ui/button";
 
 interface DashboardViewProps {
   profile: UserProfile;
@@ -70,6 +82,30 @@ export default function DashboardView({
   const { formatCurrency } = useCurrency();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showCommunitySheet, setShowCommunitySheet] = useState(false);
+  const communityConfettiRef = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    if (!showCommunitySheet) return;
+    const canvas = communityConfettiRef.current;
+    if (!canvas) return;
+    const myConfetti = confetti.create(canvas, { resize: true, useWorker: true });
+    const id = window.setInterval(() => {
+      myConfetti({ particleCount: 2, spread: 60, startVelocity: 12, gravity: 0.5, scalar: 0.8, ticks: 300, origin: { x: Math.random() * 0.6 + 0.2, y: 0 }, colors: ["#CF7500", "#FFE8A3", "#9A4F00"] });
+    }, 450);
+    return () => window.clearInterval(id);
+  }, [showCommunitySheet]);
+
+  const bannerConfettiRef = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const canvas = bannerConfettiRef.current;
+    if (!canvas) return;
+    const myConfetti = confetti.create(canvas, { resize: true, useWorker: true });
+    const id = window.setInterval(() => {
+      if (document.hidden) return;
+      myConfetti({ particleCount: 3, spread: 55, startVelocity: 10, gravity: 0.45, scalar: 0.7, ticks: 250, origin: { x: Math.random() * 0.6 + 0.2, y: 0 }, colors: ["#CF7500", "#FFE8A3", "#9A4F00"] });
+    }, 1500);
+    return () => window.clearInterval(id);
+  }, []);
 
   // Notifications — prefer parent-provided list to avoid duplicate /api/profile/notifications fetches
   const [notifications, setNotifications] = useState<NotificationItem[]>(() => externalNotifications ?? []);
@@ -101,92 +137,87 @@ export default function DashboardView({
     });
   }
 
+  const fetchAbortRef = useRef<AbortController | null>(null);
   const fetchDashboardData = async () => {
+    if (fetchAbortRef.current) fetchAbortRef.current.abort();
+    const ctrl = new AbortController();
+    fetchAbortRef.current = ctrl;
+    if (document.hidden) return;
     try {
       setNotifLoading(true);
-      // If parent already supplies notifications, reuse them — avoid duplicate /api/profile/notifications
       if (externalNotifications === undefined) {
-        const notifRes = await fetch(`/api/profile/notifications/${profile.phone}`);
-        if (notifRes.ok) {
-          const notifData = await notifRes.json();
-          setNotifications(notifData);
-        }
+        try {
+          const notifData = await fetchJsonWithSignal<NotificationItem[]>(`/api/profile/notifications/${profile.phone}`, ctrl.signal);
+          if (!ctrl.signal.aborted) setNotifications(notifData);
+        } catch (e: unknown) { if ((e as Error)?.name !== "AbortError") throw e; }
       } else {
         setNotifications(externalNotifications);
       }
-
-      // Fetch dynamic active team size calculation
-      const refRes = await fetch(`/api/profile/referrals/${profile.phone}`);
-      if (refRes.ok) {
-        const refData = await refRes.json();
-        if (Array.isArray(refData)) {
-          setTeamCount(refData.length);
-        }
-      }
+      try {
+        const refData = await fetchJsonWithSignal<unknown>(`/api/profile/referrals/${profile.phone}`, ctrl.signal);
+        if (!ctrl.signal.aborted && Array.isArray(refData)) setTeamCount(refData.length);
+      } catch (e: unknown) { if ((e as Error)?.name !== "AbortError") throw e; }
     } catch (e) {
-      console.error("Dashboard subsidiary fetch error:", e);
+      if ((e as Error)?.name !== "AbortError") console.error("Dashboard subsidiary fetch error:", e);
     } finally {
-      setNotifLoading(false);
+      if (!ctrl.signal.aborted) setNotifLoading(false);
     }
   };
 
   // Fetch referrals/teamCount only; notifications come from parent when available
   useEffect(() => {
     let cancelled = false;
+    const ctrl = new AbortController();
     const load = async () => {
       if (externalNotifications !== undefined) {
         if (!cancelled) setNotifications(externalNotifications);
       }
-      // Throttle referrals fetch to 30s — prevents 115/ navigation spam
       const now = Date.now();
       if (now - lastReferralsFetch.current < 30_000) return;
       lastReferralsFetch.current = now;
       try {
-        const refRes = await fetch(`/api/profile/referrals/${profile.phone}`);
-        if (!cancelled && refRes.ok) {
-          const refData = await refRes.json();
-          if (Array.isArray(refData)) setTeamCount(refData.length);
-        }
+        const refData = await fetchJsonWithSignal<unknown>(`/api/profile/referrals/${profile.phone}`, ctrl.signal);
+        if (!cancelled && Array.isArray(refData)) setTeamCount((refData as unknown[]).length);
       } catch {}
       if (externalNotifications === undefined) {
-        // Only fetch notifications here when parent doesn't provide them
         try {
-          const notifRes = await fetch(`/api/profile/notifications/${profile.phone}`);
-          if (!cancelled && notifRes.ok) {
-            const notifData = await notifRes.json();
-            setNotifications(notifData);
-          }
+          const notifData = await fetchJsonWithSignal<NotificationItem[]>(`/api/profile/notifications/${profile.phone}`, ctrl.signal);
+          if (!cancelled) setNotifications(notifData);
         } catch {}
       }
     };
     void load();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; ctrl.abort(); };
   }, [profile.phone, externalNotifications]);
 
   const handleRefresh = async () => {
+    if (document.hidden) return;
     setIsRefreshing(true);
+    if (fetchAbortRef.current) fetchAbortRef.current.abort();
     await onRefreshDashboard();
     await fetchDashboardData();
     setTimeout(() => setIsRefreshing(false), 500);
   };
 
-  // Dynamic Today's Income calculation
-  const getKampalaDateStr = () => {
+  const getKampalaDateStr = useMemo(() => {
     const d = new Date();
     const kampalaTime = new Date(d.getTime() + 3 * 60 * 60 * 1000);
     return kampalaTime.toISOString().split("T")[0];
-  };
+  }, []);
 
-  const todayStr = getKampalaDateStr();
-  const todayEarnings = activeNodes
-    .filter((n) => n.status === "active" && n.lastClaimedDate === todayStr)
-    .reduce((sum, n) => sum + n.dailyYield, 0);
+  const { todayEarnings, totalEarnedAllTime } = useMemo(() => {
+    let today = 0, total = 0;
+    for (const n of activeNodes) {
+      total += n.totalEarned || 0;
+      if (n.status === "active") {
+        const mapped = items.find((i) => i.id === n.itemId || i.name === n.itemName);
+        today += mapped?.dailyYield !== undefined ? mapped.dailyYield : (n.dailyYield || 0);
+      }
+    }
+    return { todayEarnings: today, totalEarnedAllTime: total };
+  }, [activeNodes, items]);
 
-  // Total incoming from all nodes all time
-  const totalEarnedAllTime = activeNodes
-    .reduce((sum, n) => sum + (n.totalEarned || 0), 0);
-
-  const dynamicNews = notifications.filter(n => n.category === "news").map(n => ({
+  const dynamicNews = useMemo(() => notifications.filter(n => n.category === "news").map(n => ({
     id: n.id,
     title: n.title,
     description: n.message,
@@ -194,7 +225,7 @@ export default function DashboardView({
     tag: n.metadata?.tag || "NEWS",
     imageUrl: n.metadata?.imageUrl || "",
     link: n.metadata?.link || ""
-  }));
+  })), [notifications]);
 
   const DEFAULT_NEWS_FEED: any[] = [];
 
@@ -202,113 +233,105 @@ export default function DashboardView({
 
   const [currentSlide, setCurrentSlide] = useState(0);
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % HUT8_NEWS_FEED.length);
-    }, 30000);
-    return () => clearInterval(timer);
-  }, [HUT8_NEWS_FEED.length]);
+  useGatedInterval(() => {
+    setCurrentSlide((prev) => (prev + 1) % HUT8_NEWS_FEED.length);
+  }, 30000, { enabled: HUT8_NEWS_FEED.length > 1, visibilityGate: true });
 
   return (
-    <div className="space-y-6 select-none bg-transparent text-[var(--theme-text)] p-1 rounded-2xl relative">
+    <div className="space-y-6 bg-transparent isolate text-[var(--theme-text)] p-1 rounded-2xl relative">
       
-      {/* Dynamic Grid for Miner Stats - hero/muted hierarchy */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+      {/* Dynamic Grid for Miner Stats - hut12 bento: 2 hero + 4 compact matching banner bg */}
+      <div className="grid grid-cols-2 gap-3">
         {isRefreshing ? (
           <>
-            {[...Array(6)].map((_, i) => (
+            {[...Array(4)].map((_, i) => (
               <MetricCard key={i} title="Loading..." value="" isLoading={true} variant="muted" />
             ))}
           </>
         ) : (
           <>
-            {/* Hero: yield */}
-            <MetricCard
-              title="AI Income"
-              value={formatCurrency(totalEarnedAllTime)}
-              titleColor="accent"
-              icon={<Cpu />}
-              variant="hero"
-            />
+            {/* Unified earnings: AI Income + Today in one hero translucent bento */}
+            <div style={{ transform: "translateZ(0)" }} className="col-span-2 relative overflow-hidden theme-card rounded-[var(--theme-radius)] p-3.5 h-[112px] flex flex-col justify-between bg-[var(--theme-card-bg)]/60 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 shadow-sm isolate">
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-[10.5px] font-display uppercase tracking-[0.12em] leading-none block pt-1 font-black text-[var(--theme-primary)]">Product Income</span>
+                <div className="w-11 h-11 flex items-center justify-center shrink-0 overflow-hidden bg-transparent border-0">
+                  <img src={dollar3d} alt="" loading="lazy" decoding="async" className="w-11 h-11 object-contain" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-0 -mt-1">
+                <div className="pr-3">
+                  <p className="text-[9px] font-display font-black uppercase tracking-widest opacity-50 leading-none mb-1">Total Overall</p>
+                  <p className="font-display font-black text-[15px] sm:text-[16px] text-[var(--theme-text)] leading-none tracking-tight truncate">{formatCurrency(totalEarnedAllTime)}</p>
+                </div>
+                <div className="pl-3 border-l border-white/10">
+                  <p className="text-[9px] font-display font-black uppercase tracking-widest opacity-50 leading-none mb-1">Earnings Today</p>
+                  <p className="font-display font-black text-[15px] sm:text-[16px] text-[var(--theme-text)] leading-none tracking-tight truncate">{formatCurrency(todayEarnings)}</p>
+                </div>
+              </div>
+            </div>
 
-            <MetricCard
-              title="Today's Earnings"
-              value={formatCurrency(todayEarnings)}
-              titleColor="gold"
-              icon={<Zap />}
-              variant="hero"
-            />
-
-            {/* Muted: secondary stats */}
-            <MetricCard
-              title="Total Deposits"
-              value={formatCurrency(profile.totalDeposits || 0)}
-              titleColor="primary"
-              icon={<ArrowDownLeft />}
-              variant="muted"
-            />
-
-            <MetricCard
-              title="Total Cash Out"
-              value={formatCurrency(profile.withdrawnCash || 0)}
-              titleColor="secondary"
-              icon={<ArrowUpRight />}
-              variant="muted"
-            />
+            {/* Unified funds: deposits + cashout in one shield card */}
+            <div style={{ transform: "translateZ(0)" }} className="col-span-2 relative overflow-hidden theme-card rounded-[var(--theme-radius)] p-3.5 h-[96px] flex flex-col justify-between bg-[var(--theme-card-bg)]/60 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 shadow-sm isolate">
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-[10.5px] font-display uppercase tracking-[0.12em] leading-none block pt-1 font-black text-[var(--theme-primary)]">Transactions</span>
+                <div className="w-11 h-11 flex items-center justify-center shrink-0 overflow-hidden bg-transparent border-0">
+                  <img src={chart3d} alt="" loading="lazy" decoding="async" className="w-11 h-11 object-contain" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-0 -mt-1">
+                <div className="pr-3">
+                  <p className="text-[9px] font-display font-black uppercase tracking-widest opacity-50 leading-none mb-1">Total Deposits</p>
+                  <p className="font-display font-black text-[15px] sm:text-[16px] text-[var(--theme-text)] leading-none tracking-tight truncate">{formatCurrency(profile.totalDeposits || 0)}</p>
+                </div>
+                <div className="pl-3 border-l border-[var(--theme-card-border)]">
+                  <p className="text-[9px] font-display font-black uppercase tracking-widest opacity-50 leading-none mb-1">Total Withdraws</p>
+                  <p className="font-display font-black text-[15px] sm:text-[16px] text-[var(--theme-text)] leading-none tracking-tight truncate">{formatCurrency(profile.withdrawnCash || 0)}</p>
+                </div>
+              </div>
+            </div>
 
             <MetricCard
               title="Invite Count"
               value={(teamCount || profile.invitesCount || 0).toLocaleString()}
-              icon={<Users />}
+              icon={<img src={link3d} alt="" loading="lazy" decoding="async" />}
               variant="muted"
             />
 
             <MetricCard
               title="Invite Income"
               value={formatCurrency(profile.referralRewardsEarned || 0)}
-              icon={<Gift />}
+              icon={<img src={gift3d} alt="" loading="lazy" decoding="async" />}
               variant="muted"
             />
           </>
         )}
       </div>
 
-      {/* Community — single row, triggers liquid-glass sheet */}
+      {/* Community — single row, triggers sheet — hut12 theme-aware */}
       <button
         type="button"
         onClick={() => setShowCommunitySheet(true)}
-        className="w-full flex items-center gap-3 rounded-[var(--theme-radius)] bg-white/60 backdrop-blur-xl border border-white/30 p-3 active:scale-[0.99] transition-all group text-left cursor-pointer shadow-sm"
-        style={{
-          backdropFilter: "blur(16px) saturate(160%)",
-          WebkitBackdropFilter: "blur(16px) saturate(160%)",
-        }}
+        className="relative overflow-hidden w-full flex items-center gap-3 rounded-[var(--theme-radius)] bg-[var(--theme-card-bg)]/60 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 p-3 active:scale-[0.99] transition-colors group text-left cursor-pointer shadow-sm"
       >
-        <img src="/telegram.svg" alt="Telegram" className="w-9 h-9 rounded-xl shrink-0 shadow-sm object-contain" />
-        <div className="flex-1 min-w-0">
-          <p className="text-xs font-display font-black text-slate-700 leading-none">Community • Official</p>
-          <p className="text-[10.5px] font-sans font-bold text-slate-500 leading-none mt-1 truncate">Tap to open • {siteConfig?.telegramLink && siteConfig?.whatsappLink ? "Telegram & WhatsApp" : siteConfig?.telegramLink ? "Telegram" : siteConfig?.whatsappLink ? "WhatsApp" : "2.4k online"}</p>
+        <canvas ref={bannerConfettiRef} className="absolute inset-0 pointer-events-none" />
+        <img src={megaphone3d} alt="" loading="lazy" decoding="async" className="relative w-9 h-9 rounded-xl shrink-0 object-contain drop-shadow-sm" />
+        <div className="relative flex-1 min-w-0">
+          <p className="text-xs font-display font-black text-[var(--theme-text)] leading-none">Always stay updated</p>
         </div>
-        <ChevronRight className="w-4 h-4 text-slate-500 opacity-40 group-hover:opacity-60 transition-opacity shrink-0" />
+        <ChevronRight className="relative w-4 h-4 text-[var(--theme-text)] opacity-40 group-hover:opacity-60 transition-opacity shrink-0" />
       </button>
 
-      {/* Quick Actions — docked bar */}
-      <div className="theme-card border-2 border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] rounded-[var(--theme-radius)] p-1.5 grid grid-cols-2 gap-1.5 shadow-sm">
-        <button
-          onClick={onNavigateToDeposit}
-          className="btn-3d-primary text-white font-display font-black text-xs uppercase tracking-wider py-3 rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer shadow-[0_3px_0_0_var(--theme-primary-shadow)]"
-        >
+      {/* Quick Actions — unified presets, container bg removed */}
+      <div className="grid grid-cols-2 gap-2 bg-transparent border-0 p-0 shadow-none">
+        <Button variant="gold-glossy" size="sm" onClick={onNavigateToDeposit} className="w-full" glow={false}>
           <ArrowDownLeft className="w-4 h-4" />
           <span>Deposit</span>
-        </button>
-
-        <button
-          onClick={onNavigateToWithdraw || onNavigateToDeposit}
-          className="bg-[var(--theme-bg)] border-2 border-[var(--theme-card-border)] text-[var(--theme-text)] font-display font-black text-xs uppercase tracking-wider py-3 rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer hover:border-[var(--theme-primary)]/30"
-        >
-          <ArrowUpRight className="w-4 h-4 text-[var(--theme-primary)]" />
+        </Button>
+        <Button variant="gold-matte" size="sm" onClick={onNavigateToWithdraw || onNavigateToDeposit} className="w-full" glow={false}>
+          <ArrowUpRight className="w-4 h-4" />
           <span>Withdraw</span>
-          </button>
-        </div>
+        </Button>
+      </div>
 
       <FeaturedProducts items={items} onBrowseProducts={onNavigateToCatalog} />
 
@@ -430,46 +453,41 @@ export default function DashboardView({
               animate={{ y: 0, opacity: 1, scale: 1 }}
               exit={{ y: 40, opacity: 0, scale: 0.97 }}
               transition={{ type: "spring", damping: 26, stiffness: 340 }}
-              className="relative w-full max-w-sm rounded-[28px] overflow-hidden border border-white/20 shadow-[0_20px_60px_rgba(0,0,0,0.3)]"
-              style={{
-                background: "linear-gradient(135deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.65) 100%)",
-                backdropFilter: "blur(24px) saturate(180%)",
-                WebkitBackdropFilter: "blur(24px) saturate(180%)",
-              }}
+              className="relative w-full max-w-sm rounded-[28px] overflow-hidden border border-[var(--theme-card-border)] shadow-[0_20px_60px_rgba(0,0,0,0.3)] bg-[var(--theme-card-bg)]"
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-[var(--theme-primary)]/10 pointer-events-none" />
-              <div className="relative p-5 pb-6">
-                <div className="w-10 h-1 rounded-full bg-black/15 mx-auto mb-4" />
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-700">Join our community</h3>
-                  <button onClick={() => setShowCommunitySheet(false)} className="w-8 h-8 rounded-full bg-black/10 hover:bg-black/15 flex items-center justify-center text-slate-600 transition-colors">
+              <div className="relative p-5 pb-6 overflow-hidden">
+                <canvas ref={communityConfettiRef} className="absolute inset-0 pointer-events-none" />
+                <div className="w-10 h-1 rounded-full bg-[var(--theme-card-border)] mx-auto mb-4 relative" />
+                <div className="flex items-center justify-between mb-3 relative">
+                  <h3 className="text-[11px] font-black uppercase tracking-[0.14em] text-[var(--theme-text)] opacity-70">Join our community</h3>
+                  <button onClick={() => setShowCommunitySheet(false)} className="w-8 h-8 rounded-full bg-transparent hover:opacity-80 flex items-center justify-center text-[var(--theme-text)] opacity-60 transition-colors border-0">
                     <X className="w-4 h-4" />
                   </button>
                 </div>
-
-                <div className="space-y-2.5">
+                <p className="text-[11px] font-sans text-[var(--theme-text)] opacity-60 leading-relaxed text-center mb-4 relative">Connect with like minded people from all over the globe — share tips, get support, and grow together.</p>
+                <div className="space-y-2.5 relative">
                   {siteConfig?.whatsappLink && (
-                    <a href={siteConfig.whatsappLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-colors group">
-                      <img src="/whatsapp.svg" alt="WhatsApp" className="w-10 h-10 rounded-xl shrink-0 shadow-sm object-contain bg-white p-1" />
+                    <a href={siteConfig.whatsappLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-2xl bg-transparent border-0 hover:opacity-80 transition-colors group">
+                      <img src="/whatsapp.svg" alt="WhatsApp" className="w-10 h-10 rounded-xl shrink-0 object-contain bg-transparent p-0 shadow-none" />
                       <span className="flex-1 min-w-0">
-                        <span className="block text-[13px] font-black text-slate-800 leading-none">WhatsApp Support</span>
-                        <span className="block text-[11px] font-bold text-slate-500 leading-none mt-1 truncate">{siteConfig.whatsappLink}</span>
+                        <span className="block text-[13px] font-black text-[var(--theme-text)] leading-none">WhatsApp Support</span>
+                        <span className="block text-[11px] font-bold text-[var(--theme-text)] opacity-60 leading-none mt-1 truncate">{siteConfig.whatsappLink}</span>
                       </span>
-                      <ExternalLink className="w-4 h-4 text-slate-400 group-hover:text-slate-600 shrink-0" />
+                      <ExternalLink className="w-4 h-4 text-[var(--theme-text)] opacity-40 group-hover:opacity-60 shrink-0" />
                     </a>
                   )}
                   {siteConfig?.telegramLink && (
-                    <a href={siteConfig.telegramLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-colors group">
-                      <img src="/telegram.svg" alt="Telegram" className="w-10 h-10 rounded-xl shrink-0 shadow-sm object-contain bg-white p-1" />
+                    <a href={siteConfig.telegramLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-2xl bg-transparent border-0 hover:opacity-80 transition-colors group">
+                      <img src="/telegram.svg" alt="Telegram" className="w-10 h-10 rounded-xl shrink-0 object-contain bg-transparent p-0 shadow-none" />
                       <span className="flex-1 min-w-0">
-                        <span className="block text-[13px] font-black text-slate-800 leading-none">Telegram Channel</span>
-                        <span className="block text-[11px] font-bold text-slate-500 leading-none mt-1 truncate">{siteConfig.telegramLink}</span>
+                        <span className="block text-[13px] font-black text-[var(--theme-text)] leading-none">Telegram Channel</span>
+                        <span className="block text-[11px] font-bold text-[var(--theme-text)] opacity-60 leading-none mt-1 truncate">{siteConfig.telegramLink}</span>
                       </span>
-                      <ExternalLink className="w-4 h-4 text-slate-400 group-hover:text-slate-600 shrink-0" />
+                      <ExternalLink className="w-4 h-4 text-[var(--theme-text)] opacity-40 group-hover:opacity-60 shrink-0" />
                     </a>
                   )}
                   {!siteConfig?.telegramLink && !siteConfig?.whatsappLink && (
-                    <p className="text-center text-sm font-bold text-slate-500 py-6">No community links configured yet.</p>
+                    <p className="text-center text-sm font-bold text-[var(--theme-text)] opacity-60 py-6">No community links configured yet.</p>
                   )}
                 </div>
               </div>
