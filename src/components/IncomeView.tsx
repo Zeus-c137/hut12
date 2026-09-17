@@ -144,7 +144,7 @@ export default function IncomeView({
                   className="group flex flex-row bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 rounded-[24px] p-3 overflow-hidden relative shadow-sm hover:border-[var(--theme-primary)]/30"
                 >
                   {/* Left portion: Hardware Image full height — transparent bg like income, contain */}
-                  <div onClick={() => imageUrl && setPreviewImage(imageUrl)} className="w-28 h-28 sm:w-32 sm:h-32 md:w-44 md:h-44 relative overflow-hidden rounded-[var(--theme-radius)] bg-transparent border border-[var(--theme-card-border)] shrink-0 cursor-zoom-in group-hover:border-[var(--theme-primary)]/30 transition-colors p-2 flex items-center justify-center">
+                  <div onClick={() => imageUrl && setPreviewImage(imageUrl)} className="w-28 h-28 sm:w-32 sm:h-32 md:w-44 md:h-44 relative overflow-hidden rounded-[var(--theme-radius)] bg-transparent border-0 shrink-0 cursor-zoom-in group-hover:border-[var(--theme-primary)]/30 transition-colors p-2 flex items-center justify-center">
                     {imageUrl ? (
                       <img
                         src={imageUrl}
@@ -187,10 +187,10 @@ export default function IncomeView({
                     {/* Progress Bar & Status Indicator */}
                     <div className="pt-1.5 space-y-1">
                       {/* Progress Bar */}
-                      <div className="w-full bg-[var(--theme-bg)] h-2 rounded-full overflow-hidden border border-[var(--theme-card-border)] p-0.5">
+                      <div className="w-full bg-[var(--theme-card-bg)] h-3 rounded-full overflow-hidden border border-[var(--theme-card-border)] p-0.5">
                         <div 
                           className={`h-full rounded-full transition-all duration-500 ${
-                            isExpired ? 'bg-gray-400' : 'btn-3d-primary'
+                            isExpired ? 'bg-[var(--theme-text)] opacity-30' : 'bg-[var(--theme-primary)]'
                           }`}
                           style={{ width: `${progressPercent}%` }}
                         />

@@ -655,15 +655,17 @@ export default function ProfileView({
                           className="w-full px-4 py-3 bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] rounded-[var(--theme-radius)] text-sm font-display font-black text-center tracking-[0.2em] text-[var(--theme-text)] outline-none focus:border-[var(--theme-primary)] uppercase transition-all shadow-inner placeholder-[var(--theme-text)]/40"
                         />
                       </div>
-                    <button
+                    <Button
+                        variant="gold-glossy"
+                        size="md"
                         type="submit"
-                        disabled={isRedeemingGiftCode || !giftCodeValue}
-                        className="w-full hut-btn-3d hut-md hut-gold-glossy"
+                        loading={isRedeemingGiftCode}
+                        disabled={!giftCodeValue}
+                        className="w-full"
+                        glow={false}
                       >
-                        <span className="hut-btn-base flex items-center justify-center gap-2 text-xs font-display font-black uppercase tracking-wider">
-                          {isRedeemingGiftCode ? <Loader2 className="w-5 h-5 animate-spin" /> : "get gift"}
-                        </span>
-                      </button>
+                        get gift
+                      </Button>
                     </form>
                   </motion.div>
                 </div>
