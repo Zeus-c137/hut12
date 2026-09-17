@@ -20,12 +20,12 @@ npm run build && npm run start  # production
 ...see previous docs / .env.example for full SmarterASP & Render deploy guides.
 
 ---
-## Smarterasp deployment
-Download the full project on your pc and navigate into it
-Run npm install to install node modules
-Then run npm run build to compile the production build of the application [it comes out as dist folder]
-Zip your dist folder, node modules and copy them to site1 or your smarterasp root and unzip them,
-Upload the package.json and .env file as well with database url added inside
+## SmarterASP deployment
+1. Download the full project on your PC and navigate into it.
+2. Run `npm install` to install the node modules.
+3. Run `npm run build` to compile the production build of the application (outputs the `dist` folder).
+4. Zip the `dist` folder and `node_modules`, copy them to `site1` or your SmarterASP root, and unzip them there.
+5. Upload `package.json` and `.env` as well, with the database URL added inside.
 ---
 
 
