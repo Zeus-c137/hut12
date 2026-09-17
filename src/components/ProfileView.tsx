@@ -49,7 +49,8 @@ import gift3d2 from "@/src/assets/3d/3dicons-gift-box-iso-premium.png";
 import checkin3d from "@/src/assets/3d/3dicons-calendar-iso-premium.png";
 import install3d from "@/src/assets/3d/3dicons-rocket-iso-premium.png";
 import bank3d from "@/src/assets/3d/3dicons-wallet-iso-premium.png";
-import update3d from "@/src/assets/3d/3dicons-setting-iso-premium.png";
+import update3d from "@/src/assets/3d/3dicons-tools-iso-premium.png";
+import guide3d from "@/src/assets/3d/3dicons-pencil-iso-premium.png";
 import community3d from "@/src/assets/3d/3dicons-megaphone-iso-premium.png";
 import { Button } from "./ui/button";
 import confetti from "canvas-confetti";
@@ -65,7 +66,7 @@ interface ProfileViewProps {
   onProfileUpdate: (newProfile: UserProfile) => void;
   onNavigateToDeposit: () => void;
   onNavigateToWithdraw?: () => void;
-  onNavigate: (tab: "dashboard" | "catalog" | "income" | "history" | "referral" | "chat" | "profile" | "deposit" | "withdraw" | "alerts" | "vip", chatRoom?: "shared" | "admin") => void;
+  onNavigate: (tab: "dashboard" | "catalog" | "income" | "history" | "referral" | "chat" | "profile" | "account" | "guide" | "deposit" | "withdraw" | "alerts" | "vip", chatRoom?: "shared" | "admin") => void;
   onLogout: () => void;
   autoOpenWithdraw?: boolean;
   onCloseAutoWithdraw?: () => void;
@@ -339,19 +340,24 @@ export default function ProfileView({
 
   // States to trigger minimal sheets
   const [showWithdrawSheet, setShowWithdrawSheet] = useState(false);
-  const [showSettingsSheet, setShowSettingsSheet] = useState(false);
+
   const [showHistorySheet, setShowHistorySheet] = useState(false);
   const [showCommunitySheet, setShowCommunitySheet] = useState(false);
+  const communityConfettiRef = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    if (!showCommunitySheet) return;
+    const canvas = communityConfettiRef.current;
+    if (!canvas) return;
+    const myConfetti = confetti.create(canvas, { resize: true, useWorker: true });
+    const id = window.setInterval(() => {
+      myConfetti({ particleCount: 2, spread: 60, startVelocity: 12, gravity: 0.5, scalar: 0.8, ticks: 300, origin: { x: Math.random() * 0.6 + 0.2, y: 0 }, colors: ["#CF7500", "#FFE8A3", "#9A4F00"] });
+    }, 450);
+    return () => window.clearInterval(id);
+  }, [showCommunitySheet]);
 
-  // Edit Profile form fields
-  const [username, setUsername] = useState(userProfile.username || "");
-  const [operator, setOperator] = useState<"MTN" | "Airtel">(userProfile.operator || "MTN");
+  // Withdraw form fields (bind-account settings moved to BindAccountView page)
   const [usdtAddress, setUsdtAddress] = useState(userProfile.usdtAddress || "");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [withdrawalPhone, setWithdrawalPhone] = useState(userProfile.phone || "");
-  const [isSavingProfile, setIsSavingProfile] = useState(false);
-  const [successUpdate, setSuccessUpdate] = useState(false);
 
   // Cashout request form fields
   const [pointsToWithdraw, setPointsToWithdraw] = useState<number>(0);
@@ -366,13 +372,11 @@ export default function ProfileView({
   // Sync profile details when userProfile changes
   useEffect(() => {
     if (userProfile) {
-      setUsername(userProfile.username || "");
-      setOperator(userProfile.operator || "MTN");
       setUsdtAddress(userProfile.usdtAddress || "");
       setWithdrawalPhone(userProfile.phone || "");
       setWithdrawOperator(userProfile.operator || "MTN");
     }
-  }, [userProfile, showSettingsSheet, showWithdrawSheet]);
+  }, [userProfile, showWithdrawSheet]);
 
   // Fetch non-simulated user transaction logs
   const fetchTxHistory = async () => {
@@ -387,60 +391,6 @@ export default function ProfileView({
       console.error("Failed to fetch transaction histories:", err);
     } finally {
       setTxLoading(false);
-    }
-  };
-
-  // Profile Save
-  const handleSaveProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSuccessUpdate(false);
-    
-    if (newPassword && newPassword !== confirmPassword) {
-      toast.error("Passwords do not match.");
-      return;
-    }
-
-    if (!/^\d{9,10}$/.test(withdrawalPhone)) {
-      toast.error("Withdrawal phone number must be 9 or 10 digits.");
-      return;
-    }
-
-    setIsSavingProfile(true);
-    try {
-      const res = await fetch("/api/auth/profile", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phone: userProfile.phone,
-          username,
-          operator,
-          customPhone: withdrawalPhone,
-          usdtAddress,
-          newPassword: newPassword || undefined
-        })
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Profile ledger update failed.");
-      }
-
-      onProfileUpdate(data.profile);
-      setSuccessUpdate(true);
-      toast.success("Account preferences updated successfully.");
-      if (newPassword) {
-        setNewPassword("");
-        setConfirmPassword("");
-        toast.info("Password saved.");
-      }
-      setTimeout(() => {
-        setSuccessUpdate(false);
-        setShowSettingsSheet(false);
-      }, 1500);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to edit user settings.");
-    } finally {
-      setIsSavingProfile(false);
     }
   };
 
@@ -552,7 +502,7 @@ export default function ProfileView({
             </button>
             <button onClick={() => onNavigate("referral")} className="flex flex-col items-center gap-1.5 focus:outline-none group">
               <img src={invite3d} alt="" loading="lazy" decoding="async" className="w-12 h-12 object-contain drop-shadow-sm" />
-              <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">Invite</span>
+              <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">Team Invite</span>
             </button>
             <button onClick={() => setShowCommunitySheet(true)} className="flex flex-col items-center gap-1.5 focus:outline-none group">
               <img src={community3d} alt="" loading="lazy" decoding="async" className="w-12 h-12 object-contain drop-shadow-sm" />
@@ -577,9 +527,13 @@ export default function ProfileView({
               <img src={install3d} alt="" className="w-12 h-12 object-contain drop-shadow-sm" />
               <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">{isInstalled ? "Installed" : "Install App"}</span>
             </button>
-            <button onClick={() => { setSuccessUpdate(false); setShowSettingsSheet(true); }} className="flex flex-col items-center gap-1.5 focus:outline-none group">
+            <button onClick={() => onNavigate("account")} className="flex flex-col items-center gap-1.5 focus:outline-none group">
               <img src={bank3d} alt="" className="w-12 h-12 object-contain drop-shadow-sm" />
               <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">Bank Account</span>
+            </button>
+            <button onClick={() => onNavigate("guide")} className="flex flex-col items-center gap-1.5 focus:outline-none group">
+              <img src={guide3d} alt="" loading="lazy" decoding="async" className="w-12 h-12 object-contain drop-shadow-sm" />
+              <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">Guide</span>
             </button>
           </div>
           <div className="h-px bg-[var(--theme-card-border)]/60" />
@@ -590,7 +544,7 @@ export default function ProfileView({
             <RefreshCw className={`w-5 h-5 text-[var(--theme-primary)] ${updateState === "checking" ? "animate-spin" : "hidden"}`} />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-display font-black text-[var(--theme-text)] leading-none">App updates</p>
+            <p className="text-xs font-display font-black text-[var(--theme-text)] leading-none">Software updates</p>
             <p className="text-[11px] font-sans font-bold text-[var(--theme-text)] opacity-60 leading-none mt-1.5 truncate">
               {updateState === "checking" ? "Checking…" :
                updateState === "ready" ? "New version available" :
@@ -611,7 +565,7 @@ export default function ProfileView({
             <button
               onClick={checkForAppUpdate}
               disabled={updateState === "checking"}
-              className="shrink-0 px-4 py-2 rounded-xl bg-[var(--theme-bg)] border-2 border-[var(--theme-card-border)] text-[var(--theme-text)] text-[11px] font-black uppercase tracking-wide hover:border-[var(--theme-primary)]/30 transition-colors cursor-pointer active:scale-95 disabled:opacity-50"
+              className="shrink-0 px-4 py-2 rounded-full bg-[var(--theme-primary)]/12 border border-[var(--theme-primary)]/20 text-[var(--theme-primary)] text-[11px] font-black uppercase tracking-wide hover:bg-[var(--theme-primary)]/20 transition-colors cursor-pointer active:scale-95 disabled:opacity-50"
             >
               {updateState === "checking" ? "…" : "Check"}
             </button>
@@ -656,16 +610,16 @@ export default function ProfileView({
                         />
                       </div>
                     <Button
-                        variant="gold-glossy"
-                        size="md"
-                        type="submit"
-                        loading={isRedeemingGiftCode}
-                        disabled={!giftCodeValue}
-                        className="w-full"
-                        glow={false}
-                      >
-                        get gift
-                      </Button>
+                      variant="gold-glossy"
+                      size="sm"
+                      type="submit"
+                      loading={isRedeemingGiftCode}
+                      disabled={!giftCodeValue}
+                      className="w-full"
+                      glow={false}
+                    >
+                      get gift
+                    </Button>
                     </form>
                   </motion.div>
                 </div>
@@ -822,132 +776,6 @@ export default function ProfileView({
 
 
 {/* ================= SHEETS & DRAWERS OVERLAYS ================= */}
-
-      {/* 2. Nice Minimal Settings Sheet */}
-      <AnimatePresence>
-        {showSettingsSheet && (
-          <div className="fixed inset-0 z-50 flex items-end justify-center">
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowSettingsSheet(false)}
-              className="absolute inset-0 bg-black/60 backdrop-blur-xs"
-            />
-            {/* Sheet - 85vh max height */}
-            <motion.div
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              transition={{ type: "spring", damping: 26, stiffness: 220 }}
-              className="relative w-full max-w-md h-[85vh] max-h-[85vh] theme-card bg-[var(--theme-card-bg)] border-t border-[var(--theme-card-border)] text-[var(--theme-text)] rounded-t-[var(--theme-radius)] p-6 pb-8 flex flex-col z-10 overflow-hidden shadow-2xl"
-            >
-              {/* Header */}
-              <div className="flex justify-between items-center pb-2 border-b border-[var(--theme-card-border)] shrink-0 mb-4">
-                <div className="space-y-0.5">
-                  <h4 className="font-display font-black text-base text-[var(--theme-text)] uppercase tracking-tight">Bind Account</h4>
-                  <p className="text-[12px] font-sans text-[var(--theme-text)] opacity-60">Configure your billing & security</p>
-                </div>
-                <button
-                  onClick={() => setShowSettingsSheet(false)}
-                  className="p-1.5 rounded-full btn-3d-secondary border border-[var(--theme-card-border)] text-[var(--theme-text)] cursor-pointer focus:outline-none"
-                  id="close-settings-btn"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Form */}
-              <form onSubmit={handleSaveProfile} className="space-y-4 flex-1 overflow-y-auto pr-1 pb-16">
-                <div className="space-y-1">
-                  <label className="text-[12px] font-sans uppercase text-[var(--theme-text)] opacity-70 font-bold block">Display Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] text-[var(--theme-text)] text-xs rounded-[var(--theme-radius)] outline-none font-sans font-medium transition-colors"
-                    placeholder="Username display"
-                    id="settings-username-input"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[12px] font-sans uppercase text-[var(--theme-text)] opacity-70 font-bold block">Phone Number</label>
-                  <div className="relative">
-                    <Phone className="w-3.5 h-3.5 text-[var(--theme-text)] opacity-50 absolute left-3 top-3.5" />
-                    <input
-                      type="tel"
-                      required
-                      value={withdrawalPhone}
-                      disabled={true} readOnly
-                      className="w-full pl-9 pr-4 py-2.5 bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] text-[var(--theme-text)] text-xs rounded-[var(--theme-radius)] outline-none font-sans opacity-70"
-                      placeholder="+25677..."
-                      id="settings-phone-input"
-                    />
-                  </div>
-                </div>
-
-                
-
-                <div className="space-y-1">
-                  <label className="text-[12px] font-sans uppercase text-[var(--theme-text)] opacity-70 font-bold block">USDT Wallet Address (Optional)</label>
-                  <div className="relative">
-                    <Wallet className="w-3.5 h-3.5 text-[var(--theme-text)] opacity-50 absolute left-3 top-3.5" />
-                    <input
-                      type="text"
-                      value={usdtAddress}
-                      onChange={(e) => setUsdtAddress(e.target.value)}
-                      className="w-full pl-9 pr-4 py-2.5 bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] text-[var(--theme-text)] text-xs rounded-[var(--theme-radius)] outline-none font-sans transition-colors"
-                      placeholder="T..."
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1 pt-2 border-t border-[var(--theme-card-border)]">
-                  <label className="text-[12px] font-sans uppercase text-[var(--theme-text)] opacity-70 font-bold block">Update Password (Optional)</label>
-                  <input
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] text-[var(--theme-text)] text-xs rounded-[var(--theme-radius)] outline-none font-sans transition-colors"
-                    placeholder="New password"
-                  />
-                </div>
-                
-                {newPassword && (
-                  <div className="space-y-1">
-                    <input
-                      type="password"
-                      required
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="w-full px-4 py-2.5 bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] text-[var(--theme-text)] text-xs rounded-[var(--theme-radius)] outline-none font-sans transition-colors"
-                      placeholder="Confirm new password"
-                    />
-                  </div>
-                )}
-
-                {successUpdate && (
-                  <div className="text-center text-[11px] text-emerald-400 font-sans py-1 flex items-center justify-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>✓ System settings saved offline!</span>
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={isSavingProfile}
-                  className="w-full py-3 rounded-[var(--theme-radius)] bg-[var(--theme-primary)] hover:brightness-110 text-white font-sans font-bold text-xs shadow-md transition-all cursor-pointer outline-none active:scale-[0.99] flex items-center justify-center"
-                >
-                  {isSavingProfile ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : "Save Account Data"}
-                </button>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
 
       {/* 3. Transaction History Sheet */}
       <AnimatePresence>
@@ -1161,18 +989,20 @@ export default function ProfileView({
               transition={{ type: "spring", damping: 26, stiffness: 340 }}
               className="relative w-full max-w-sm rounded-[28px] overflow-hidden border border-[var(--theme-card-border)] shadow-[0_20px_60px_rgba(0,0,0,0.3)] bg-[var(--theme-card-bg)]"
             >
-              <div className="relative p-5 pb-6">
-                <div className="w-10 h-1 rounded-full bg-[var(--theme-card-border)] mx-auto mb-4" />
-                <div className="flex items-center justify-between mb-4">
+              <div className="relative p-5 pb-6 overflow-hidden">
+                <canvas ref={communityConfettiRef} className="absolute inset-0 pointer-events-none" />
+                <div className="w-10 h-1 rounded-full bg-[var(--theme-card-border)] mx-auto mb-4 relative" />
+                <div className="flex items-center justify-between mb-3 relative">
                   <h3 className="text-[11px] font-black uppercase tracking-[0.14em] text-[var(--theme-text)] opacity-70">Join our community</h3>
-                  <button onClick={() => setShowCommunitySheet(false)} className="w-8 h-8 rounded-full bg-[var(--theme-bg)] hover:opacity-80 flex items-center justify-center text-[var(--theme-text)] opacity-60 transition-colors border border-[var(--theme-card-border)]">
+                  <button onClick={() => setShowCommunitySheet(false)} className="w-8 h-8 rounded-full bg-transparent hover:opacity-80 flex items-center justify-center text-[var(--theme-text)] opacity-60 transition-colors border-0">
                     <X className="w-4 h-4" />
                   </button>
                 </div>
-                <div className="space-y-2.5">
+                <p className="text-[11px] font-sans text-[var(--theme-text)] opacity-60 leading-relaxed text-center mb-4 relative">Connect with like minded people from all over the globe — share tips, get support, and grow together.</p>
+                <div className="space-y-2.5 relative">
                   {siteConfig?.whatsappLink && (
-                    <a href={siteConfig.whatsappLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] hover:opacity-80 transition-colors group">
-                      <img src="/whatsapp.svg" alt="WhatsApp" className="w-10 h-10 rounded-xl shrink-0 shadow-sm object-contain bg-white p-1" />
+                    <a href={siteConfig.whatsappLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-2xl bg-transparent border-0 hover:opacity-80 transition-colors group">
+                      <img src="/whatsapp.svg" alt="WhatsApp" className="w-10 h-10 rounded-xl shrink-0 object-contain bg-transparent p-0 shadow-none" />
                       <span className="flex-1 min-w-0">
                         <span className="block text-[13px] font-black text-[var(--theme-text)] leading-none">WhatsApp Support</span>
                         <span className="block text-[11px] font-bold text-[var(--theme-text)] opacity-60 leading-none mt-1 truncate">{siteConfig.whatsappLink}</span>
@@ -1181,8 +1011,8 @@ export default function ProfileView({
                     </a>
                   )}
                   {siteConfig?.telegramLink && (
-                    <a href={siteConfig.telegramLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] hover:opacity-80 transition-colors group">
-                      <img src="/telegram.svg" alt="Telegram" className="w-10 h-10 rounded-xl shrink-0 shadow-sm object-contain bg-white p-1" />
+                    <a href={siteConfig.telegramLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-2xl bg-transparent border-0 hover:opacity-80 transition-colors group">
+                      <img src="/telegram.svg" alt="Telegram" className="w-10 h-10 rounded-xl shrink-0 object-contain bg-transparent p-0 shadow-none" />
                       <span className="flex-1 min-w-0">
                         <span className="block text-[13px] font-black text-[var(--theme-text)] leading-none">Telegram Channel</span>
                         <span className="block text-[11px] font-bold text-[var(--theme-text)] opacity-60 leading-none mt-1 truncate">{siteConfig.telegramLink}</span>

@@ -2,13 +2,20 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useGatedInterval } from "../hooks/useGatedInterval";
 import { NotificationItem, UserProfile } from "../types";
 import { X, ExternalLink } from "lucide-react";
+import { createPortal } from "react-dom";
 import bell3d from "@/src/assets/3d/3dicons-bell-iso-premium.png";
 import dollar3d from "@/src/assets/3d/3dicons-dollar-iso-premium.png";
+import plus3d from "@/src/assets/3d/3dplus.png";
 import wallet3d from "@/src/assets/3d/3dicons-wallet-iso-premium.png";
 import giftBox3d from "@/src/assets/3d/3dicons-gift-box-iso-premium.png";
 import shield3d from "@/src/assets/3d/3dicons-shield-iso-premium.png";
 import megaphone3d from "@/src/assets/3d/3dicons-megaphone-iso-premium.png";
 import money3d from "@/src/assets/3d/3dicons-money-iso-premium.png";
+import calendar3d from "@/src/assets/3d/3dicons-calendar-iso-premium.png";
+import trophy3d from "@/src/assets/3d/3dicons-trophy-iso-premium.png";
+import link3d from "@/src/assets/3d/3dicons-link-iso-premium.png";
+import flash3d from "@/src/assets/3d/3dicons-flash-iso-premium.png";
+import medal3d from "@/src/assets/3d/3dicons-medal-iso-premium.png";
 import { motion, AnimatePresence } from "motion/react";
 
 interface AlertsViewProps {
@@ -120,25 +127,34 @@ export default function AlertsView({ profile, onBack, initialNotifications = [],
   ).length;
 
   return (
-    <div className="bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 rounded-[24px] p-4 select-none relative min-h-[85vh] text-[var(--theme-text)]">
-      <AnimatePresence>
-        {selectedAlert && (() => {
+    <div className="p-4 select-none relative min-h-[85vh] text-[var(--theme-text)] bg-transparent border-0 rounded-none">
+      {typeof document !== "undefined" &&
+        createPortal(
+          <AnimatePresence>
+            {selectedAlert && (() => {
           let categoryIcon3d: string = bell3d;
           let modalBadgeClass = "bg-[var(--theme-primary)]/15 border border-[var(--theme-primary)]/30 text-[var(--theme-primary)]";
-          if (selectedAlert.category === "deposit") { categoryIcon3d = dollar3d; modalBadgeClass = "btn-3d-primary text-white"; }
-          else if (selectedAlert.category === "withdraw") { categoryIcon3d = wallet3d; modalBadgeClass = "btn-3d-secondary text-[var(--theme-text)]"; }
-          else if (selectedAlert.category === "rewards" || selectedAlert.category === "daily accumulation") { categoryIcon3d = giftBox3d; modalBadgeClass = "btn-3d-secondary text-[var(--theme-text)]"; }
-          else if (selectedAlert.category === "system") { categoryIcon3d = shield3d; modalBadgeClass = "bg-[var(--theme-primary)]/15 border border-[var(--theme-primary)]/30 text-[var(--theme-primary)]"; }
-          else if (selectedAlert.category === "announcement") { categoryIcon3d = megaphone3d; modalBadgeClass = "bg-[var(--theme-primary)]/15 border border-[var(--theme-primary)]/30 text-[var(--theme-primary)]"; }
+          const cat = selectedAlert.category.toLowerCase();
+          const title = selectedAlert.title.toLowerCase();
+          if (cat === "deposit") { categoryIcon3d = plus3d; modalBadgeClass = "bg-[var(--theme-primary)] text-white border border-[var(--theme-primary)]"; }
+          else if (cat === "withdraw") { categoryIcon3d = money3d; modalBadgeClass = "bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] text-[var(--theme-text)]"; }
+          else if (cat === "register") { categoryIcon3d = medal3d; modalBadgeClass = "bg-[var(--theme-primary)]/15 border border-[var(--theme-primary)]/20 text-[var(--theme-primary)]"; }
+          else if (cat === "checkin" || cat.includes("checkin") || title.includes("check-in")) { categoryIcon3d = calendar3d; modalBadgeClass = "bg-[var(--theme-primary)]/15 border border-[var(--theme-primary)]/20 text-[var(--theme-primary)]"; }
+          else if (cat.includes("vip") || title.includes("vip")) { categoryIcon3d = trophy3d; modalBadgeClass = "bg-[var(--theme-primary)]/15 border border-[var(--theme-primary)]/20 text-[var(--theme-primary)]"; }
+          else if (title.includes("product activated")) { categoryIcon3d = flash3d; modalBadgeClass = "bg-[var(--theme-primary)]/10 border border-[var(--theme-primary)]/20 text-[var(--theme-primary)]"; }
+          else if (cat.includes("referral") || title.includes("referral")) { categoryIcon3d = link3d; modalBadgeClass = "bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] text-[var(--theme-text)]"; }
+          else if (cat === "rewards" || cat === "daily accumulation" || title.includes("daily income")) { categoryIcon3d = giftBox3d; modalBadgeClass = "bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] text-[var(--theme-text)]"; }
+          else if (cat === "system") { categoryIcon3d = shield3d; modalBadgeClass = "bg-[var(--theme-primary)]/15 border border-[var(--theme-primary)]/30 text-[var(--theme-primary)]"; }
+          else if (cat === "announcement") { categoryIcon3d = megaphone3d; modalBadgeClass = "bg-[var(--theme-primary)]/15 border border-[var(--theme-primary)]/30 text-[var(--theme-primary)]"; }
 
           return (
-            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <div key={selectedAlert.id} className="fixed inset-0 z-[80] flex items-center justify-center p-4">
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 onClick={() => setSelectedAlert(null)}
-                className="absolute inset-0 bg-black/80 backdrop-blur-sm cursor-pointer"
+                className="fixed inset-0 bg-black/80 backdrop-blur-sm cursor-pointer"
               />
               <motion.div
                 initial={{ scale: 0.94, opacity: 0, y: 15 }}
@@ -151,7 +167,7 @@ export default function AlertsView({ profile, onBack, initialNotifications = [],
                 <div className="flex justify-between items-center p-5 bg-transparent shrink-0">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-transparent border-0 flex items-center justify-center shrink-0">
-                      <img src={categoryIcon3d} alt="" loading="lazy" decoding="async" className="w-10 h-10 object-contain" />
+                      <img src={categoryIcon3d} alt="" loading="lazy" decoding="async" className={`w-10 h-10 object-contain ${categoryIcon3d === flash3d ? "opacity-90 scale-[0.9]" : ""}`} />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
@@ -203,7 +219,9 @@ export default function AlertsView({ profile, onBack, initialNotifications = [],
             </div>
           );
         })()}
-      </AnimatePresence>
+          </AnimatePresence>,
+          document.body
+        )}
       <div>
         <div className="space-y-4">
 
@@ -246,15 +264,32 @@ export default function AlertsView({ profile, onBack, initialNotifications = [],
                 let categoryIcon3dList: string = bell3d;
                 let badgeClass = "bg-[var(--theme-primary)]/15 border border-[var(--theme-primary)]/30 text-[var(--theme-primary)]";
 
-                if (logs.category === "deposit") {
-                  categoryIcon3dList = dollar3d;
-                  badgeClass = "btn-3d-primary text-white";
-                } else if (logs.category === "withdraw") {
-                  categoryIcon3dList = wallet3d;
-                  badgeClass = "btn-3d-secondary text-[var(--theme-text)]";
-                } else if (logs.category === "rewards" || logs.category === "daily accumulation") {
+                const lcat = logs.category.toLowerCase();
+                const ltitle = logs.title.toLowerCase();
+                if (lcat === "deposit") {
+                  categoryIcon3dList = plus3d;
+                  badgeClass = "bg-[var(--theme-primary)] text-white border border-[var(--theme-primary)]";
+                } else if (lcat === "withdraw") {
+                  categoryIcon3dList = money3d;
+                  badgeClass = "bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] text-[var(--theme-text)]";
+                } else if (lcat === "register") {
+                  categoryIcon3dList = medal3d;
+                  badgeClass = "bg-[var(--theme-primary)]/15 border border-[var(--theme-primary)]/20 text-[var(--theme-primary)]";
+                } else if (lcat === "checkin" || lcat.includes("checkin") || ltitle.includes("check-in")) {
+                  categoryIcon3dList = calendar3d;
+                  badgeClass = "bg-[var(--theme-primary)]/15 border border-[var(--theme-primary)]/20 text-[var(--theme-primary)]";
+                } else if (lcat.includes("vip") || ltitle.includes("vip")) {
+                  categoryIcon3dList = trophy3d;
+                  badgeClass = "bg-[var(--theme-primary)]/15 border border-[var(--theme-primary)]/20 text-[var(--theme-primary)]";
+                } else if (ltitle.includes("product activated")) {
+                  categoryIcon3dList = flash3d;
+                  badgeClass = "bg-[var(--theme-primary)]/10 border border-[var(--theme-primary)]/20 text-[var(--theme-primary)]";
+                } else if (lcat.includes("referral") || ltitle.includes("referral")) {
+                  categoryIcon3dList = link3d;
+                  badgeClass = "bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] text-[var(--theme-text)]";
+                } else if (lcat === "rewards" || lcat === "daily accumulation" || ltitle.includes("daily income")) {
                   categoryIcon3dList = giftBox3d;
-                  badgeClass = "btn-3d-secondary text-[var(--theme-text)]";
+                  badgeClass = "bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] text-[var(--theme-text)]";
                 } else if (logs.category === "system") {
                   categoryIcon3dList = shield3d;
                   badgeClass = "bg-[var(--theme-primary)]/15 border border-[var(--theme-primary)]/30 text-[var(--theme-primary)]";
@@ -269,10 +304,10 @@ export default function AlertsView({ profile, onBack, initialNotifications = [],
                   <div
                     key={logs.id}
                     onClick={() => handleOpenAlert(logs)}
-                    className="bg-transparent border border-white/10 p-4 rounded-[20px] flex gap-3.5 transition-all text-left cursor-pointer active:scale-[0.98]"
+                    className="bg-transparent border-0 p-4 rounded-[20px] flex gap-3.5 transition-all text-left cursor-pointer active:scale-[0.98]"
                   >
                     <div className="w-10 h-10 bg-transparent border-0 flex items-center justify-center shrink-0">
-                      <img src={categoryIcon3dList} alt="" loading="lazy" decoding="async" className="w-10 h-10 object-contain" />
+                      <img src={categoryIcon3dList} alt="" loading="lazy" decoding="async" className={`w-10 h-10 object-contain ${categoryIcon3dList === flash3d ? "opacity-90 scale-[0.9]" : ""}`} />
                     </div>
                     
                     <div className="space-y-1.5 flex-1 min-w-0">

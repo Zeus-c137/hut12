@@ -206,10 +206,11 @@ export default function AuthView({ onAuthSuccess, siteConfig }: AuthViewProps) {
                     <input
                       type="tel"
                       required
+                      autoComplete="tel"
                       placeholder="e.g. 0770000000"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 bg-[var(--theme-bg)]/60 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] text-[var(--theme-text)] placeholder:text-[var(--theme-text-muted)] text-sm font-sans font-medium rounded-[14px] outline-none transition-colors select-text"
+                      className="w-full pl-10 pr-4 py-3 input-frosted bg-[var(--theme-bg)]/60 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] text-[var(--theme-text)] placeholder:text-[var(--theme-text-muted)] text-sm font-sans font-medium rounded-[14px] outline-none transition-colors select-text"
                     />
                   </div>
                 </div>
@@ -221,10 +222,11 @@ export default function AuthView({ onAuthSuccess, siteConfig }: AuthViewProps) {
                     <input
                       type={showPassword ? "text" : "password"}
                       required
+                      autoComplete={authMode === "register" ? "new-password" : "current-password"}
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full pl-10 pr-10 py-3 bg-[var(--theme-bg)]/60 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] text-[var(--theme-text)] placeholder:text-[var(--theme-text-muted)] text-sm font-sans font-medium rounded-[14px] outline-none transition-colors select-text"
+                      className="w-full pl-10 pr-10 py-3 input-frosted bg-[var(--theme-bg)]/60 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] text-[var(--theme-text)] placeholder:text-[var(--theme-text-muted)] text-sm font-sans font-medium rounded-[14px] outline-none transition-colors select-text"
                     />
                     <button
                       type="button"
@@ -245,10 +247,11 @@ export default function AuthView({ onAuthSuccess, siteConfig }: AuthViewProps) {
                         <input
                           type={showConfirmPassword ? "text" : "password"}
                           required
+                          autoComplete="new-password"
                           placeholder="••••••••"
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
-                          className="w-full pl-10 pr-10 py-3 bg-[var(--theme-bg)]/60 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] text-[var(--theme-text)] placeholder:text-[var(--theme-text-muted)] text-sm font-sans font-medium rounded-[14px] outline-none transition-colors select-text"
+                          className="w-full pl-10 pr-10 py-3 input-frosted bg-[var(--theme-bg)]/60 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] text-[var(--theme-text)] placeholder:text-[var(--theme-text-muted)] text-sm font-sans font-medium rounded-[14px] outline-none transition-colors select-text"
                         />
                         <button
                           type="button"
@@ -269,10 +272,11 @@ export default function AuthView({ onAuthSuccess, siteConfig }: AuthViewProps) {
                         <UserPlus className="w-4 h-4 text-[var(--theme-text)] opacity-40 absolute left-3.5 top-3.5" />
                         <input
                           type="text"
+                          autoComplete="off"
                           placeholder="REFERRAL CODE"
                           value={inviteCode}
                           onChange={(e) => setInviteCode(e.target.value)}
-                          className="w-full pl-10 pr-4 py-3 bg-[var(--theme-bg)]/60 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] text-[var(--theme-text)] text-sm rounded-[14px] outline-none transition-colors uppercase font-mono font-medium tracking-wide select-text"
+                          className="w-full pl-10 pr-4 py-3 input-frosted bg-[var(--theme-bg)]/60 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] text-[var(--theme-text)] text-sm rounded-[14px] outline-none transition-colors uppercase font-mono font-medium tracking-wide select-text"
                         />
                       </div>
                     </div>

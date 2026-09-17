@@ -6,10 +6,11 @@ interface VisaMetricCardProps {
   leftValue: string;
   leftLabel: string;
   leftSub?: string;
-  rightValue: string;
-  rightLabel: string;
+  rightValue?: string;
+  rightLabel?: string;
   brandLabel?: string;
   variant?: "bank-dark" | "bank-light";
+  mode?: "dual" | "single";
 }
 
 export default function VisaMetricCard({
@@ -20,6 +21,7 @@ export default function VisaMetricCard({
   rightLabel,
   brandLabel,
   variant = "bank-dark",
+  mode = "dual",
 }: VisaMetricCardProps) {
   const { siteConfig } = useTheme();
   const isDark = variant === "bank-dark";
@@ -69,6 +71,27 @@ export default function VisaMetricCard({
         <BrandLogo siteConfig={siteConfig} className="w-9 h-9 flex items-center justify-center shrink-0" />
       </div>
 
+      {mode === "single" ? (
+        <div className="relative mt-4 min-w-0">
+          <p
+            className={`text-[10px] font-sans font-black uppercase tracking-[0.14em] leading-none ${
+              isDark ? "text-white/40" : "text-black/40"
+            }`}
+          >
+            {leftLabel}
+          </p>
+          <p
+            className={`text-[20px] sm:text-[22px] font-display font-black tracking-tight leading-none mt-1.5 truncate ${
+              isDark ? "text-white" : "text-[#1a1a1a]"
+            }`}
+          >
+            {leftValue}
+          </p>
+          {leftSub && (
+            <p className={`text-[10px] font-bold leading-none mt-1 ${isDark ? "text-white/40" : "text-black/40"}`}>{leftSub}</p>
+          )}
+        </div>
+      ) : (
       <div className="relative grid grid-cols-2 gap-6 mt-4">
         <div className="text-left min-w-0">
           <p
@@ -106,6 +129,7 @@ export default function VisaMetricCard({
           </p>
         </div>
       </div>
+      )}
     </div>
   );
 }

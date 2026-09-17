@@ -82,7 +82,7 @@ export const HUT12_PRESETS: Record<ThemePreset, ThemePresetDetails> = {
 export const HUT12_PRESET_OPTIONS: ThemePresetOption[] = [
   {
     id: "hut12-light",
-    name: "Hut12 Light",
+    name: "Light",
     icon: "☀️",
     description: "Warm paper canvas with toasted amber accents.",
     primary: "#CF7500",
@@ -93,7 +93,7 @@ export const HUT12_PRESET_OPTIONS: ThemePresetOption[] = [
   },
   {
     id: "hut12-dark",
-    name: "Hut12 Dark",
+    name: "Dark",
     icon: "🌙",
     description: "True OLED rich black — ink cards on pure black.",
     primary: "#CF7500",

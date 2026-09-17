@@ -8,11 +8,11 @@ import {
   CheckCircle2,
   Info,
   ArrowUpRight,
-  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useCurrency } from "../currency";
 import VisaMetricCard from "./VisaMetricCard";
+import { Button } from "./ui/button";
 
 interface WithdrawViewProps {
   userProfile: UserProfile;
@@ -197,7 +197,7 @@ export default function WithdrawView({
   }
 
   return (
-    <div className="bg-transparent text-[var(--theme-text)] p-1 space-y-4 select-none">
+    <div className="bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 rounded-[24px] p-4 text-[var(--theme-text)] space-y-4 select-none">
       <div className="flex items-center justify-between gap-3">
         <button
           onClick={onBack}
@@ -209,12 +209,12 @@ export default function WithdrawView({
         <span className="w-[72px]" />
       </div>
 
+      {/* Visa balance card — withdrawable only */}
       <VisaMetricCard
-        variant="bank-light"
-        leftLabel="Recharge balance"
-        leftValue={`${currency === "USD" ? "$" : "UGX"} ${currency === "USD" ? ((userProfile.rechargeBalance || 0) / 3700).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : (userProfile.rechargeBalance || 0).toLocaleString()}`}
-        rightLabel="Withdrawable"
-        rightValue={formatCurrency(userProfile.points || 0)}
+        variant="bank-dark"
+        mode="single"
+        leftLabel="Withdrawable balance"
+        leftValue={formatCurrency(userProfile.points || 0)}
       />
 
       <div className="rounded-[var(--theme-radius)] bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] shadow-sm overflow-hidden">
@@ -322,18 +322,6 @@ export default function WithdrawView({
                 MAX
               </button>
             </div>
-            <p className="text-[11px] font-bold opacity-60 px-1">
-              Available: <span className="text-[var(--theme-text)] opacity-100">{formatCurrency(userProfile.points || 0)}</span> · Min{" "}
-              <span className="text-[var(--theme-text)] opacity-100">{formatCurrency(minimumWithdrawal)}</span>
-              {maximumWithdrawal > 0 ? (
-                <>
-                  {" "}
-                  · Max <span className="text-[var(--theme-text)] opacity-100">{formatCurrency(maximumWithdrawal)}</span>
-                </>
-              ) : (
-                " · No max"
-              )}
-            </p>
             {pointsToWithdraw > 0 && pointsToWithdraw > (userProfile.points || 0) && (
               <p className="text-[11px] text-rose-500 font-bold">Insufficient withdrawable balance.</p>
             )}
@@ -399,10 +387,12 @@ export default function WithdrawView({
             </div>
           </div>
 
-          <button
+          <Button
+            variant="gold-glossy"
+            size="md"
             type="submit"
+            loading={isWithdrawing}
             disabled={
-              isWithdrawing ||
               !Number.isInteger(pointsToWithdraw) ||
               pointsToWithdraw < minimumWithdrawal ||
               (maximumWithdrawal > 0 && pointsToWithdraw > maximumWithdrawal) ||
@@ -410,27 +400,17 @@ export default function WithdrawView({
               !activeNodes ||
               activeNodes.length === 0
             }
-            className={`w-full py-3.5 rounded-full font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
-              Number.isInteger(pointsToWithdraw) &&
-              pointsToWithdraw >= minimumWithdrawal &&
-              (maximumWithdrawal === 0 || pointsToWithdraw <= maximumWithdrawal) &&
-              pointsToWithdraw <= (userProfile.points || 0) &&
-              activeNodes &&
-              activeNodes.length > 0
-                ? "bg-[var(--theme-primary)] text-white shadow-[0_3px_0_0_var(--theme-primary-shadow)] active:translate-y-[1px] active:shadow-none cursor-pointer"
-                : "bg-[var(--theme-card-border)] text-[var(--theme-text)] opacity-50 cursor-not-allowed"
-            }`}
+            className="w-full"
+            glow={false}
           >
-            {isWithdrawing ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : !activeNodes || activeNodes.length === 0 ? (
+            {!activeNodes || activeNodes.length === 0 ? (
               <span>Purchase product first</span>
             ) : (
               <>
                 <ArrowUpRight className="w-4 h-4" /> Request withdrawal
               </>
             )}
-          </button>
+          </Button>
           <p className="text-center text-[11px] font-bold opacity-50">
             {formatCurrency(minimumWithdrawal)} min{maximumWithdrawal > 0 ? ` • ${formatCurrency(maximumWithdrawal)} max` : " • no max"} • Fee {feePct}%
           </p>

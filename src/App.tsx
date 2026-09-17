@@ -13,6 +13,8 @@ import DepositView from "./components/DepositView";
 import WithdrawView from "./components/WithdrawView";
 import ReferralView from "./components/ReferralView";
 import ProfileView from "./components/ProfileView";
+import BindAccountView from "./components/BindAccountView";
+import GuideView from "./components/GuideView";
 import ChatView from "./components/ChatView";
 import TransactionHistoryView from "./components/TransactionHistoryView";
 import VipTasksPage from "./components/VipTasksPage";
@@ -32,12 +34,10 @@ import {
   MessageCircleMore,
   User,
   LogOut,
-  Bot,
   Percent,
   X,
   Coins,
   ArrowRight,
-  RefreshCw,
   HelpCircle,
   Computer,
   Database,
@@ -57,7 +57,7 @@ import navIncome3d from "@/src/assets/3d/3dicons-dollar-iso-premium.png";
 import navHistory3d from "@/src/assets/3d/3dicons-calender-iso-premium.png";
 import navChat3d from "@/src/assets/3d/3dicons-chat-bubble-iso-premium.png";
 import navProfile3d from "@/src/assets/3d/3dicons-setting-iso-premium.png";
-import headerAi3d from "@/src/assets/3d/3dicons-puzzle-iso-premium.png";
+import headerAi3d from "@/src/assets/3d/3dicons-lock-iso-premium.png";
 import headerBell3d from "@/src/assets/3d/3dicons-bell-iso-premium.png";
 import headerBoy3d from "@/src/assets/3d/3dicons-boy-iso-premium.png";
 import { motion, AnimatePresence } from "motion/react";
@@ -160,7 +160,7 @@ export default function App() {
       cancelled = true;
     };
   }, [isAdminRoute]);
-  const [activeTab, setActiveTab] = useState<"dashboard" | "catalog" | "income" | "history" | "ai" | "referral" | "chat" | "profile" | "deposit" | "withdraw" | "alerts" | "vip">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "catalog" | "income" | "history" | "referral" | "chat" | "profile" | "account" | "guide" | "deposit" | "withdraw" | "alerts" | "vip">("dashboard");
   const [siteConfig, setSiteConfig] = useState<any>(null);
   const chatUnread = useChatUnread(userProfile?.phone);
   const [vipBadgeLevel, setVipBadgeLevel] = useState(0);
@@ -303,7 +303,7 @@ export default function App() {
       setPreviousTab(activeTab as any);
     }
   }, [activeTab]);
-  const [chatRoomDefault, setChatRoomDefault] = useState<"shared" | "admin">("shared");
+  const [chatRoomDefault, setChatRoomDefault] = useState<"shared" | "admin" | "ai">("shared");
   const [autoOpenWithdraw, setAutoOpenWithdraw] = useState(false);
   const [preselectedGpuRent, setPreselectedGpuRent] = useState<SubscriptionItem | null>(null);
   
@@ -312,24 +312,6 @@ export default function App() {
   const [activeNodes, setActiveNodes] = useState<SubscribedNode[]>([]);
   const [systemStats, setSystemStats] = useState<SystemStats | undefined>(undefined);
   
-  // State for AI Advisor
-  const [showAdvisor, setShowAdvisor] = useState(false);
-  const [advisorMessages, setAdvisorMessages] = useState<Array<{ sender: "user" | "advisor"; text: string }>>([]);
-  const [advisorInput, setAdvisorInput] = useState("");
-  const [isAskingAdvisor, setIsAskingAdvisor] = useState(false);
-
-  useEffect(() => {
-    setAdvisorMessages(prev => {
-      if (prev.length > 0) return prev;
-      return [
-        {
-          sender: "advisor",
-          text: `👋 Hello`
-        }
-      ];
-    });
-  }, [siteConfig]);
-
   // 5-minute inactivity auto sign out for users
   const revokeUserSession = () => {
     void fetch("/api/auth/logout", {
@@ -455,12 +437,6 @@ export default function App() {
     setVipBadgeLevel(0);
     revokeUserSession();
     setActiveTab("dashboard");
-    setAdvisorMessages([
-      {
-        sender: "advisor",
-        text: `👋 Hello`
-      }
-    ]);
   };
 
   const handleProfileChange = (newProfile: UserProfile) => {
@@ -526,49 +502,6 @@ export default function App() {
     );
     // Refresh stats from server
     handleManualStatsRefresh();
-  };
-
-  // AI Advisor consultation query helper
-  const handleAskAdvisor = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!advisorInput.trim() || isAskingAdvisor) return;
-
-    const userText = advisorInput;
-    setAdvisorMessages((prev) => [...prev, { sender: "user", text: userText }]);
-    setAdvisorInput("");
-    setIsAskingAdvisor(true);
-
-    try {
-      const res = await fetch("/api/copilot/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: [...advisorMessages, { sender: "user", text: userText }].map((m) => ({
-            sender: m.sender,
-            text: m.text
-          })),
-          userProfile,
-          activeSubscriptions: activeNodes
-        })
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Advisor consultation failed.");
-      }
-
-      setAdvisorMessages((prev) => [...prev, { sender: "advisor", text: data.text }]);
-    } catch (err: any) {
-      setAdvisorMessages((prev) => [
-        ...prev,
-        {
-          sender: "advisor",
-          text: `⚠️ Undergoing maintenance. (Error: ${err.message})`
-        }
-      ]);
-    } finally {
-      setIsAskingAdvisor(false);
-    }
   };
 
   // Refresh whole dashboard — consolidated to single fetchUserDataAndCatalog (already includes referrals+stats)
@@ -674,10 +607,10 @@ export default function App() {
         {/* Top Premium navigation Header ribbon */}
         <header className="sticky top-0 z-40 bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] border-b border-white/10 supports-[backdrop-filter]:bg-[var(--theme-card-bg)]/40 h-16 flex items-center justify-between px-3.5 sm:px-4.5 shrink-0 will-change-[backdrop-filter]">
           <div className="flex items-center gap-2.5">
-            <img src={headerBoy3d} alt="Hut12" decoding="async" loading="eager" fetchPriority="high" className="w-10 h-10 object-contain drop-shadow-sm shrink-0" />
+            <img src={headerBoy3d} alt="App logo" decoding="async" loading="eager" fetchPriority="high" className="w-10 h-10 object-contain drop-shadow-sm shrink-0" />
             <div>
               <span className="font-display font-black text-sm tracking-tight text-[var(--theme-text)] block leading-none mb-1">
-                Hi, {userProfile.username || "Miner"}
+                Hi, {userProfile.username || "there"}
               </span>
               {(() => {
                 const vipBadge = getVipBadgeConfig(vipBadgeLevel);
@@ -692,13 +625,14 @@ export default function App() {
 
           {/* Action controllers */}
           <div className="flex items-center gap-1.5 sm:gap-2">
-            {/* AI Copilot — header, next to bell */}
+            {/* AI Copilot — header, next to bell → chat AI tab */}
             <button
               onClick={() => {
-                if (activeTab !== "ai") setPreviousTab(activeTab as any);
-                setActiveTab("ai");
+                if (activeTab !== "chat") setPreviousTab(activeTab as any);
+                setChatRoomDefault("ai");
+                setActiveTab("chat");
               }}
-              className={`relative p-1 flex items-center justify-center border-0 transition-[transform,opacity] duration-100 cursor-pointer outline-none h-9 w-9 shrink-0 bg-transparent active:scale-[0.97] will-change-transform ${activeTab==="ai" ? "opacity-100" : "opacity-80 hover:opacity-100"}`}
+              className={`relative p-1 flex items-center justify-center border-0 transition-[transform,opacity] duration-100 cursor-pointer outline-none h-9 w-9 shrink-0 bg-transparent active:scale-[0.97] will-change-transform ${activeTab==="chat" && chatRoomDefault==="ai" ? "opacity-100" : "opacity-80 hover:opacity-100"}`}
               title="AI Assistant"
             >
               <img src={headerAi3d} alt="" decoding="async" loading="eager" className="w-7 h-7 object-contain shrink-0 drop-shadow-sm" />
@@ -876,7 +810,7 @@ export default function App() {
                 exit={{ opacity: 0, scale: 0.96 }}
                 className="flex-1 flex flex-col min-h-0 h-full w-full"
               >
-                <ChatView userProfile={userProfile} initialRoom={chatRoomDefault} canUpload={userProfile.phone === siteConfig?.adminPhone} />
+                <ChatView userProfile={userProfile} initialRoom={chatRoomDefault} canUpload={userProfile.phone === siteConfig?.adminPhone} brandName={siteConfig?.brandName} activeNodes={activeNodes} siteConfig={siteConfig} />
               </motion.div>
             )}
 
@@ -889,6 +823,35 @@ export default function App() {
                 className="h-full flex flex-col min-h-0"
               >
                 <VipTasksPage phone={userProfile.phone} siteConfig={siteConfig} userProfile={userProfile} onClaimSuccess={handleProfileChange} onBack={() => setActiveTab("profile")} />
+              </motion.div>
+            )}
+
+            {(activeTab === "guide" || (activeTab === "alerts" && previousTab === "guide")) && (
+              <motion.div
+                key="guide"
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+              >
+                <GuideView
+                  siteConfig={siteConfig}
+                  onBack={() => setActiveTab("profile")}
+                />
+              </motion.div>
+            )}
+
+            {(activeTab === "account" || (activeTab === "alerts" && previousTab === "account")) && (
+              <motion.div
+                key="account"
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+              >
+                <BindAccountView
+                  userProfile={userProfile!}
+                  onProfileUpdate={handleProfileChange}
+                  onBack={() => setActiveTab("profile")}
+                />
               </motion.div>
             )}
 
@@ -942,10 +905,18 @@ export default function App() {
                 animate={{ y: 0 }}
                 exit={{ y: "100%" }}
                 transition={{ type: "spring", damping: 25, stiffness: 220 }}
-                className="relative w-full h-[85%] bg-[var(--theme-card-bg)] border-t border-[var(--theme-card-border)] rounded-t-[var(--theme-radius)] flex flex-col overflow-hidden z-10 shadow-2xl theme-card"
+                className="relative w-full h-[96vh] max-h-[96vh] bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 rounded-t-[var(--theme-radius)] flex flex-col overflow-hidden z-10 shadow-2xl"
               >
-                {/* Drag Handle shape design */}
-                <div className="w-10 h-1.5 bg-[var(--theme-card-border)] rounded-full mx-auto my-3 shrink-0" />
+                {/* Drag Handle + Close */}
+                <div className="flex items-center justify-center relative py-3 shrink-0">
+                  <div className="w-10 h-1.5 bg-[var(--theme-card-border)] rounded-full" />
+                  <button
+                    onClick={() => setActiveTab(previousTab)}
+                    className="absolute right-4 p-1.5 rounded-full btn-3d-secondary border border-[var(--theme-card-border)] text-[var(--theme-text)] cursor-pointer focus:outline-none"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
                 <div className="flex-1 overflow-y-auto scrollbar-none pb-6">
                   <AlertsView
                     profile={userProfile!}
@@ -953,115 +924,6 @@ export default function App() {
                     onBack={() => setActiveTab(previousTab)}
                     onNotificationsChange={setUserNotifications}
                   />
-                </div>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
-
-        {/* AI Assistant Sheet Overlay - 95% Height Modal Sheet */}
-        <AnimatePresence>
-          {activeTab === "ai" && (
-            <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60 backdrop-blur-xs">
-              <motion.div
-                initial={{ y: "100%" }}
-                animate={{ y: 0 }}
-                exit={{ y: "100%" }}
-                transition={{ type: "spring", damping: 28, stiffness: 300 }}
-                className="h-[95vh] max-h-[95vh] w-full max-w-xl mx-auto flex flex-col overflow-hidden bg-[var(--theme-bg)] rounded-t-3xl border-t-2 border-[var(--theme-card-border)] shadow-2xl"
-              >
-                {/* Drag Handle shape design */}
-                <div className="w-12 h-1.5 bg-[var(--theme-card-border)] rounded-full mx-auto my-2.5 shrink-0" />
-
-                {/* Top Header Bar with Close Button */}
-                <div className="sticky top-0 z-20 bg-[var(--theme-card-bg)]/95 backdrop-blur-md px-4 py-3 border-b border-[var(--theme-card-border)] flex items-center justify-between shadow-xs">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-[var(--theme-radius)] btn-3d-secondary text-[var(--theme-text)] flex items-center justify-center shrink-0 shadow-xs">
-                      <Bot className="w-5 h-5 text-[var(--theme-primary)]" />
-                    </div>
-                    <div>
-                      <h3 className="font-display font-black text-sm text-[var(--theme-text)] uppercase tracking-wide">
-                        {siteConfig?.brandName || "AI"} Assistant
-                      </h3>
-                      <p className="text-[11px] text-[var(--theme-text)] opacity-60 font-medium">
-                        Automated Mining & Support Consultant
-                      </p>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => setActiveTab(previousTab && previousTab !== "ai" ? previousTab : "dashboard")}
-                    className="p-2 rounded-full bg-[var(--theme-card-bg)] text-[var(--theme-text)] hover:opacity-100 cursor-pointer transition-colors border border-[var(--theme-card-border)] shadow-xs active:scale-95"
-                    title="Close AI Assistant"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-
-                {/* Full Screen Interactive Content */}
-                <div className="flex-1 flex flex-col p-4 overflow-y-auto space-y-4 max-w-2xl mx-auto w-full">
-                  {/* Quick Question Chips */}
-                  <div className="flex flex-wrap gap-2 shrink-0">
-                    {["How do daily yields work?", "How to deposit & withdraw?", "What is the referral bonus?"].map((q, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => setAdvisorInput(q)}
-                        className="text-[11px] font-bold px-3 py-1.5 rounded-full bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] text-[var(--theme-text)] hover:brightness-110 cursor-pointer active:scale-95 transition-all shadow-xs"
-                      >
-                        {q}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Discussion Messages */}
-                  <div className="flex-1 space-y-3 overflow-y-auto scrollbar-none pr-1 min-h-0">
-                    {advisorMessages.map((m, index) => (
-                      <div
-                        key={index}
-                        className={`flex flex-col space-y-1 max-w-[85%] ${
-                          m.sender === "user" ? "ml-auto items-end" : "mr-auto items-start"
-                        }`}
-                      >
-                        <span className="text-[10px] text-[var(--theme-text)] opacity-50 font-bold px-1">
-                          {m.sender === "user" ? "You" : `${siteConfig?.brandName || "AI"} Assistant`}
-                        </span>
-                        <div
-                          className={`p-3 text-xs font-sans rounded-2xl leading-relaxed ${
-                            m.sender === "user"
-                              ? "btn-3d-primary text-white rounded-tr-none"
-                              : "btn-3d-secondary text-[var(--theme-text)] rounded-tl-none border border-[var(--theme-card-border)]"
-                          }`}
-                        >
-                          {m.text}
-                        </div>
-                      </div>
-                    ))}
-                    {isAskingAdvisor && (
-                      <div className="flex items-center gap-2 text-xs text-[var(--theme-primary)] font-bold px-1">
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        <span>thinking..</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Consultation Prompt Input Form */}
-                  <form onSubmit={handleAskAdvisor} className="flex gap-2 pt-2 shrink-0">
-                    <input
-                      type="text"
-                      required
-                      placeholder="Ask how mining claims or payouts work..."
-                      value={advisorInput}
-                      onChange={(e) => setAdvisorInput(e.target.value)}
-                      className="w-full px-4 py-3 bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] text-[var(--theme-text)] text-xs rounded-[var(--theme-radius)] outline-none focus:border-[var(--theme-primary)] font-sans shadow-inner"
-                    />
-                    <button
-                      type="submit"
-                      disabled={isAskingAdvisor || !advisorInput.trim()}
-                      className="btn-3d-primary px-5 py-3 text-white font-black text-xs uppercase tracking-wider disabled:opacity-50 cursor-pointer shrink-0 rounded-[var(--theme-radius)]"
-                    >
-                      Send
-                    </button>
-                  </form>
                 </div>
               </motion.div>
             </div>

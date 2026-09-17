@@ -37,9 +37,13 @@ export default function IncomeView({
   const [claimingId, setClaimingId] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
-  // Calculate Cumulative total earnings
+  // Calculate Cumulative total earnings — resolve daily rate from catalog so every product counts
+  const rateOf = (node: SubscribedNode) => {
+    const mapped = items.find((item) => item.id === node.itemId || item.name === node.itemName);
+    return mapped?.dailyYield !== undefined ? mapped.dailyYield : (node.dailyYield || 0);
+  };
   const sumCollected = activeNodes.reduce((acc, node) => acc + (node.totalEarned || 0), 0);
-  const totalDailyYield = activeNodes.filter(n => n.status === "active").reduce((acc, node) => acc + (node.dailyYield || 0), 0);
+  const totalDailyYield = activeNodes.filter(n => n.status === "active").reduce((acc, node) => acc + rateOf(node), 0);
 
   const getElapsedDays = (node: any, totalDays: number, dailyYield: number): number => {
     try {
@@ -168,18 +172,18 @@ export default function IncomeView({
                         {itemName}
                       </h4>
 
-                      <div className="space-y-0.5 text-xs text-[var(--theme-text)]">
-                        <p className="flex items-baseline gap-1.5">
-                          <span className="text-[11px] text-[var(--theme-text)] opacity-60 font-semibold shrink-0">Duration:</span>
-                          <span className="font-bold">{elapsedDays}/{totalDays} Days</span>
+                      <div className="space-y-2 text-[var(--theme-text)] min-w-0">
+                        <p className="flex items-center justify-between gap-3 min-w-0 leading-relaxed">
+                          <span className="text-[10.5px] font-display font-black uppercase tracking-[0.14em] text-[var(--theme-text)] opacity-60 shrink-0">Cycle</span>
+                          <span className="font-display font-black text-[13px] tracking-tight text-[var(--theme-text)] truncate text-right min-w-0">{elapsedDays}/{totalDays} Days</span>
                         </p>
-                        <p className="flex items-baseline gap-1.5">
-                          <span className="text-[11px] text-[var(--theme-text)] opacity-60 font-semibold shrink-0">Daily income:</span>
-                          <span className="font-bold">{formatCurrency(dailyYield)}</span>
+                        <p className="flex items-center justify-between gap-3 min-w-0 leading-relaxed">
+                          <span className="text-[10.5px] font-display font-black uppercase tracking-[0.14em] text-[var(--theme-text)] opacity-60 shrink-0">Daily income</span>
+                          <span className="font-display font-black text-[13px] tracking-tight text-[var(--theme-text)] truncate text-right min-w-0">{formatCurrency(dailyYield)}</span>
                         </p>
-                        <p className="flex items-baseline gap-1.5">
-                          <span className="text-[11px] text-[var(--theme-text)] opacity-60 font-semibold shrink-0">Collected:</span>
-                          <span className="font-bold">{formatCurrency(node.totalEarned || (dailyYield * elapsedDays))}</span>
+                        <p className="flex items-center justify-between gap-3 min-w-0 leading-relaxed">
+                          <span className="text-[10.5px] font-display font-black uppercase tracking-[0.14em] text-[var(--theme-text)] opacity-60 shrink-0">Collected</span>
+                          <span className="font-display font-black text-[13px] tracking-tight text-[var(--theme-text)] truncate text-right min-w-0">{formatCurrency(node.totalEarned || (dailyYield * elapsedDays))}</span>
                         </p>
                       </div>
                     </div>

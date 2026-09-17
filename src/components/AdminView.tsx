@@ -1388,9 +1388,10 @@ export default function AdminView() {
               <input
                 type="text"
                 required
+                autoComplete="username"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="w-full px-4 py-2.5 bg-[var(--theme-bg)]/60 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] rounded-[14px] text-[var(--theme-text)] text-sm font-sans font-medium outline-none transition-colors select-text"
+                className="w-full px-4 py-2.5 input-frosted bg-[var(--theme-bg)]/60 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] rounded-[14px] text-[var(--theme-text)] text-sm font-sans font-medium outline-none transition-colors select-text"
                 placeholder="Enter identifier"
               />
             </div>
@@ -1401,9 +1402,10 @@ export default function AdminView() {
                 <input
                   type={showLoginPassword ? "text" : "password"}
                   required
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-[var(--theme-bg)]/60 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] rounded-[14px] text-[var(--theme-text)] text-sm font-sans font-medium outline-none transition-colors pr-10 select-text"
+                  className="w-full px-4 py-2.5 input-frosted bg-[var(--theme-bg)]/60 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] rounded-[14px] text-[var(--theme-text)] text-sm font-sans font-medium outline-none transition-colors pr-10 select-text"
                   placeholder="••••••••"
                 />
                 <button
@@ -2069,7 +2071,7 @@ export default function AdminView() {
                       <thead>
                         <tr className="bg-[var(--theme-bg)] border-b border-[var(--theme-card-border)]">
                           <th className="px-5 py-4 font-bold text-[var(--theme-text)] opacity-70">Ref ID / Time</th>
-                          <th className="px-5 py-4 font-bold text-[var(--theme-text)] opacity-70">Miner</th>
+                          <th className="px-5 py-4 font-bold text-[var(--theme-text)] opacity-70">User</th>
                           <th className="px-5 py-4 font-bold text-[var(--theme-text)] opacity-70">Type</th>
                           <th className="px-5 py-4 font-bold text-[var(--theme-text)] opacity-70 text-center">Mode</th>
                           <th className="px-5 py-4 font-bold text-[var(--theme-text)] opacity-70 text-right">Amount</th>

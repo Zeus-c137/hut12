@@ -20,6 +20,7 @@
 
 /* Dynamic Theme CSS Variables Defaults — hut12 light */
 :root {
+  color-scheme: light dark;
   --theme-font-family: 'Sora', 'Outfit', sans-serif;
   --theme-font-base: 16px;
   --theme-primary: #CF7500;
@@ -199,31 +200,59 @@ textarea:focus {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-primary) 20%, transparent);
   outline: none;
 }
-/* autofill both modes — frosted/transparent so prefilled text is visible in OLED #000 and warm #faf6f0 */
+/* autofill both modes — opaque inset shadow matching the preset input bg so the
+   browser's white/yellow autofill paint can never show through; text comes
+   from --theme-text so it tracks light/dark via vars (no hard-coded colors) */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
 input:autofill,
 input:autofill:hover,
-input:autofill:focus {
+input:autofill:focus,
+input:autofill:active {
   -webkit-text-fill-color: var(--theme-text) !important;
+  color: var(--theme-text) !important;
   caret-color: var(--theme-text) !important;
-  -webkit-box-shadow: 0 0 0px 1000px color-mix(in srgb, var(--theme-bg) 70%, transparent) inset !important;
-  box-shadow: 0 0 0px 1000px color-mix(in srgb, var(--theme-bg) 70%, transparent) inset !important;
+  background-color: color-mix(in srgb, var(--theme-card-bg) 92%, var(--theme-bg)) !important;
+  -webkit-box-shadow: 0 0 0px 1000px color-mix(in srgb, var(--theme-card-bg) 92%, var(--theme-bg)) inset !important;
+  box-shadow: 0 0 0px 1000px color-mix(in srgb, var(--theme-card-bg) 92%, var(--theme-bg)) inset !important;
   border-color: var(--theme-card-border) !important;
   transition: background-color 5000s ease-in-out 0s;
 }
 .dark input:-webkit-autofill,
 .dark input:-webkit-autofill:hover,
 .dark input:-webkit-autofill:focus,
+.dark input:-webkit-autofill:active,
 .dark input:autofill {
-  -webkit-text-fill-color: #fafaf9 !important;
-  caret-color: #fafaf9 !important;
-  -webkit-box-shadow: 0 0 0px 1000px rgba(255,255,255,0.08) inset !important;
-  box-shadow: 0 0 0px 1000px rgba(255,255,255,0.08) inset !important;
-  border-color: rgba(255,255,255,0.12) !important;
-  -webkit-backdrop-filter: blur(12px) saturate(150%);
-  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-text-fill-color: var(--theme-text) !important;
+  color: var(--theme-text) !important;
+  caret-color: var(--theme-text) !important;
+  background-color: color-mix(in srgb, var(--theme-card-bg) 92%, var(--theme-bg)) !important;
+  -webkit-box-shadow: 0 0 0px 1000px color-mix(in srgb, var(--theme-card-bg) 92%, var(--theme-bg)) inset !important;
+  box-shadow: 0 0 0px 1000px color-mix(in srgb, var(--theme-card-bg) 92%, var(--theme-bg)) inset !important;
+  border-color: var(--theme-card-border) !important;
+}
+
+/* Frosted inputs (auth + admin login, bg-[var(--theme-bg)]/60 + backdrop-blur-xl):
+   cover matches their own 60% bg layer exactly, so an autofilled input looks
+   identical to its unfocused frosted siblings — blur and translucency intact.
+   Class selector outranks the generic input rule above. */
+.input-frosted:-webkit-autofill,
+.input-frosted:-webkit-autofill:hover,
+.input-frosted:-webkit-autofill:focus,
+.input-frosted:-webkit-autofill:active,
+.input-frosted:autofill,
+.input-frosted:autofill:hover,
+.input-frosted:autofill:focus,
+.input-frosted:autofill:active {
+  -webkit-text-fill-color: var(--theme-text) !important;
+  color: var(--theme-text) !important;
+  caret-color: var(--theme-text) !important;
+  -webkit-box-shadow: 0 0 0px 1000px color-mix(in srgb, var(--theme-bg) 60%, transparent) inset !important;
+  box-shadow: 0 0 0px 1000px color-mix(in srgb, var(--theme-bg) 60%, transparent) inset !important;
+  border-color: var(--theme-card-border) !important;
+  transition: background-color 5000s ease-in-out 0s;
 }
 input:-webkit-autofill::first-line { font-size: 14px; }
 
@@ -418,11 +447,14 @@ input:-webkit-autofill::first-line { font-size: 14px; }
   box-shadow: 0 0 0 3px rgba(var(--theme-primary), 0.15);
 }
 
-/* Sonner Toast Theme Preset Integration */
+/* Sonner Toast Theme Preset Integration — frosted (raw --theme-card-bg is
+   ~6% white in dark mode, i.e. invisible without blur + weight) */
 [data-sonner-toaster] [data-sonner-toast] {
-  background-color: var(--theme-card-bg) !important;
+  background-color: color-mix(in srgb, var(--theme-card-bg) 60%, var(--theme-bg)) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
   color: var(--theme-text) !important;
-  border: 2px solid var(--theme-card-border) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
   border-radius: var(--theme-radius) !important;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2), 0 4px 0 var(--theme-card-shadow) !important;
   font-family: var(--theme-font-family), 'Outfit', sans-serif !important;
@@ -567,4 +599,19 @@ input:-webkit-autofill::first-line { font-size: 14px; }
 @keyframes hut-sparkle-fly { 0%{transform:translate(-50%,-50%) scale(1);opacity:1}100%{transform:translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0);opacity:0} }
 @media (prefers-reduced-motion: reduce) {
   .hut-btn-face, .hut-glow, .hut-btn-pulse, .hut-shine, .hut-sparkle { transition: none !important; animation: none !important; }
+}
+
+/* AI thinking shimmer — gradient sweep across text (apple-design: calm, non-vestibular feedback) */
+.animate-shimmer {
+  background: linear-gradient(100deg, var(--theme-primary) 20%, color-mix(in srgb, var(--theme-primary) 35%, white) 40%, var(--theme-primary) 60%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: hut-shimmer-x 2.2s linear infinite;
+}
+@keyframes hut-shimmer-x { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .animate-shimmer { animation: none; }
 }
