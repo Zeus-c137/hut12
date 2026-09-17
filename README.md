@@ -25,3 +25,9 @@ This platform allows users to sign up, rent products of any category, and earn d
 
 ## Setup & Local Development
 ...see previous docs / .env.example for full SmarterASP & Render deploy guides.
+
+## Screenshots
+![Profile](src/assets/screenshots/profile.png)
+![My products](src/assets/screenshots/my%20products.png)
+![Chat](src/assets/screenshots/chat.png)
+![Catalog](src/assets/screenshots/catalog.png)
