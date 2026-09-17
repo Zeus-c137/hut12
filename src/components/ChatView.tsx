@@ -10,17 +10,24 @@ import { UserProfile, ChatMessage } from "../types";
 import { Send, Image, MessageSquare, Shield, HelpCircle, FileImage, Loader2, ChevronDown, Reply, X, Check, CheckCheck } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { chatDayLabel, sameChatList, splitQuote, splitQuoteName, dedupeChat, loadSeen, saveSeen } from "../utils/chat";
+import AiChatView from "./AiChatView";
+
+type ChatRoom = "shared" | "admin" | "ai";
 
 interface ChatViewProps {
   userProfile: UserProfile;
-  initialRoom?: "shared" | "admin";
+  initialRoom?: ChatRoom;
   canUpload?: boolean;
+  brandName?: string;
+  activeNodes?: import("../types").SubscribedNode[];
+  siteConfig?: any;
 }
 
 const SEEN_KEY = "chat_seen_v1";
 
-export default function ChatView({ userProfile, initialRoom = "shared", canUpload = false }: ChatViewProps) {
-  const [activeRoom, setActiveRoom] = useState<"shared" | "admin">("shared");
+export default function ChatView({ userProfile, initialRoom = "shared", canUpload = false, brandName, activeNodes = [], siteConfig }: ChatViewProps) {
+  const [activeRoom, setActiveRoom] = useState<ChatRoom>("shared");
+  const [aiThinking, setAiThinking] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState("");
   const [base64Image, setBase64Image] = useState<string>("");
@@ -44,14 +51,15 @@ export default function ChatView({ userProfile, initialRoom = "shared", canUploa
   const otherAbortRef = useRef<AbortController | null>(null);
   const lastIdsRef = useRef<Record<string, string>>({});
 
-  const roomId = useMemo(() => activeRoom === "shared" ? "shared" : `direct_${userProfile.phone}`, [activeRoom, userProfile.phone]);
-  const otherRoomId = useMemo(() => activeRoom === "shared" ? `direct_${userProfile.phone}` : "shared", [activeRoom, userProfile.phone]);
+  const roomId = useMemo(() => activeRoom === "shared" ? "shared" : activeRoom === "admin" ? `direct_${userProfile.phone}` : "ai", [activeRoom, userProfile.phone]);
+  const otherRoomIds = useMemo(() => activeRoom === "shared" ? [`direct_${userProfile.phone}`] : activeRoom === "admin" ? ["shared"] : ["shared", `direct_${userProfile.phone}`], [activeRoom, userProfile.phone]);
 
   useEffect(() => {
     setActiveRoom(initialRoom);
   }, [initialRoom]);
 
   const fetchMessages = useCallback(async () => {
+    if (activeRoom === "ai") return;
     if (document.hidden) return;
     if (abortRef.current) abortRef.current.abort();
     const ctrl = new AbortController();
@@ -66,17 +74,18 @@ export default function ChatView({ userProfile, initialRoom = "shared", canUploa
       if ((err as Error)?.name === "AbortError") return;
       console.error("Failed to sync chat room:", err);
     }
-  }, [roomId]);
+  }, [roomId, activeRoom]);
 
   useEffect(() => {
+    if (activeRoom === "ai") return;
     setIsLoadingMessages(true);
     void fetchMessages();
     return () => {
       if (abortRef.current) abortRef.current.abort();
     };
-  }, [roomId, fetchMessages]);
+  }, [roomId, activeRoom, fetchMessages]);
 
-  useGatedInterval(() => { void fetchMessages(); }, 5000, { enabled: !!roomId, visibilityGate: true });
+  useGatedInterval(() => { void fetchMessages(); }, 5000, { enabled: activeRoom !== "ai", visibilityGate: true });
 
   const fetchOther = useCallback(async () => {
     if (document.hidden) return;
@@ -84,31 +93,33 @@ export default function ChatView({ userProfile, initialRoom = "shared", canUploa
     const ctrl = new AbortController();
     otherAbortRef.current = ctrl;
     try {
-      const list = await fetchJsonWithSignal<ChatMessage[]>(`/api/chat/room/${otherRoomId}`, ctrl.signal);
-      if (ctrl.signal.aborted) return;
-      const seen = seenRef.current[otherRoomId];
-      let n = 0;
-      if (seen) {
-        const since = new Date(seen).getTime();
-        for (const m of list) {
-          if (m.sender === userProfile.phone) continue;
-          const t = new Date(m.timestamp).getTime();
-          if (!isNaN(t) && t > since) n++;
+      for (const otherRoomId of otherRoomIds) {
+        const list = await fetchJsonWithSignal<ChatMessage[]>(`/api/chat/room/${otherRoomId}`, ctrl.signal);
+        if (ctrl.signal.aborted) return;
+        const seen = seenRef.current[otherRoomId];
+        let n = 0;
+        if (seen) {
+          const since = new Date(seen).getTime();
+          for (const m of list) {
+            if (m.sender === userProfile.phone) continue;
+            const t = new Date(m.timestamp).getTime();
+            if (!isNaN(t) && t > since) n++;
+          }
         }
+        const key = otherRoomId === "shared" ? "shared" : "admin";
+        setUnread((prev) => (prev[key] === n ? prev : { ...prev, [key]: n }));
       }
-      const key = otherRoomId === "shared" ? "shared" : "admin";
-      setUnread((prev) => (prev[key] === n ? prev : { ...prev, [key]: n }));
     } catch {
       /* badge poll is best-effort */
     }
-  }, [otherRoomId, userProfile.phone]);
+  }, [otherRoomIds, userProfile.phone]);
 
   useEffect(() => {
     void fetchOther();
     return () => { if (otherAbortRef.current) otherAbortRef.current.abort(); };
   }, [fetchOther]);
 
-  useGatedInterval(() => { void fetchOther(); }, 30000, { enabled: !!otherRoomId, visibilityGate: true });
+  useGatedInterval(() => { void fetchOther(); }, 30000, { enabled: otherRoomIds.length > 0, visibilityGate: true });
 
   const markSeen = (room: string, list: ChatMessage[]) => {
     if (list.length === 0) return;
@@ -165,7 +176,7 @@ export default function ChatView({ userProfile, initialRoom = "shared", canUploa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, userProfile.phone]);
 
-  const switchRoom = (room: "shared" | "admin") => {
+  const switchRoom = (room: ChatRoom) => {
     if (room !== activeRoom) {
       setActiveRoom(room);
       setIsLoadingMessages(true);
@@ -328,7 +339,7 @@ export default function ChatView({ userProfile, initialRoom = "shared", canUploa
       <div className="flex-1 flex flex-col justify-between h-full min-w-0 overflow-hidden relative">
 
         <div className="px-1 py-2 flex items-center justify-center shrink-0 z-10 border-b border-[var(--theme-card-border)]">
-          <div className="flex gap-1 w-full max-w-[340px]">
+          <div className="flex gap-1 w-full max-w-[480px]">
             <button
               type="button"
               onClick={() => switchRoom("shared")}
@@ -362,12 +373,27 @@ export default function ChatView({ userProfile, initialRoom = "shared", canUploa
               )}
               {activeRoom === "admin" && <span className="absolute bottom-0 left-2 right-2 h-[3px] bg-[var(--theme-primary)] rounded-full" />}
             </button>
+
+            <button
+              type="button"
+              onClick={() => switchRoom("ai")}
+              className={`flex-1 flex items-center justify-center gap-2 py-3.5 relative text-[11px] font-black uppercase tracking-wider transition-colors cursor-pointer ${
+                activeRoom === "ai" ? "text-[var(--theme-primary)]" : "text-[var(--theme-text)] opacity-60 hover:opacity-100"
+              }`}
+            >
+              <span className={aiThinking ? "animate-shimmer" : undefined}>{brandName || "AI"} AI</span>
+              {activeRoom === "ai" && <span className="absolute bottom-0 left-2 right-2 h-[3px] bg-[var(--theme-primary)] rounded-full" />}
+            </button>
           </div>
         </div>
 
+        {activeRoom === "ai" && (
+          <AiChatView userProfile={userProfile} activeNodes={activeNodes} siteConfig={siteConfig} onThinkingChange={setAiThinking} />
+        )}
         <div
           ref={chatContainerRef}
           onScroll={handleScroll}
+          style={activeRoom === "ai" ? { display: "none" } : undefined}
           className="flex-1 overflow-y-auto p-4 space-y-4 relative scrollbar-none"
         >
           {isLoadingMessages ? (
@@ -497,7 +523,7 @@ export default function ChatView({ userProfile, initialRoom = "shared", canUploa
           <div ref={messagesEndRef} />
         </div>
 
-        {showScrollBottomBtn && (
+        {showScrollBottomBtn && activeRoom !== "ai" && (
           <button
             type="button"
             onClick={() => {
@@ -512,7 +538,7 @@ export default function ChatView({ userProfile, initialRoom = "shared", canUploa
           </button>
         )}
 
-        <form onSubmit={handleSendMessage} className="p-3 border-t border-[var(--theme-card-border)] bg-transparent space-y-2 shrink-0">
+        <form onSubmit={handleSendMessage} style={activeRoom === "ai" ? { display: "none" } : undefined} className="p-3 border-t border-[var(--theme-card-border)] bg-transparent space-y-2 shrink-0">
           <AnimatePresence>
             {replyTo && (
               <motion.div
@@ -589,7 +615,7 @@ export default function ChatView({ userProfile, initialRoom = "shared", canUploa
             <button
               type="submit"
               disabled={isSending || (!inputText.trim() && !base64Image)}
-              className="w-11 h-11 btn-3d-primary text-white rounded-[var(--theme-radius)] flex items-center justify-center transition-colors shrink-0 outline-none cursor-pointer disabled:opacity-50"
+              className="w-11 h-11 rounded-full bg-[var(--theme-primary)]/12 border border-[var(--theme-primary)]/20 text-[var(--theme-primary)] flex items-center justify-center hover:bg-[var(--theme-primary)]/20 transition-colors shrink-0 outline-none cursor-pointer disabled:opacity-50"
             >
               {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             </button>

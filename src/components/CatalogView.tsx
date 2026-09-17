@@ -181,7 +181,7 @@ export default function CatalogView({
                     className="relative flex flex-row items-stretch bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 rounded-[24px] overflow-hidden transition-all duration-150 group select-none shadow-sm hover:border-[var(--theme-primary)]/30"
                   >
                     {/* Left portion: Hardware Image — fills parent height */}
-                    <div onClick={() => item.imageUrl && setPreviewImage(item.imageUrl)} className="w-32 sm:w-36 md:w-44 self-stretch relative overflow-hidden rounded-l-[var(--theme-radius)] bg-transparent border-r border-[var(--theme-card-border)] shrink-0 cursor-zoom-in group-hover:border-[var(--theme-primary)]/30 transition-colors p-4 flex items-center justify-center">
+                    <div onClick={() => item.imageUrl && setPreviewImage(item.imageUrl)} className="w-32 sm:w-36 md:w-44 self-stretch relative overflow-hidden rounded-l-[var(--theme-radius)] bg-transparent border-0 shrink-0 cursor-zoom-in group-hover:border-[var(--theme-primary)]/30 transition-colors p-4 flex items-center justify-center">
                       {item.imageUrl ? (
                         <img
                           src={item.imageUrl}
@@ -204,12 +204,12 @@ export default function CatalogView({
                     </div>
 
                     {/* Right portion: specs — min-w-0 prevents overflow when title/amounts are long */}
-                    <div className="flex-1 min-w-0 p-4 flex flex-col justify-between space-y-2 font-sans">
-                      <div className="min-w-0">
+                    <div className="flex-1 min-w-0 p-4 sm:p-5 flex flex-col justify-between space-y-3 font-sans">
+                      <div className="min-w-0 space-y-3">
                         {/* Title Row with Rent — title truncates, rent never overflows */}
-                        <div className="flex items-start justify-between gap-2 pb-3 border-b border-[var(--theme-card-border)]/40 mb-2 min-w-0">
+                        <div className="flex items-start justify-between gap-3 pb-1 min-w-0">
                           <div className="min-w-0 flex-1">
-                            <h3 className="font-display font-extrabold text-sm sm:text-[15px] text-[var(--theme-primary)] uppercase tracking-tight leading-snug line-clamp-2 break-words min-w-0">
+                            <h3 className="font-display font-black text-[15px] sm:text-base text-[var(--theme-primary)] uppercase tracking-tight leading-tight line-clamp-2 break-words min-w-0">
                               {item.name}
                             </h3>
                           </div>
@@ -234,23 +234,23 @@ export default function CatalogView({
                           </Button>
                         </div>
 
-                        {/* Specs — values truncate/nowrap so millions don't wrap */}
-                        <div className="space-y-1.5 text-[var(--theme-text)] min-w-0 text-xs">
-                          <p className="flex items-center justify-between gap-2 min-w-0 leading-normal">
-                            <span className="text-[11px] text-[var(--theme-text)] opacity-60 uppercase tracking-wider font-bold shrink-0">Duration:</span>
-                            <span className="font-bold text-[var(--theme-text)] text-[11px] sm:text-xs truncate text-right min-w-0">{item.duration} Days</span>
+                        {/* Specs — relaxed spacing for mobile + desktop */}
+                        <div className="space-y-2.5 text-[var(--theme-text)] min-w-0">
+                          <p className="flex items-center justify-between gap-4 min-w-0 leading-relaxed">
+                            <span className="text-[10.5px] font-display font-black uppercase tracking-[0.14em] text-[var(--theme-text)] opacity-60 shrink-0">Cycle</span>
+                            <span className="font-display font-black text-[13px] sm:text-sm tracking-tight text-[var(--theme-text)] truncate text-right min-w-0">{item.duration} Days</span>
                           </p>
-                          <p className="flex items-center justify-between gap-2 min-w-0 leading-normal">
-                            <span className="text-[11px] text-[var(--theme-text)] opacity-60 uppercase tracking-wider font-bold shrink-0">Price:</span>
-                            <span className="font-bold text-[var(--theme-text)] text-[11px] sm:text-xs truncate text-right min-w-0">{formatCurrency(item.amount)}</span>
+                          <p className="flex items-center justify-between gap-4 min-w-0 leading-relaxed">
+                            <span className="text-[10.5px] font-display font-black uppercase tracking-[0.14em] text-[var(--theme-text)] opacity-60 shrink-0">Price</span>
+                            <span className="font-display font-black text-[13px] sm:text-sm tracking-tight text-[var(--theme-text)] truncate text-right min-w-0">{formatCurrency(item.amount)}</span>
                           </p>
-                          <p className="flex items-center justify-between gap-2 min-w-0 leading-normal">
-                            <span className="text-[11px] text-[var(--theme-text)] opacity-60 uppercase tracking-wider font-bold shrink-0">Daily income:</span>
-                            <span className="font-bold text-[var(--theme-text)] text-[11px] sm:text-xs truncate text-right min-w-0">{formatCurrency(item.dailyYield)}</span>
+                          <p className="flex items-center justify-between gap-4 min-w-0 leading-relaxed">
+                            <span className="text-[10.5px] font-display font-black uppercase tracking-[0.14em] text-[var(--theme-text)] opacity-60 shrink-0">Daily income</span>
+                            <span className="font-display font-black text-[13px] sm:text-sm tracking-tight text-[var(--theme-text)] truncate text-right min-w-0">{formatCurrency(item.dailyYield)}</span>
                           </p>
-                          <p className="flex items-center justify-between gap-2 min-w-0 leading-normal">
-                            <span className="text-[11px] text-[var(--theme-text)] opacity-60 uppercase tracking-wider font-bold shrink-0">Total income:</span>
-                            <span className="font-bold text-[var(--theme-text)] text-[11px] sm:text-xs truncate text-right min-w-0">{formatCurrency(totalIncome)}</span>
+                          <p className="flex items-center justify-between gap-4 min-w-0 leading-relaxed">
+                            <span className="text-[10.5px] font-display font-black uppercase tracking-[0.14em] text-[var(--theme-text)] opacity-60 shrink-0">Total income</span>
+                            <span className="font-display font-black text-[13px] sm:text-sm tracking-tight text-[var(--theme-text)] truncate text-right min-w-0">{formatCurrency(totalIncome)}</span>
                           </p>
                         </div>
                       </div>

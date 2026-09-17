@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useGatedInterval } from "../hooks/useGatedInterval";
-import { ArrowUpRight, Cpu, Flame } from "lucide-react";
+import { ArrowUpRight, Cpu } from "lucide-react";
 import { SubscriptionItem } from "../types";
 import { useCurrency } from "../currency";
+import heart3d from "@/src/assets/3d/heart.png";
 
 interface FeaturedProductsProps {
   items: SubscriptionItem[];
@@ -78,9 +79,9 @@ export default function FeaturedProducts({ items, onBrowseProducts }: FeaturedPr
     <section className="bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 rounded-[24px] p-3 sm:p-4 space-y-3" aria-labelledby="trending-products-title">
       <div className="flex items-end justify-between gap-3 px-1">
         <div>
-          <div className="flex items-center gap-1.5 text-amber-500">
-            <Flame className="w-3.5 h-3.5 fill-amber-500" />
-            <span className="text-[10px] font-black uppercase tracking-[0.18em]">Trending products</span>
+          <div className="flex items-center gap-1.5">
+            <img src={heart3d} alt="" loading="lazy" decoding="async" className="w-4 h-4 object-contain" />
+            <span className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--theme-primary)]">Trending products</span>
           </div>
           <h2 id="trending-products-title" className="text-[15px] font-black text-[var(--theme-text)] mt-0.5 leading-tight">
             Most chosen this week
@@ -101,7 +102,7 @@ export default function FeaturedProducts({ items, onBrowseProducts }: FeaturedPr
             key={item.id}
             type="button"
             onClick={onBrowseProducts}
-            className="shrink-0 w-[200px] sm:w-[220px] snap-start rounded-[var(--theme-radius)] border border-white/10 bg-transparent overflow-hidden text-left cursor-pointer group hover:border-[var(--theme-primary)]/30 transition-colors flex flex-col shadow-sm"
+            className="shrink-0 w-[200px] sm:w-[220px] snap-start rounded-[var(--theme-radius)] border-0 bg-transparent overflow-hidden text-left cursor-pointer group transition-colors flex flex-col shadow-sm"
             aria-label={`View ${item.name}`}
           >
             <div
@@ -126,11 +127,8 @@ export default function FeaturedProducts({ items, onBrowseProducts }: FeaturedPr
                   <Cpu className="w-8 h-8" />
                 </div>
               )}
-              <span className="absolute top-2 left-2 rounded-full bg-[var(--theme-card-bg)]/95 border border-[var(--theme-card-border)] px-2 py-0.5 text-[8px] font-black uppercase tracking-wider text-[var(--theme-primary)] backdrop-blur-sm">
-                {item.category}
-              </span>
               <span className="absolute top-2 right-2 rounded-full bg-amber-500 text-white px-2 py-0.5 text-[10px] font-black flex items-center gap-1 shadow-sm">
-                <Flame className="w-3 h-3 fill-white shrink-0" /> {POPULARITY[index] ?? "100+"}
+                <img src={heart3d} alt="" className="w-3 h-3 object-contain shrink-0" /> {POPULARITY[index] ?? "100+"}
               </span>
             </div>
             <div className="p-2.5 flex flex-col gap-1.5 flex-1">
@@ -141,7 +139,7 @@ export default function FeaturedProducts({ items, onBrowseProducts }: FeaturedPr
                 </span>
               </div>
               <div className="rounded-[calc(var(--theme-radius)-4px)] bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)]/60 px-2.5 py-2">
-                <p className="text-[8px] font-black uppercase tracking-widest opacity-50 leading-none">You earn</p>
+                <p className="text-[8px] font-black uppercase tracking-widest opacity-50 leading-none">You withdraw</p>
                 <p className="text-[12px] font-black text-[var(--theme-primary)] leading-none mt-1 truncate">{formatCurrency(item.dailyYield)}<span className="font-bold opacity-70"> / day</span></p>
               </div>
             </div>

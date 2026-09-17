@@ -261,7 +261,7 @@ export async function ensureDatabaseSchema(): Promise<void> {
         COALESCE(t.metadata, JSON_OBJECT()),
         '$.sourceItemName', COALESCE(JSON_UNQUOTE(JSON_EXTRACT(t.metadata, '$.sourceItemName')), cp.name, sn.item_name),
         '$.sourceItemId', COALESCE(JSON_UNQUOTE(JSON_EXTRACT(t.metadata, '$.sourceItemId')), t.item_id, sn.item_id, cp.id),
-        '$.sourceItemImage', COALESCE(JSON_UNQUOTE(JSON_EXTRACT(t.metadata, '$.sourceItemImage')), cp.imageUrl, cp.image, sn.image)
+        '$.sourceItemImage', COALESCE(JSON_UNQUOTE(JSON_EXTRACT(t.metadata, '$.sourceItemImage')), cp.image_url, cp.image, sn.image)
       )
       WHERE LOWER(t.type) = 'daily_yield'
         AND (JSON_EXTRACT(t.metadata, '$.sourceItemName') IS NULL OR JSON_EXTRACT(t.metadata, '$.sourceItemId') IS NULL OR JSON_EXTRACT(t.metadata, '$.sourceItemImage') IS NULL)`);

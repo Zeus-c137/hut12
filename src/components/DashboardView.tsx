@@ -33,11 +33,16 @@ import {
   Cpu,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import confetti from "canvas-confetti";
 
 import money3d from "@/src/assets/3d/3dicons-money-iso-premium.png";
 import medal3d from "@/src/assets/3d/3dicons-medal-iso-premium.png";
 import gift3d from "@/src/assets/3d/3dicons-gift-iso-premium.png";
 import shield3d from "@/src/assets/3d/3dicons-shield-iso-premium.png";
+import link3d from "@/src/assets/3d/3dicons-link-iso-premium.png";
+import megaphone3d from "@/src/assets/3d/3dicons-megaphone-iso-premium.png";
+import chart3d from "@/src/assets/3d/3dicons-chart-iso-premium.png";
+import dollar3d from "@/src/assets/3d/3dicons-dollar-iso-premium.png";
 import ParticleBg from "./ParticleBg";
 import NewsCarousel from "./NewsCarousel";
 import MetricCard from "./MetricCard";
@@ -77,6 +82,30 @@ export default function DashboardView({
   const { formatCurrency } = useCurrency();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showCommunitySheet, setShowCommunitySheet] = useState(false);
+  const communityConfettiRef = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    if (!showCommunitySheet) return;
+    const canvas = communityConfettiRef.current;
+    if (!canvas) return;
+    const myConfetti = confetti.create(canvas, { resize: true, useWorker: true });
+    const id = window.setInterval(() => {
+      myConfetti({ particleCount: 2, spread: 60, startVelocity: 12, gravity: 0.5, scalar: 0.8, ticks: 300, origin: { x: Math.random() * 0.6 + 0.2, y: 0 }, colors: ["#CF7500", "#FFE8A3", "#9A4F00"] });
+    }, 450);
+    return () => window.clearInterval(id);
+  }, [showCommunitySheet]);
+
+  const bannerConfettiRef = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const canvas = bannerConfettiRef.current;
+    if (!canvas) return;
+    const myConfetti = confetti.create(canvas, { resize: true, useWorker: true });
+    const id = window.setInterval(() => {
+      if (document.hidden) return;
+      myConfetti({ particleCount: 3, spread: 55, startVelocity: 10, gravity: 0.45, scalar: 0.7, ticks: 250, origin: { x: Math.random() * 0.6 + 0.2, y: 0 }, colors: ["#CF7500", "#FFE8A3", "#9A4F00"] });
+    }, 1500);
+    return () => window.clearInterval(id);
+  }, []);
 
   // Notifications — prefer parent-provided list to avoid duplicate /api/profile/notifications fetches
   const [notifications, setNotifications] = useState<NotificationItem[]>(() => externalNotifications ?? []);
@@ -177,14 +206,16 @@ export default function DashboardView({
   }, []);
 
   const { todayEarnings, totalEarnedAllTime } = useMemo(() => {
-    const todayStr = getKampalaDateStr;
     let today = 0, total = 0;
     for (const n of activeNodes) {
       total += n.totalEarned || 0;
-      if (n.status === "active" && n.lastClaimedDate === todayStr) today += n.dailyYield;
+      if (n.status === "active") {
+        const mapped = items.find((i) => i.id === n.itemId || i.name === n.itemName);
+        today += mapped?.dailyYield !== undefined ? mapped.dailyYield : (n.dailyYield || 0);
+      }
     }
     return { todayEarnings: today, totalEarnedAllTime: total };
-  }, [activeNodes, getKampalaDateStr]);
+  }, [activeNodes, items]);
 
   const dynamicNews = useMemo(() => notifications.filter(n => n.category === "news").map(n => ({
     id: n.id,
@@ -224,7 +255,7 @@ export default function DashboardView({
               <div className="flex items-start justify-between gap-2">
                 <span className="text-[10.5px] font-display uppercase tracking-[0.12em] leading-none block pt-1 font-black text-[var(--theme-primary)]">Product Income</span>
                 <div className="w-11 h-11 flex items-center justify-center shrink-0 overflow-hidden bg-transparent border-0">
-                  <img src={money3d} alt="" loading="lazy" decoding="async" className="w-11 h-11 object-contain" />
+                  <img src={dollar3d} alt="" loading="lazy" decoding="async" className="w-11 h-11 object-contain" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-0 -mt-1">
@@ -244,7 +275,7 @@ export default function DashboardView({
               <div className="flex items-start justify-between gap-2">
                 <span className="text-[10.5px] font-display uppercase tracking-[0.12em] leading-none block pt-1 font-black text-[var(--theme-primary)]">Transactions</span>
                 <div className="w-11 h-11 flex items-center justify-center shrink-0 overflow-hidden bg-transparent border-0">
-                  <img src={shield3d} alt="" loading="lazy" decoding="async" className="w-11 h-11 object-contain" />
+                  <img src={chart3d} alt="" loading="lazy" decoding="async" className="w-11 h-11 object-contain" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-0 -mt-1">
@@ -253,7 +284,7 @@ export default function DashboardView({
                   <p className="font-display font-black text-[15px] sm:text-[16px] text-[var(--theme-text)] leading-none tracking-tight truncate">{formatCurrency(profile.totalDeposits || 0)}</p>
                 </div>
                 <div className="pl-3 border-l border-[var(--theme-card-border)]">
-                  <p className="text-[9px] font-display font-black uppercase tracking-widest opacity-50 leading-none mb-1">Total Cash Out</p>
+                  <p className="text-[9px] font-display font-black uppercase tracking-widest opacity-50 leading-none mb-1">Total Withdraws</p>
                   <p className="font-display font-black text-[15px] sm:text-[16px] text-[var(--theme-text)] leading-none tracking-tight truncate">{formatCurrency(profile.withdrawnCash || 0)}</p>
                 </div>
               </div>
@@ -262,7 +293,7 @@ export default function DashboardView({
             <MetricCard
               title="Invite Count"
               value={(teamCount || profile.invitesCount || 0).toLocaleString()}
-              icon={<img src={medal3d} alt="" loading="lazy" decoding="async" />}
+              icon={<img src={link3d} alt="" loading="lazy" decoding="async" />}
               variant="muted"
             />
 
@@ -280,14 +311,14 @@ export default function DashboardView({
       <button
         type="button"
         onClick={() => setShowCommunitySheet(true)}
-        className="w-full flex items-center gap-3 rounded-[var(--theme-radius)] bg-[var(--theme-card-bg)]/60 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 p-3 active:scale-[0.99] transition-colors group text-left cursor-pointer shadow-sm"
+        className="relative overflow-hidden w-full flex items-center gap-3 rounded-[var(--theme-radius)] bg-[var(--theme-card-bg)]/60 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 p-3 active:scale-[0.99] transition-colors group text-left cursor-pointer shadow-sm"
       >
-        <img src="/telegram.svg" alt="Telegram" className="w-9 h-9 rounded-xl shrink-0 shadow-sm object-contain" />
-        <div className="flex-1 min-w-0">
-          <p className="text-xs font-display font-black text-[var(--theme-text)] leading-none">Community • Official</p>
-          <p className="text-[10.5px] font-sans font-bold text-[var(--theme-text)] opacity-60 leading-none mt-1 truncate">Tap to open • {siteConfig?.telegramLink && siteConfig?.whatsappLink ? "Telegram & WhatsApp" : siteConfig?.telegramLink ? "Telegram" : siteConfig?.whatsappLink ? "WhatsApp" : "2.4k online"}</p>
+        <canvas ref={bannerConfettiRef} className="absolute inset-0 pointer-events-none" />
+        <img src={megaphone3d} alt="" loading="lazy" decoding="async" className="relative w-9 h-9 rounded-xl shrink-0 object-contain drop-shadow-sm" />
+        <div className="relative flex-1 min-w-0">
+          <p className="text-xs font-display font-black text-[var(--theme-text)] leading-none">Always stay updated</p>
         </div>
-        <ChevronRight className="w-4 h-4 text-[var(--theme-text)] opacity-40 group-hover:opacity-60 transition-opacity shrink-0" />
+        <ChevronRight className="relative w-4 h-4 text-[var(--theme-text)] opacity-40 group-hover:opacity-60 transition-opacity shrink-0" />
       </button>
 
       {/* Quick Actions — unified presets, container bg removed */}
@@ -424,19 +455,20 @@ export default function DashboardView({
               transition={{ type: "spring", damping: 26, stiffness: 340 }}
               className="relative w-full max-w-sm rounded-[28px] overflow-hidden border border-[var(--theme-card-border)] shadow-[0_20px_60px_rgba(0,0,0,0.3)] bg-[var(--theme-card-bg)]"
             >
-              <div className="relative p-5 pb-6">
-                <div className="w-10 h-1 rounded-full bg-[var(--theme-card-border)] mx-auto mb-4" />
-                <div className="flex items-center justify-between mb-4">
+              <div className="relative p-5 pb-6 overflow-hidden">
+                <canvas ref={communityConfettiRef} className="absolute inset-0 pointer-events-none" />
+                <div className="w-10 h-1 rounded-full bg-[var(--theme-card-border)] mx-auto mb-4 relative" />
+                <div className="flex items-center justify-between mb-3 relative">
                   <h3 className="text-[11px] font-black uppercase tracking-[0.14em] text-[var(--theme-text)] opacity-70">Join our community</h3>
-                  <button onClick={() => setShowCommunitySheet(false)} className="w-8 h-8 rounded-full bg-[var(--theme-bg)] hover:opacity-80 flex items-center justify-center text-[var(--theme-text)] opacity-60 transition-colors border border-[var(--theme-card-border)]">
+                  <button onClick={() => setShowCommunitySheet(false)} className="w-8 h-8 rounded-full bg-transparent hover:opacity-80 flex items-center justify-center text-[var(--theme-text)] opacity-60 transition-colors border-0">
                     <X className="w-4 h-4" />
                   </button>
                 </div>
-
-                <div className="space-y-2.5">
+                <p className="text-[11px] font-sans text-[var(--theme-text)] opacity-60 leading-relaxed text-center mb-4 relative">Connect with like minded people from all over the globe — share tips, get support, and grow together.</p>
+                <div className="space-y-2.5 relative">
                   {siteConfig?.whatsappLink && (
-                    <a href={siteConfig.whatsappLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] hover:opacity-80 transition-colors group">
-                      <img src="/whatsapp.svg" alt="WhatsApp" className="w-10 h-10 rounded-xl shrink-0 shadow-sm object-contain bg-white p-1" />
+                    <a href={siteConfig.whatsappLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-2xl bg-transparent border-0 hover:opacity-80 transition-colors group">
+                      <img src="/whatsapp.svg" alt="WhatsApp" className="w-10 h-10 rounded-xl shrink-0 object-contain bg-transparent p-0 shadow-none" />
                       <span className="flex-1 min-w-0">
                         <span className="block text-[13px] font-black text-[var(--theme-text)] leading-none">WhatsApp Support</span>
                         <span className="block text-[11px] font-bold text-[var(--theme-text)] opacity-60 leading-none mt-1 truncate">{siteConfig.whatsappLink}</span>
@@ -445,8 +477,8 @@ export default function DashboardView({
                     </a>
                   )}
                   {siteConfig?.telegramLink && (
-                    <a href={siteConfig.telegramLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--theme-card-bg)]/90 backdrop-blur-xl border border-[var(--theme-card-border)] hover:opacity-80 transition-colors group">
-                      <img src="/telegram.svg" alt="Telegram" className="w-10 h-10 rounded-xl shrink-0 shadow-sm object-contain bg-white p-1" />
+                    <a href={siteConfig.telegramLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-2xl bg-transparent border-0 hover:opacity-80 transition-colors group">
+                      <img src="/telegram.svg" alt="Telegram" className="w-10 h-10 rounded-xl shrink-0 object-contain bg-transparent p-0 shadow-none" />
                       <span className="flex-1 min-w-0">
                         <span className="block text-[13px] font-black text-[var(--theme-text)] leading-none">Telegram Channel</span>
                         <span className="block text-[11px] font-bold text-[var(--theme-text)] opacity-60 leading-none mt-1 truncate">{siteConfig.telegramLink}</span>

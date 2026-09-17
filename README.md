@@ -7,7 +7,7 @@ Gamified finance — referral mining, node subscriptions, daily yield. Built on 
 ## Quick Start
 ```bash
 npm install
-cp .env.example .env   # fill GEMINI_API_KEY, Zulupay, ADMIN_*
+cp .env.example .env   # fill GEMINI_API_KEY, payment gateway, ADMIN_*
 npm run dev            # http://localhost:3000
 npm run build && npm run start  # production
 ```

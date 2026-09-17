@@ -203,7 +203,6 @@ function OverviewView({ inviteLink, inviteCode, copied, onCopy, copiedCode, onCo
     <div className="space-y-4">
       <ShareLinkBox inviteLink={inviteLink} inviteCode={inviteCode} copied={copied} onCopy={onCopy} copiedCode={copiedCode} onCopyCode={onCopyCode} />
       <HeroCard metrics={metrics} isLoading={isLoading} amount={referralRewardsEarned} onViewTeam={onViewTeam} />
-      <LevelsCard metrics={metrics} />
     </div>
   );
 }

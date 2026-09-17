@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, memo } from "react";
 import { Search, Loader2 } from "lucide-react";
 import dollar3d from "@/src/assets/3d/3dicons-dollar-iso-premium.png";
+import plus3d from "@/src/assets/3d/3dplus.png";
 import wallet3d from "@/src/assets/3d/3dicons-wallet-iso-premium.png";
 import bag3d from "@/src/assets/3d/3dicons-bag-iso-premium.png";
 import fire3d from "@/src/assets/3d/3dicons-fire-iso-premium.png";
@@ -22,8 +23,8 @@ interface Props {
 }
 
 const ICON_BY_CANON: Record<string, string> = {
-  deposit: dollar3d,
-  withdrawal: wallet3d,
+  deposit: plus3d,
+  withdrawal: money3d,
   product_activation: bag3d,
   daily_yield: fire3d,
   daily_checkin_bonus: calendar3d,
