@@ -27,7 +27,7 @@ export default function VisaMetricCard({
   const { siteConfig } = useTheme();
   const isDark = variant === "bank-dark";
 
-  // Slow balance shimmer pulse: one 10s creeping sweep per minute. Page-gated by
+  // Slow balance shimmer pulse: one 15s creeping sweep per minute. Page-gated by
   // mount (tab views unmount off-page, killing the interval) + hidden-tab
   // gate (no queued pulses while the browser tab is hidden).
   const pulse = useShimmerPulse();

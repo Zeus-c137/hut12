@@ -127,6 +127,12 @@ export default function GuideView({ siteConfig, onBack }: GuideViewProps) {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
   const brandName = siteConfig?.brandName || "Guide";
 
+  // One-shot intro shimmer: plays once per visit (iteration-count 1 runs on
+  // mount; GuideView remounts every time the tab opens). No interval, so the
+  // paint cost ends with the sweep. Class clears on animationend so the text
+  // returns to its normal styling.
+  const [intro, setIntro] = useState(true);
+
   return (
     <div className="bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 rounded-[24px] p-4 text-[var(--theme-text)] space-y-5 pb-16">
       <button onClick={onBack} className="flex items-center gap-2 text-xs font-extrabold opacity-70 hover:opacity-100 py-1.5 px-3 rounded-[var(--theme-radius)] bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] shadow-sm cursor-pointer">
@@ -135,8 +141,8 @@ export default function GuideView({ siteConfig, onBack }: GuideViewProps) {
 
       <div className="flex flex-col items-center text-center space-y-2 pt-1">
         <BrandLogo siteConfig={siteConfig} className="w-16 h-16 flex items-center justify-center" />
-        <h4 className="font-display font-black text-lg text-[var(--theme-text)] tracking-tight">{brandName} Guide</h4>
-        <p className="text-[12px] font-sans text-[var(--theme-text)] opacity-60 leading-relaxed max-w-[280px]">
+        <h4 onAnimationEnd={() => setIntro(false)} className={`font-display font-black text-lg text-[var(--theme-text)] tracking-tight${intro ? " animate-shimmer-slow" : ""}`}>{brandName} Guide</h4>
+        <p className={`text-[12px] font-sans text-[var(--theme-text)] opacity-60 leading-relaxed max-w-[280px]${intro ? " animate-shimmer-slow" : ""}`}>
           Everything about balances, products, withdrawals and rewards.
         </p>
       </div>

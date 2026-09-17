@@ -625,9 +625,11 @@ input:-webkit-autofill::first-line { font-size: 14px; }
   background-clip: text;
   color: transparent;
   -webkit-text-fill-color: transparent;
-  animation: hut-shimmer-x 10s linear 1;
+  animation: hut-shimmer-x 15s linear 1;
 }
 @media (prefers-reduced-motion: reduce) {
-  .animate-shimmer { animation: none; }
-  .animate-shimmer-slow { animation: none; }
+  /* Neutralize the transparent-text clipping too — with no animation the
+     gradient never paints, so the text must fall back to its normal color. */
+  .animate-shimmer { animation: none; background: none; color: inherit; -webkit-text-fill-color: currentColor; }
+  .animate-shimmer-slow { animation: none; background: none; color: inherit; -webkit-text-fill-color: currentColor; }
 }

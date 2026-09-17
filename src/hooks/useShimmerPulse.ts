@@ -7,7 +7,7 @@ import { useGatedInterval } from "./useGatedInterval";
  * killing the interval) + hidden-tab gate (no queued pulses while the
  * browser tab is hidden). Pair with the `.animate-shimmer-slow` CSS class.
  */
-export function useShimmerPulse(intervalMs = 60000, sweepMs = 10000): boolean {
+export function useShimmerPulse(intervalMs = 60000, sweepMs = 15000): boolean {
   const [pulse, setPulse] = useState(false);
   const timer = useRef<number | null>(null);
 
