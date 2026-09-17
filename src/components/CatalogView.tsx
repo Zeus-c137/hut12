@@ -181,7 +181,7 @@ export default function CatalogView({
                     className="relative flex flex-row items-stretch bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 rounded-[24px] overflow-hidden transition-all duration-150 group select-none shadow-sm hover:border-[var(--theme-primary)]/30"
                   >
                     {/* Left portion: Hardware Image — fills parent height */}
-                    <div onClick={() => item.imageUrl && setPreviewImage(item.imageUrl)} className="w-32 sm:w-36 md:w-44 self-stretch relative overflow-hidden rounded-l-[var(--theme-radius)] bg-transparent border-r border-[var(--theme-card-border)] shrink-0 cursor-zoom-in group-hover:border-[var(--theme-primary)]/30 transition-colors p-4 flex items-center justify-center">
+                    <div onClick={() => item.imageUrl && setPreviewImage(item.imageUrl)} className="w-32 sm:w-36 md:w-44 self-stretch relative overflow-hidden rounded-l-[var(--theme-radius)] bg-transparent border-0 shrink-0 cursor-zoom-in group-hover:border-[var(--theme-primary)]/30 transition-colors p-4 flex items-center justify-center">
                       {item.imageUrl ? (
                         <img
                           src={item.imageUrl}
@@ -207,7 +207,7 @@ export default function CatalogView({
                     <div className="flex-1 min-w-0 p-4 flex flex-col justify-between space-y-2 font-sans">
                       <div className="min-w-0">
                         {/* Title Row with Rent — title truncates, rent never overflows */}
-                        <div className="flex items-start justify-between gap-2 pb-3 border-b border-[var(--theme-card-border)]/40 mb-2 min-w-0">
+                        <div className="flex items-start justify-between gap-2 pb-2 mb-2 min-w-0">
                           <div className="min-w-0 flex-1">
                             <h3 className="font-display font-extrabold text-sm sm:text-[15px] text-[var(--theme-primary)] uppercase tracking-tight leading-snug line-clamp-2 break-words min-w-0">
                               {item.name}
