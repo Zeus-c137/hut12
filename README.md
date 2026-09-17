@@ -20,12 +20,13 @@ npm run build && npm run start  # production
 ...see previous docs / .env.example for full SmarterASP & Render deploy guides.
 
 ---
-## SmarterASP deployment
-1. Download the full project on your PC and navigate into it.
-2. Run `npm install` to install the node modules.
-3. Run `npm run build` to compile the production build of the application (outputs the `dist` folder).
-4. Zip the `dist` folder and `node_modules`, copy them to `site1` or your SmarterASP root, and unzip them there.
-5. Upload `package.json` and `.env` as well, with the database URL added inside.
+## SmarterASP deployment (Node.js via IISNode — NOT static hosting)
+This is a full-stack app: `dist/index.html` alone does nothing without the Express API + MySQL behind it. Static-site advice (uploading `dist` contents to root, skipping `node_modules`/`package.json`/`.env`) will 404 every API call.
+1. On your PC run `npm install`, then `npm run build` — verify `dist/server.cjs` exists next to `dist/index.html` (`vite build` alone is not enough; the `esbuild server.ts` step produces the API server).
+2. Upload the project root layout as-is to your SmarterASP site root — keep `web.config` at the root (it serves static files from `dist/` and routes everything else to Node):
+   `web.config`, `package.json`, `.env` (DB URL + secrets), `dist/` (client + `server.cjs`), `node_modules/` (required — the server bundle keeps packages external).
+3. In the SmarterASP panel enable Node.js and set the startup file to `dist/server.cjs` (Node 20+). `PORT` comes from IIS; locally the server uses 3000.
+4. Do NOT upload `src/`, and never commit `.env`.
 ---
 
 
