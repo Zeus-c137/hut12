@@ -4,7 +4,6 @@
 ## Overview
 This platform allows users to sign up, rent products of any category, and earn daily passive income in UGX. Users can also invite friends, earn bonuses, complete VIP tasks, and withdraw their earnings. The application includes a comprehensive Admin Dashboard to manage users, transactions, the product catalog, and global configurations.
 
-
 Built on Vite + React 19 + Express + Drizzle/MySQL.
 
 
