@@ -275,13 +275,34 @@ export default function ChatView({ userProfile, initialRoom = "shared", canUploa
     return out;
   }, [messages]);
 
+  const replyCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const m of messages) map.set(m.id, 0);
+    for (const r of messages) {
+      const { quote } = splitQuote(r.text);
+      if (!quote) continue;
+      const { text: quotedBody } = splitQuoteName(quote);
+      if (!quotedBody || quotedBody.length < 3) continue;
+      for (const parent of messages) {
+        if (parent.id === r.id) continue;
+        const parentBody = splitQuote(parent.text).body || parent.text;
+        if (!parentBody) continue;
+        if (parentBody.slice(0, 120) === quotedBody || (quotedBody.length > 10 && parentBody.includes(quotedBody.slice(0, 30)))) {
+          map.set(parent.id, (map.get(parent.id) || 0) + 1);
+          break;
+        }
+      }
+    }
+    return map;
+  }, [messages]);
+
   const renderText = (text: string) => {
     const { quote, body } = splitQuote(text);
     const quoted = quote ? splitQuoteName(quote) : null;
     return (
       <>
         {quoted && (
-          <div className="border-l-2 border-current opacity-80 pl-2 mb-1.5 text-[11.5px] line-clamp-3">
+          <div className="border-l-2 border-[var(--theme-card-border)] opacity-80 pl-2 mb-1.5 text-[11.5px] line-clamp-3">
             {quoted.name && <div className="font-extrabold">{quoted.name}</div>}
             <div className="italic">{quoted.text}</div>
           </div>
@@ -414,13 +435,27 @@ export default function ChatView({ userProfile, initialRoom = "shared", canUploa
                               {!isSystem && (
                                 <button
                                   type="button"
-                                  title="Reply"
+                                  title={replyCounts.get(m.id) ? `${replyCounts.get(m.id)} ${replyCounts.get(m.id) === 1 ? "reply" : "replies"}` : "Reply"}
                                   onClick={() => setReplyTo({ name: isMe ? "You" : isSupportAdmin ? "👾 Support" : m.senderName, text: splitQuote(m.text).body || "[photo]" })}
-                                  className="ml-auto opacity-40 hover:opacity-100 transition-opacity flex items-center gap-1 px-1 py-0.5 text-[var(--theme-primary)] cursor-pointer"
+                                  className="ml-auto flex items-center gap-1 px-2 py-1 rounded-full bg-[var(--theme-primary)]/12 border border-[var(--theme-primary)]/20 text-[var(--theme-primary)] opacity-90 hover:bg-[var(--theme-primary)]/20 hover:opacity-100 transition-all cursor-pointer"
                                 >
                                   <Reply className="w-3 h-3" />
+                                  {(replyCounts.get(m.id) || 0) > 0 && <span className="text-[10px] font-black">{replyCounts.get(m.id)}</span>}
                                 </button>
                               )}
+                            </div>
+                          )}
+                          {!showHeader && !isSystem && (
+                            <div className="flex justify-end pb-1">
+                              <button
+                                type="button"
+                                title={replyCounts.get(m.id) ? `${replyCounts.get(m.id)} ${replyCounts.get(m.id) === 1 ? "reply" : "replies"}` : "Reply"}
+                                onClick={() => setReplyTo({ name: isMe ? "You" : isSupportAdmin ? "👾 Support" : m.senderName, text: splitQuote(m.text).body || "[photo]" })}
+                                className="flex items-center gap-1 px-2 py-1 rounded-full bg-[var(--theme-primary)]/12 border border-[var(--theme-primary)]/20 text-[var(--theme-primary)] opacity-90 hover:bg-[var(--theme-primary)]/20 transition-all cursor-pointer"
+                              >
+                                <Reply className="w-3 h-3" />
+                                {(replyCounts.get(m.id) || 0) > 0 && <span className="text-[10px] font-black">{replyCounts.get(m.id)}</span>}
+                              </button>
                             </div>
                           )}
                           {renderText(m.text)}
@@ -446,7 +481,7 @@ export default function ChatView({ userProfile, initialRoom = "shared", canUploa
                             </button>
                           )}
                           {!showHeader && (
-                            <div className="flex justify-end items-center gap-1 pt-0.5 text-[10px] leading-none text-[var(--theme-text)] opacity-40">
+                            <div className="flex justify-end items-center gap-1 pt-1.5 text-[10px] leading-none text-[var(--theme-text)] opacity-40">
                               <span>{new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                               {isMe && !failed && (m.id.startsWith("tmp_") ? <Check className="w-3 h-3" /> : <CheckCheck className="w-3.5 h-3.5" />)}
                             </div>
@@ -478,20 +513,30 @@ export default function ChatView({ userProfile, initialRoom = "shared", canUploa
         )}
 
         <form onSubmit={handleSendMessage} className="p-3 border-t border-[var(--theme-card-border)] bg-transparent space-y-2 shrink-0">
-          {replyTo && (
-            <div className="flex items-center justify-between bg-[var(--theme-bg)] px-3 py-2 rounded-[var(--theme-radius)] border border-[var(--theme-card-border)] text-xs">
-              <div className="flex items-center gap-2 min-w-0 text-[var(--theme-text)]">
-                <Reply className="w-3.5 h-3.5 text-[var(--theme-primary)] shrink-0" />
-                <span className="truncate font-medium">
-                  <span className="font-extrabold">{replyTo.name}</span>
-                  <span className="opacity-60"> — {replyTo.text.slice(0, 80)}</span>
-                </span>
-              </div>
-              <button type="button" onClick={() => setReplyTo(null)} className="p-1 cursor-pointer opacity-60 hover:opacity-100" title="Cancel reply">
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          )}
+          <AnimatePresence>
+            {replyTo && (
+              <motion.div
+                initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                className="flex items-center justify-between bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%] border border-white/10 shadow-sm px-3 py-2.5 rounded-[var(--theme-radius)] text-xs"
+              >
+                <div className="flex items-center gap-2 min-w-0 text-[var(--theme-text)]">
+                  <div className="w-7 h-7 rounded-full bg-[var(--theme-primary)]/12 border border-[var(--theme-primary)]/15 flex items-center justify-center shrink-0">
+                    <Reply className="w-3.5 h-3.5 text-[var(--theme-primary)]" />
+                  </div>
+                  <span className="truncate font-medium">
+                    <span className="font-extrabold">{replyTo.name}</span>
+                    <span className="opacity-60"> — {replyTo.text.slice(0, 80)}</span>
+                  </span>
+                </div>
+                <button type="button" onClick={() => setReplyTo(null)} className="ml-2 p-1.5 rounded-full bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70 hover:opacity-100 hover:border-[var(--theme-primary)]/30 transition-all cursor-pointer shrink-0" title="Cancel reply">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {base64Image && (
             <div className="flex items-center justify-between bg-[var(--theme-bg)] p-2.5 rounded-[var(--theme-radius)] text-xs font-sans text-[var(--theme-text)] border border-[var(--theme-card-border)] animate-fadeIn">

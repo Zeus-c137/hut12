@@ -221,7 +221,7 @@ export default function TransactionHistoryView({ phone, siteConfig, onBack }: Pr
 
             return (
               <div key={tx.id} className={`rounded-[20px] border-0 p-3.5 flex items-center gap-3 bg-transparent ${meta.card}`}>
-                <div className={`${isProductIcon ? "w-14 h-14 rounded-2xl bg-white/5 border border-white/10 p-1.5" : "w-11 h-11 rounded-2xl bg-transparent border-0"} flex items-center justify-center shrink-0 overflow-hidden`}>
+                <div className={`${isProductIcon ? "w-14 h-14 rounded-2xl bg-white/5 border-0 p-1.5" : "w-11 h-11 rounded-2xl bg-transparent border-0"} flex items-center justify-center shrink-0 overflow-hidden`}>
                   <img src={iconSrc} alt="" loading="lazy" decoding="async" className={`${isProductIcon ? "w-full h-full object-contain rounded-xl" : "w-10 h-10 object-contain"}`} />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -233,7 +233,7 @@ export default function TransactionHistoryView({ phone, siteConfig, onBack }: Pr
                   {showFee && <p className="text-[11px] font-sans font-normal text-[var(--theme-text)] opacity-45 mt-0.5">Fee {formatCurrency(fee)} • Payout {formatCurrency(payout)}</p>}
                 </div>
                 <div className="text-right shrink-0 flex flex-col justify-center">
-                  <p className={`text-[13px] font-display font-bold tracking-tight leading-none ${isPositive?"text-emerald-800":"text-[var(--theme-text)]"}`}>{isPositive?"+":"-"} {formatCurrency(amount)}</p>
+                  <p className={`text-[13px] font-display font-bold tracking-tight leading-none ${isPositive?"text-[var(--theme-primary)]":"text-[var(--theme-text)]"}`}>{isPositive?"+":"-"} {formatCurrency(amount)}</p>
                   {siteConfig?.usdtRate && (tx.operator==="USDT"||String(tx.usdtAddress||"").startsWith("T")||String(tx.phone||"").startsWith("T")) && <p className="text-[10px] font-sans font-medium text-[var(--theme-primary)] mt-1">≈ ${(amount/ siteConfig.usdtRate).toFixed(2)}</p>}
                 </div>
               </div>
