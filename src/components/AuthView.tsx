@@ -10,7 +10,9 @@ import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import ParticleBg from "./ParticleBg";
 import { BrandLogo } from "./BrandLogo";
+import { Button } from "./ui/button";
 import { fixGitHubImageUrl } from "../utils/imageUtils";
+import { useShimmerPulse } from "../hooks/useShimmerPulse";
 
 interface AuthViewProps {
   onAuthSuccess: (profile: UserProfile) => void;
@@ -41,6 +43,10 @@ export default function AuthView({ onAuthSuccess, siteConfig }: AuthViewProps) {
   }, []);
 
   const activeConfig = localSiteConfig || siteConfig;
+
+  // Sitename shimmer pulse — same gated 60s system as the balance cards.
+  // AuthView only mounts pre-login, so the interval dies on sign-in.
+  const sitenamePulse = useShimmerPulse();
 
   useEffect(() => {
     let ref = null;
@@ -192,7 +198,7 @@ export default function AuthView({ onAuthSuccess, siteConfig }: AuthViewProps) {
               {/* Logo and Name WITHIN the form card with NO description */}
               <div className="text-center space-y-1.5 pb-1">
                 <BrandLogo siteConfig={activeConfig} className="w-14 h-14 mx-auto block bg-transparent shadow-none" />
-                <h2 className="font-display font-extrabold text-2xl text-[var(--theme-text)]">
+                <h2 className={`font-display font-extrabold text-2xl text-[var(--theme-text)]${sitenamePulse ? " animate-shimmer-slow" : ""}`}>
                   {activeConfig?.brandName || " "}
                 </h2>
               </div>
@@ -283,14 +289,16 @@ export default function AuthView({ onAuthSuccess, siteConfig }: AuthViewProps) {
                   </>
                 )}
 
-                <button
+                <Button
+                  variant="gold-glossy"
+                  size="md"
                   type="submit"
+                  loading={isLoading}
                   disabled={isLoading}
-                  className="btn-3d-primary w-full py-3.5 mt-1 text-white font-sans font-bold text-sm tracking-wide transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 select-none"
+                  className="w-full mt-1"
+                  glow={false}
                 >
-                  {isLoading ? (
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : authMode === "register" ? (
+                  {authMode === "register" ? (
                     <>
                       <UserPlus className="w-4 h-4" />
                       <span>REGISTER</span>
@@ -301,7 +309,7 @@ export default function AuthView({ onAuthSuccess, siteConfig }: AuthViewProps) {
                       <span>LOGIN</span>
                     </>
                   )}
-                </button>
+                </Button>
               </form>
 
               {/* Mode Toggles */}
