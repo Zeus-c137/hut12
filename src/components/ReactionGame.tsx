@@ -166,16 +166,13 @@ export default function ReactionGame() {
           onClick={tapPad}
           disabled={phase === "idle" || phase === "done"}
           aria-label={phase === "ready" ? "Tap now" : "Reaction pad"}
+          // No full-field red/green floods: large saturated flashes are a
+          // photosensitivity hazard. Neutral pad throughout; only the READY
+          // state takes the brand-gold fill, and meaning rides on text.
           className={`relative w-full h-[280px] rounded-[24px] overflow-hidden transition-colors duration-150 focus:outline-none ${
             phase === "ready"
-              ? "bg-emerald-500 cursor-pointer active:scale-[0.99]"
-              : phase === "reveal"
-                ? fouled
-                  ? "bg-red-500"
-                  : "bg-emerald-600"
-                : phase === "waiting"
-                  ? "bg-red-500 cursor-pointer"
-                  : "bg-[var(--theme-card-bg)]/60 border border-[var(--theme-card-border)]"
+              ? "bg-[var(--theme-primary)] cursor-pointer active:scale-[0.99]"
+              : "bg-[var(--theme-card-bg)]/60 border border-[var(--theme-card-border)]" + (phase === "waiting" ? " cursor-pointer" : "")
           }`}
         >
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-6 text-center">
@@ -184,14 +181,19 @@ export default function ReactionGame() {
                 <img src={flash3d} alt="" draggable={false} className="w-14 h-14 object-contain drop-shadow-lg pointer-events-none" />
                 <p className="font-display font-black text-lg text-[var(--theme-text)] tracking-tight">Reaction Rush</p>
                 <p className="text-xs font-bold text-[var(--theme-text)] opacity-60 leading-relaxed max-w-[230px]">
-                  Tap the instant it turns green. 5 rounds — too soon costs you 500ms.
+                  Tap the instant it turns gold. 5 rounds — too soon costs you 500ms.
                 </p>
               </>
             )}
             {phase === "waiting" && (
               <>
-                <Hand className="w-10 h-10 text-white/90" />
-                <p className="font-display font-black text-xl text-white tracking-tight">Wait for green…</p>
+                <Hand className="w-10 h-10 text-[var(--theme-primary)]" />
+                <p className="font-display font-black text-xl text-[var(--theme-text)] tracking-tight">Wait…</p>
+                <span className="flex items-center gap-1.5" aria-hidden>
+                  {[0, 1, 2].map((i) => (
+                    <span key={i} className="w-1.5 h-1.5 rounded-full bg-[var(--theme-primary)] animate-bounce" style={{ animationDelay: `${i * 150}ms` }} />
+                  ))}
+                </span>
               </>
             )}
             {phase === "ready" && (
@@ -199,10 +201,10 @@ export default function ReactionGame() {
             )}
             {phase === "reveal" && (
               <>
-                <p className={`font-display font-black text-5xl tracking-tight tabular-nums ${fouled ? "text-white" : "text-white"}`}>
+                <p className="font-display font-black text-5xl text-[var(--theme-text)] tracking-tight tabular-nums">
                   {fouled ? "Too soon!" : `${lastMs}ms`}
                 </p>
-                <p className="text-xs font-bold text-white/80">
+                <p className="text-xs font-bold text-[var(--theme-text)] opacity-60">
                   {fouled ? "+500ms penalty" : lastMs < 260 ? "Lightning!" : lastMs < 350 ? "Nice!" : "Keep pushing"}
                 </p>
               </>
@@ -210,14 +212,14 @@ export default function ReactionGame() {
             {phase === "done" && (
               <>
                 {newBest ? (
-                  <span className="px-3 py-1 rounded-full bg-white/20 text-white text-[11px] font-black uppercase tracking-widest flex items-center gap-1.5">
+                  <span className="px-3 py-1 rounded-full bg-[var(--theme-primary)] text-white text-[11px] font-black uppercase tracking-widest flex items-center gap-1.5">
                     <Trophy className="w-3.5 h-3.5" /> New best!
                   </span>
                 ) : (
                   <img src={trophy3d} alt="" draggable={false} className="w-12 h-12 object-contain drop-shadow pointer-events-none" />
                 )}
-                <p className="font-display font-black text-5xl text-white tracking-tight tabular-nums">{avg}ms</p>
-                <p className="text-xs font-bold text-white/80">{rankFor(avg)} • avg of {times.length}</p>
+                <p className="font-display font-black text-5xl text-[var(--theme-text)] tracking-tight tabular-nums">{avg}ms</p>
+                <p className="text-xs font-bold text-[var(--theme-text)] opacity-60">{rankFor(avg)} • avg of {times.length}</p>
               </>
             )}
           </div>
@@ -260,9 +262,6 @@ export default function ReactionGame() {
         </div>
       )}
 
-      <p className="text-center text-[10px] font-bold text-[var(--theme-text)] opacity-40 px-2">
-        Practice mode — scores stay on this device and never touch balances.
-      </p>
     </div>
   );
 }
