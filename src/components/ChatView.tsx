@@ -348,13 +348,24 @@ export default function ChatView({ userProfile, initialRoom = "shared", canUploa
               }`}
             >
               <MessageSquare className="w-4 h-4" />
-              <span>Global Lobby</span>
+              <span>Threads</span>
               {unread.shared > 0 && (
                 <span className="min-w-5 h-5 px-1 rounded-full bg-[var(--theme-primary)] text-white text-[10px] font-black flex items-center justify-center">
                   {unread.shared > 99 ? "99+" : unread.shared}
                 </span>
               )}
               {activeRoom === "shared" && <span className="absolute bottom-0 left-2 right-2 h-[3px] bg-[var(--theme-primary)] rounded-full" />}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => switchRoom("ai")}
+              className={`flex-1 flex items-center justify-center gap-2 py-3.5 relative text-[11px] font-black uppercase tracking-wider transition-colors cursor-pointer ${
+                activeRoom === "ai" ? "text-[var(--theme-primary)]" : "text-[var(--theme-text)] opacity-60 hover:opacity-100"
+              }`}
+            >
+              <span className={aiThinking ? "animate-shimmer" : undefined}>{brandName || "AI"} AI</span>
+              {activeRoom === "ai" && <span className="absolute bottom-0 left-2 right-2 h-[3px] bg-[var(--theme-primary)] rounded-full" />}
             </button>
 
             <button
@@ -372,17 +383,6 @@ export default function ChatView({ userProfile, initialRoom = "shared", canUploa
                 </span>
               )}
               {activeRoom === "admin" && <span className="absolute bottom-0 left-2 right-2 h-[3px] bg-[var(--theme-primary)] rounded-full" />}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => switchRoom("ai")}
-              className={`flex-1 flex items-center justify-center gap-2 py-3.5 relative text-[11px] font-black uppercase tracking-wider transition-colors cursor-pointer ${
-                activeRoom === "ai" ? "text-[var(--theme-primary)]" : "text-[var(--theme-text)] opacity-60 hover:opacity-100"
-              }`}
-            >
-              <span className={aiThinking ? "animate-shimmer" : undefined}>{brandName || "AI"} AI</span>
-              {activeRoom === "ai" && <span className="absolute bottom-0 left-2 right-2 h-[3px] bg-[var(--theme-primary)] rounded-full" />}
             </button>
           </div>
         </div>

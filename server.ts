@@ -1212,12 +1212,12 @@ const copilotRateLimit = new Map<string, { count: number, date: string }>();
 app.post("/api/copilot/chat", async (req, res) => {
   const { messages, userProfile, activeSubscriptions } = req.body;
   
-  // Rate Limiting (50 msgs / day — cap is silent in UI)
+  // Rate Limiting (20 msgs / day — cap is silent in UI)
   if (userProfile?.phone) {
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     const userLimit = copilotRateLimit.get(userProfile.phone);
     if (userLimit && userLimit.date === today) {
-      if (userLimit.count >= 50) {
+      if (userLimit.count >= 20) {
         return res.status(429).json({ error: "You've reached today's AI message limit. Please try again tomorrow!" });
       }
       userLimit.count += 1;
