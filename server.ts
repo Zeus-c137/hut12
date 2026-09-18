@@ -1233,11 +1233,26 @@ app.post("/api/copilot/chat", async (req, res) => {
   let catalogProductsList = "";
   let categoriesList = "";
   let activeCodesList = "";
+  let vipTasksList = "";
+  // Client-supplied figures as fallback; refreshed from the database below so
+  // the AI never quotes a stale balance the user saw minutes ago.
+  let liveUsername = userProfile?.username || "Guest";
+  let liveWithdrawable = Number(userProfile?.points || 0);
+  let liveRechargeable = Number(userProfile?.rechargeBalance || 0);
+  let liveWithdrawn = Number(userProfile?.withdrawnCash || 0);
+  let liveReferralEarned = Number(userProfile?.referralRewardsEarned || 0);
+  let liveInvites = Number(userProfile?.invitesCount || 0);
+  let liveVipLevel = 0;
+  let liveLevelBonus = "";
+
+  const accountPhone = typeof userProfile?.phone === "string" ? userProfile.phone.trim() : "";
 
   try {
-    const [catalogItems, giftCodes] = await Promise.all([
+    const [catalogItems, giftCodes, freshProfile, vipBoard] = await Promise.all([
       getSubscriptionItems(),
-      adminGetGiftCodes()
+      adminGetGiftCodes(),
+      accountPhone ? getUserProfile(accountPhone).catch(() => null) : Promise.resolve(null),
+      accountPhone ? getVipTaskboard(accountPhone).catch(() => null) : Promise.resolve(null)
     ]);
 
     const customCats: string[] = siteConfig?.categories || [];
@@ -1260,6 +1275,28 @@ app.post("/api/copilot/chat", async (req, res) => {
           .map((c) => `- Gift Code: "${c.code}" | Reward: UGX ${c.amount.toLocaleString()} | Redemptions Left: ${c.maxRedemptions - c.currentRedemptions}`)
           .join("\n")
       : "No active gift codes currently.";
+
+    if (freshProfile) {
+      liveUsername = freshProfile.username || liveUsername;
+      liveWithdrawable = Number(freshProfile.points || 0);
+      liveRechargeable = Number(freshProfile.rechargeBalance || 0);
+      liveWithdrawn = Number(freshProfile.withdrawnCash || 0);
+      liveReferralEarned = Number(freshProfile.referralRewardsEarned || 0);
+      liveInvites = Number(freshProfile.invitesCount || 0);
+    }
+    if (vipBoard) {
+      liveVipLevel = Number(vipBoard.vipLevel || 0);
+      const p = vipBoard.progress || {};
+      const fmt = (n: unknown) => `UGX ${Number(n || 0).toLocaleString()}`;
+      liveLevelBonus = `L1 ${fmt(p.level1Bonus)}, L2 ${fmt(p.level2Bonus)}, L3 ${fmt(p.level3Bonus)}, L4 ${fmt(p.level4Bonus)}`;
+      const tasks = Array.isArray(vipBoard.tasks) ? vipBoard.tasks : [];
+      vipTasksList = tasks.length > 0
+        ? tasks.slice(0, 12).map((t: any) => {
+            const state = t.claimed ? "claimed" : t.unlocked ? "UNLOCKED — tell them to claim it on the VIP page" : `progress ${fmt(t.progress)} of ${fmt(t.requiredBonus)}`;
+            return `- ${t.title}: needs ${fmt(t.requiredBonus)} referral bonus, reward ${fmt(t.reward)} [${state}]`;
+          }).join("\n")
+        : "No VIP tasks configured right now.";
+    }
   } catch (err) {
     console.error("Failed fetching catalog/gift code items for AI prompt:", err);
   }
@@ -1298,12 +1335,18 @@ ${categoriesList}
 Available Products Catalog:
 ${catalogProductsList || "No products currently listed."}
 
-Current User Details:
-- Username: ${userProfile?.username || "Guest"}
+Current User Details (fresh from the database as of this message):
+- Username: ${liveUsername}
 - Phone: ${userProfile?.phone || "None"}
-- Balance: ${userProfile?.points || 0} UGX Shs
-- Invites count: ${userProfile?.invitesCount || 0} users referred
+- Rechargeable balance: UGX ${liveRechargeable.toLocaleString()} (deposit funds land here; this balance is spent to rent products — it is NOT withdrawable)
+- Withdrawable balance: UGX ${liveWithdrawable.toLocaleString()} (daily income, bonuses and rewards land here; withdrawals come from this balance)
+- Total withdrawn to date: UGX ${liveWithdrawn.toLocaleString()}
+- Referral income earned: UGX ${liveReferralEarned.toLocaleString()} across ${liveInvites} invites${liveLevelBonus ? ` (by level — ${liveLevelBonus})` : ""}
+- VIP level: VIP ${liveVipLevel}
 - Active products count: ${activeSubscriptions?.length || 0} active products
+
+Their VIP taskboard (progress is their live Level 1-4 referral bonus):
+${vipTasksList || "Sign-in data unavailable — speak generally about VIP tasks."}
 
 How ${brand} works (always explain it this way):
 - Users deposit funds into their rechargeable balance. That balance is used to rent products in the system.
@@ -1316,7 +1359,7 @@ Knowledge & Capabilities:
 - **Withdrawal**: Withdraw from the withdrawable balance to Mobile Money or USDT. Only works with an active product. Withdrawal fee is exactly ${siteConfig?.withdrawFee || 0}%.
 - **Invite Program**: Users share referral links and earn ${siteConfig?.level1InviteIncomePct ?? 15}% on Level 1, ${siteConfig?.level2InviteIncomePct ?? 5}% on Level 2, ${siteConfig?.level3InviteIncomePct ?? 0}% on Level 3, and ${siteConfig?.level4InviteIncomePct ?? 0}% on Level 4 when invited friends activate products (referrals only pay while the invitee has an active product).
 - **Gift Codes**: New gift codes are given out daily in the community groups set by the admin (WhatsApp: ${siteConfig?.whatsappLink || "N/A"}, Telegram: ${siteConfig?.telegramLink || "N/A"}). Tell users to join the community groups to claim them.
-- **VIP Tasks**: Complete referral targets to unlock rewards up to UGX 50,000,000.
+- **VIP Tasks**: Complete referral targets to unlock rewards up to UGX 50,000,000. This user's exact level, per-task progress and unlock state are listed above under "Their VIP taskboard" — quote their real figures, and when a task shows UNLOCKED, direct them to claim it on the VIP page.
 - **Support Links**: WhatsApp (${siteConfig?.whatsappLink || "N/A"}) and Telegram (${siteConfig?.telegramLink || "N/A"}).
 
 Instructions:
