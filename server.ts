@@ -306,6 +306,7 @@ app.post("/api/auth/logout", (_req, res) => {
 app.post("/api/auth/register", async (req, res) => {
   const { phone, password, confirmPassword, inviteCode } = req.body;
   const normalizedPhone = normalizePhone(phone);
+  const displayName = typeof req.body?.username === "string" ? req.body.username.trim().slice(0, 64) : "";
 
   if (!normalizedPhone || typeof password !== "string") {
     return res.status(400).json({ error: "Phone number and password are required." });
@@ -331,6 +332,7 @@ app.post("/api/auth/register", async (req, res) => {
     const { success, profile } = await registerUserProfile({
       phone: normalizedPhone,
       passwordHash: password, // Store password safely for live demo validation
+      username: displayName || undefined, // blank falls back to auto User_XXXX
       referredByCode: inviteCode ? inviteCode.trim() : ""
     });
     res.json({ success, profile: publicProfile(profile) });

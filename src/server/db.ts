@@ -334,7 +334,7 @@ export async function registerUserProfile(data: any): Promise<any> {
 
   const newUser: UserProfile = {
     phone,
-    username: data.username || "User_" + phone.slice(-4),
+    username: String(data.username || "").trim().slice(0, 64) || "User_" + phone.slice(-4),
     password,
     inviteCode: personalInviteCode,
     referredByCode,

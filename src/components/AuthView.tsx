@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from "react";
 import { UserProfile } from "../types";
-import { Phone, Lock, UserPlus, LogIn, ArrowLeft, Eye, EyeOff, MessageSquare, Send, ShieldAlert, HelpCircle } from "lucide-react";
+import { Phone, Lock, User, UserPlus, LogIn, ArrowLeft, Eye, EyeOff, MessageSquare, Send, ShieldAlert, HelpCircle } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import ParticleBg from "./ParticleBg";
@@ -23,6 +23,7 @@ export default function AuthView({ onAuthSuccess, siteConfig }: AuthViewProps) {
   const [authMode, setAuthMode] = useState<"login" | "register" | "support">("login");
   
   const [phone, setPhone] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [inviteCode, setInviteCode] = useState("");
@@ -123,8 +124,8 @@ export default function AuthView({ onAuthSuccess, siteConfig }: AuthViewProps) {
 
     try {
       const endpoint = isRegister ? "/api/auth/register" : "/api/auth/login";
-      const payload = isRegister 
-        ? { phone, password, confirmPassword, inviteCode }
+      const payload = isRegister
+        ? { phone, password, confirmPassword, inviteCode, username: username.trim() || undefined }
         : { phone, password };
 
       const res = await fetch(endpoint, {
@@ -153,6 +154,7 @@ export default function AuthView({ onAuthSuccess, siteConfig }: AuthViewProps) {
         setTimeout(() => {
           setAuthMode("login");
           setPassword("");
+          setUsername("");
           setConfirmPassword("");
         }, 1200);
       } else {
@@ -205,6 +207,24 @@ export default function AuthView({ onAuthSuccess, siteConfig }: AuthViewProps) {
 
               {/* Form */}
               <form onSubmit={handleSubmit} className="space-y-4">
+                {authMode === "register" && (
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-sans font-semibold uppercase tracking-wide text-[var(--theme-text)] opacity-60">Display Name <span className="normal-case font-normal opacity-50">(Optional)</span></label>
+                    <div className="relative">
+                      <User className="w-4 h-4 text-[var(--theme-text)] opacity-40 absolute left-3.5 top-3.5" />
+                      <input
+                        type="text"
+                        autoComplete="nickname"
+                        maxLength={64}
+                        placeholder="e.g. Kampala Miner"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3 input-frosted bg-[var(--theme-bg)]/60 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] text-[var(--theme-text)] placeholder:text-[var(--theme-text-muted)] text-sm font-sans font-medium rounded-[14px] outline-none transition-colors select-text"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-1.5">
                   <label className="text-[11px] font-sans font-semibold uppercase tracking-wide text-[var(--theme-text)] opacity-60">Phone Number</label>
                   <div className="relative">
