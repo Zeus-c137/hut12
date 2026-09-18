@@ -2047,7 +2047,13 @@ export async function dailyCheckin(phone: string) {
   const config = await getSiteConfig();
   const base = (config.checkinBaseBonus !== undefined && config.checkinBaseBonus !== null) ? config.checkinBaseBonus : 1000;
   const inc = (config.checkinIncrement !== undefined && config.checkinIncrement !== null) ? config.checkinIncrement : 100;
-  const currentStreak = (user.checkinStreak || 0) + 1;
+  // A streak is consecutive days only: claiming after a missed day restarts
+  // at 1 instead of inflating forever. The calendar UI renders this same
+  // rule, so previews and payouts can never disagree.
+  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  const previousStreak = Number(user.checkinStreak || 0);
+  const streakKept = user.lastCheckinDate === yesterday;
+  const currentStreak = streakKept ? previousStreak + 1 : 1;
   const bonus = base + ((currentStreak - 1) * inc);
 
   // Credit directly to withdrawable balance (points)!
@@ -2079,7 +2085,7 @@ export async function dailyCheckin(phone: string) {
     "checkin"
   );
 
-  return { amount: bonus, bonus, streak: user.checkinStreak };
+  return { amount: bonus, bonus, streak: user.checkinStreak, reset: !streakKept && previousStreak > 1 };
 }
 
 export async function getVipTaskboard(phone: string) {

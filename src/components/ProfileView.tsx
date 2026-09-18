@@ -43,6 +43,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { useCurrency } from "../currency";
 import history3d from "@/src/assets/3d/3dicons-calender-iso-premium.png"; // lazy via img attrs
+import dollar3d from "@/src/assets/3d/3dicons-dollar-iso-premium.png";
 import invite3d from "@/src/assets/3d/3dicons-link-iso-premium.png";
 import vip3d from "@/src/assets/3d/3dicons-trophy-iso-premium.png";
 import gift3d2 from "@/src/assets/3d/3dicons-gift-box-iso-premium.png";
@@ -202,44 +203,41 @@ export default function ProfileView({
     }
   }, [checkedInToday]);
 
-  const baseBonus = (siteConfig?.checkinBaseBonus !== undefined && siteConfig?.checkinBaseBonus !== null) ? siteConfig.checkinBaseBonus : 100;
-  const increment = (siteConfig?.checkinIncrement !== undefined && siteConfig?.checkinIncrement !== null) ? siteConfig.checkinIncrement : 50;
+  // Canonical check-in economics — mirrors the server fallbacks in
+  // dailyCheckin (base 1000 / increment 100). One pair everywhere so sheet
+  // previews and actual payouts can never disagree.
+  const baseBonus = (siteConfig?.checkinBaseBonus !== undefined && siteConfig?.checkinBaseBonus !== null) ? siteConfig.checkinBaseBonus : 1000;
+  const increment = (siteConfig?.checkinIncrement !== undefined && siteConfig?.checkinIncrement !== null) ? siteConfig.checkinIncrement : 100;
   const withdrawalMode: "automatic" | "manual" = siteConfig?.allowAutoWithdraw === false ? "manual" : "automatic";
   const minimumWithdrawal = Number(siteConfig?.minimumWithdrawal) > 0 ? Math.floor(Number(siteConfig.minimumWithdrawal)) : 10_000;
   const maximumWithdrawal = siteConfig?.maximumWithdrawal === undefined || siteConfig?.maximumWithdrawal === null
     ? 5_000_000
     : (Number(siteConfig.maximumWithdrawal) > 0 ? Math.floor(Number(siteConfig.maximumWithdrawal)) : 0);
 
-  const cycleStartStreak = checkedInToday
-    ? currentStreak - ((currentStreak - 1) % 7)
-    : currentStreak - (currentStreak % 7) + 1;
-
-  const isDayChecked = (idx: number) => {
-    if (checkedInToday) {
-      const cyclePosition = (currentStreak - 1) % 7;
-      return idx <= cyclePosition;
-    } else {
-      const nextActiveIdx = currentStreak % 7;
-      return idx < nextActiveIdx;
-    }
-  };
-
-  const isDayActive = (idx: number) => {
-    if (checkedInToday) {
-      return false;
-    } else {
-      const nextActiveIdx = currentStreak % 7;
-      return idx === nextActiveIdx;
-    }
-  };
-
-  const totalEarnedThisWeek = [...Array(7)].map((_, idx) => {
-    if (isDayChecked(idx)) {
-      const dayStreakVal = cycleStartStreak + idx;
-      return baseBonus + (dayStreakVal - 1) * increment;
-    }
-    return 0;
-  }).reduce((sum, val) => sum + val, 0);
+  // Month-run math. The server keeps streaks consecutive (a missed day
+  // restarts at 1), so the current run is exactly: streak days ending today
+  // (claimed) or yesterday (claimable). Every tile derives from this.
+  const nowCal = new Date();
+  const calMonthName = nowCal.toLocaleString("default", { month: "long" });
+  const calYear = nowCal.getFullYear();
+  const calDaysInMonth = new Date(calYear, nowCal.getMonth() + 1, 0).getDate();
+  const calTodayDay = nowCal.getDate();
+  const calFirstWeekday = new Date(calYear, nowCal.getMonth(), 1).getDay();
+  // Streak number that today carries (claimed or about to be claimed).
+  const calTodayStreak = checkedInToday ? currentStreak : currentStreak + 1;
+  const calTodayAmount = baseBonus + (calTodayStreak - 1) * increment;
+  // First day-of-month of the live run (<= 0 when the run started last month).
+  const calRunStartDay = calTodayDay - calTodayStreak + 1;
+  const calStreakOfDay = (dayNum: number) => calTodayStreak + (dayNum - calTodayDay);
+  const calAmountOfDay = (dayNum: number) => baseBonus + (calStreakOfDay(dayNum) - 1) * increment;
+  const calClaimedDays = Array.from({ length: calTodayDay }, (_, i) => i + 1)
+    .filter((d) => d >= calRunStartDay && (d < calTodayDay || checkedInToday));
+  const calEarnedThisMonth = calClaimedDays.reduce((s, d) => s + calAmountOfDay(d), 0);
+  const calProjectedMonthTotal = calEarnedThisMonth
+    + (checkedInToday ? 0 : calTodayAmount)
+    + Array.from({ length: calDaysInMonth - calTodayDay }, (_, i) => calTodayDay + i + 1)
+        .reduce((s, d) => s + calAmountOfDay(d), 0);
+  const compactUgx = (n: number) => n >= 1000 ? `${parseFloat((n / 1000).toFixed(1))}k` : `${n}`;
 
   const handleRedeemGiftCode = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -288,8 +286,7 @@ export default function ProfileView({
   const handleCheckin = async () => {
     if (isCheckingIn) return;
     setIsCheckingIn(true);
-    const activeIdx = currentStreak % 7;
-    setSpinningIndex(activeIdx);
+    setSpinningIndex(calTodayDay);
     const startTime = Date.now();
     try {
       const res = await fetch("/api/user/checkin", {
@@ -310,7 +307,7 @@ export default function ProfileView({
       const formattedAmount = formatCurrency(data.amount);
       const formattedNewBalance = formatCurrency(userProfile.points + data.amount);
       
-      toast.success(`Checked in! You've claimed ${formattedAmount} for Day ${data.streak}! New balance: ${formattedNewBalance}`);
+      toast.success(`Checked in! You've claimed ${formattedAmount} for Day ${data.streak}! New balance: ${formattedNewBalance}${data.reset ? " Fresh streak started!" : ""}`);
       
       // Trigger Confetti!
       try {
@@ -506,9 +503,18 @@ export default function ProfileView({
               <img src={gift3d2} alt="" className="w-12 h-12 object-contain drop-shadow-sm" />
               <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">Gift Code</span>
             </button>
-            <button onClick={() => setShowCheckinSheet(true)} className="flex flex-col items-center gap-1.5 focus:outline-none group">
+            <button onClick={() => setShowCheckinSheet(true)} className="relative flex flex-col items-center gap-1.5 focus:outline-none group">
+              {!checkedInToday && (
+                <span className="absolute -top-1 right-2 flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--theme-primary)] opacity-60"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-[var(--theme-primary)] border-2 border-[var(--theme-bg)]"></span>
+                </span>
+              )}
               <img src={checkin3d} alt="" className="w-12 h-12 object-contain drop-shadow-sm" />
               <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">Check-in</span>
+              {!checkedInToday && (
+                <span className="text-[10px] font-black text-[var(--theme-primary)] leading-none">UGX {compactUgx(calTodayAmount)}</span>
+              )}
           </button>
 
             <button onClick={async () => {
@@ -651,29 +657,43 @@ export default function ProfileView({
                     </div>
 
                     <div className="p-4 sm:p-5 flex-1 overflow-y-auto space-y-5 scrollbar-none">
-                      {/* Hero Reward Badge */}
-
+                      {/* Hero Reward — today's payout + month haul */}
+                      <div className="rounded-2xl bg-[var(--theme-primary)]/10 border border-[var(--theme-primary)]/25 p-4 flex items-center gap-4">
+                        <img src={dollar3d} alt="" className="w-16 h-16 object-contain drop-shadow-lg shrink-0" loading="lazy" decoding="async" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--theme-primary)] leading-none">
+                            {checkedInToday ? `Day ${currentStreak} claimed` : `Day ${calTodayStreak} reward`}
+                          </p>
+                          <p className="font-display font-black text-2xl text-[var(--theme-text)] tracking-tight leading-none mt-1.5">
+                            {formatCurrency(calTodayAmount)}
+                          </p>
+                          <p className="text-[11px] font-bold text-[var(--theme-text)] opacity-60 mt-1.5 leading-none">
+                            {formatCurrency(calEarnedThisMonth)} earned • up to {formatCurrency(calProjectedMonthTotal)} this month
+                          </p>
+                        </div>
+                        {!checkedInToday && (
+                          <Button
+                            variant="gold-glossy"
+                            size="sm"
+                            onClick={() => handleCheckin()}
+                            loading={isCheckingIn}
+                            disabled={isCheckingIn}
+                            glow={false}
+                            className="!min-w-0 shrink-0"
+                          >
+                            Claim
+                          </Button>
+                        )}
+                      </div>
 
                       {/* Month & Count Header */}
-                      {(() => {
-                        const now = new Date();
-                        const monthName = now.toLocaleString("default", { month: "long" });
-                        const year = now.getFullYear();
-                        const daysInMonth = new Date(year, now.getMonth() + 1, 0).getDate(); // 30 or 31
-                        const todayDay = now.getDate(); // 1 to 31
-                        const firstDayWeekday = new Date(year, now.getMonth(), 1).getDay(); // 0 (Sun) to 6 (Sat)
-                        
-                        // Count claimed days this month
-                        const claimedCount = Math.min(daysInMonth, userProfile.checkinStreak || (checkedInToday ? 1 : 0));
-
-                        return (
                           <div className="space-y-2.5">
                             <div className="flex items-center justify-between px-1">
                               <span className="font-display font-black text-xs text-[var(--theme-text)]">
-                                {monthName} {year}
+                                {calMonthName} {calYear}
                               </span>
                               <span className="bg-[var(--theme-primary)] text-white font-sans text-[10px] font-bold px-2.5 py-0.5 rounded-full">
-                                {claimedCount} / {daysInMonth}
+                                {calClaimedDays.length} / {calDaysInMonth}
                               </span>
                             </div>
 
@@ -687,31 +707,19 @@ export default function ProfileView({
                               {/* Days Grid */}
                               <div className="grid grid-cols-7 gap-1">
                                 {/* Empty offset slots */}
-                                {Array.from({ length: firstDayWeekday }).map((_, i) => (
+                                {Array.from({ length: calFirstWeekday }).map((_, i) => (
                                   <div key={`empty-${i}`} className="w-full aspect-square" />
                                 ))}
 
                                 {/* Day cards 1 to daysInMonth */}
-                                {Array.from({ length: daysInMonth }).map((_, i) => {
+                                {Array.from({ length: calDaysInMonth }).map((_, i) => {
                                   const dayNum = i + 1;
-                                  const isPast = dayNum < todayDay;
-                                  const isToday = dayNum === todayDay;
-
-                                  // Determine status: claimed, today, missed, future
-                                  let isClaimed = false;
-                                  let isMissed = false;
-
-                                  if (isPast) {
-                                    if (dayNum <= (userProfile.checkinStreak || 0)) {
-                                      isClaimed = true;
-                                    } else {
-                                      isMissed = true;
-                                    }
-                                  } else if (isToday) {
-                                    if (checkedInToday) {
-                                      isClaimed = true;
-                                    }
-                                  }
+                                  const isToday = dayNum === calTodayDay;
+                                  const isFuture = dayNum > calTodayDay;
+                                  // In-run days up to today are claimed (today only if done).
+                                  const isClaimed = !isFuture && dayNum >= calRunStartDay && (!isToday || checkedInToday);
+                                  const isMissed = !isFuture && !isToday && !isClaimed;
+                                  const dayAmount = (isClaimed || isToday || isFuture) ? calAmountOfDay(dayNum) : 0;
 
                                   return (
                                     <div
@@ -737,12 +745,12 @@ export default function ProfileView({
                                         <Loader2 className="w-3 h-3 animate-spin text-current" />
                                       ) : isClaimed ? (
                                         <Check className="w-3 h-3 text-white stroke-[3]" />
-                                      ) : isToday && !checkedInToday ? (
-                                        <Gift className="w-3 h-3 text-white" />
+                                      ) : isToday ? (
+                                        <span className="text-[9px] font-black leading-none text-[#2E1B00]">UGX {compactUgx(dayAmount)}</span>
                                       ) : isMissed ? (
                                         <X className="w-2.5 h-2.5 text-[var(--theme-text)] opacity-70 stroke-[3]" />
                                       ) : (
-                                        <Lock className="w-2.5 h-2.5 text-[var(--theme-text)] opacity-40" />
+                                        <span className="text-[8px] font-bold leading-none opacity-60">{compactUgx(dayAmount)}</span>
                                       )}
                                     </div>
                                   );
@@ -750,10 +758,6 @@ export default function ProfileView({
                               </div>
                             </div>
                           </div>
-                        );
-                      })()}
-
-                      {/* Quick Guide - removed */}
                       {/* Tiles handle claim directly */}
                     </div>
                   </motion.div>
