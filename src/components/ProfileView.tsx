@@ -650,13 +650,16 @@ export default function ProfileView({
 
                     <div className="p-4 sm:p-5 flex-1 overflow-y-auto space-y-5 scrollbar-none">
                       {/* Hero Reward — today's payout */}
-                      <div className="rounded-2xl bg-[var(--theme-primary)]/10 border border-[var(--theme-primary)]/25 px-4 py-3.5 text-center">
-                        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--theme-primary)] leading-none">
-                          Day {calTodayStreak} reward
-                        </p>
-                        <p className="font-display font-black text-2xl text-[var(--theme-text)] tracking-tight leading-none mt-1.5">
-                          {formatCurrency(calTodayAmount)}
-                        </p>
+                      <div className="rounded-2xl px-4 py-3.5 flex items-center justify-center gap-3">
+                        <img src={dollar3d} alt="" className="w-12 h-12 object-contain drop-shadow-lg shrink-0" loading="lazy" decoding="async" />
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--theme-primary)] leading-none">
+                            Day {calTodayStreak} reward
+                          </p>
+                          <p className="font-display font-black text-2xl text-[var(--theme-text)] tracking-tight leading-none mt-1.5">
+                            {formatCurrency(calTodayAmount)}
+                          </p>
+                        </div>
                       </div>
 
                       {/* Month & Count Header */}
@@ -714,7 +717,7 @@ export default function ProfileView({
                                           alt=""
                                           loading="lazy"
                                           decoding="async"
-                                          className={`w-7 h-7 object-contain drop-shadow ${
+                                          className={`w-9 h-9 object-contain drop-shadow ${
                                             claimable
                                               ? "animate-pulse"
                                               : isClaimed
