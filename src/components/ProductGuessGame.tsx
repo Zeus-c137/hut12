@@ -8,12 +8,32 @@ import dollar3d from "@/src/assets/3d/3dicons-dollar-iso-premium.png";
 import trophy3d from "@/src/assets/3d/3dicons-trophy-iso-premium.png";
 import confetti from "canvas-confetti";
 
-const BEST_KEY = "hut12_guess_best_v2";
-const ROUNDS = 13;
-const EASY_BUDGET_MS = 5000;
-const HARD_BUDGET_MS = 500;
+const BEST_ROUNDS_KEY = "hut12_guess_best_v2";
+const BEST_ENDLESS_KEY = "hut12_guess_endless_best";
+const ROUNDS_TOTAL = 13;
+const BUDGETS_MS: Record<Difficulty, number> = {
+  easy: 5000,
+  medium: 2500,
+  hard: 1000,
+  ultra: 500,
+};
 
-type Difficulty = "easy" | "hard";
+type Difficulty = "easy" | "medium" | "hard" | "ultra";
+type GameMode = "rounds" | "endless";
+
+const DIFF_LABEL: Record<Difficulty, string> = {
+  easy: "Easy",
+  medium: "Medium",
+  hard: "Hard",
+  ultra: "Ultra",
+};
+
+const DIFF_TAG: Record<Difficulty, string> = {
+  easy: "Easy · 5s",
+  medium: "Medium · 2.5s",
+  hard: "Hard · 1s",
+  ultra: "Ultra · 0.5s",
+};
 
 interface ProductGuessGameProps {
   items: SubscriptionItem[];
@@ -76,7 +96,9 @@ export default function ProductGuessGame({ items }: ProductGuessGameProps) {
 
   const [stage, setStage] = useState<Stage>("idle");
   const [difficulty, setDifficulty] = useState<Difficulty>("easy");
-  const budgetMs = difficulty === "hard" ? HARD_BUDGET_MS : EASY_BUDGET_MS;
+  const [mode, setMode] = useState<GameMode>("rounds");
+  const budgetMs = BUDGETS_MS[difficulty];
+  const bestKey = mode === "endless" ? BEST_ENDLESS_KEY : BEST_ROUNDS_KEY;
   const [round, setRound] = useState(1);
   const [target, setTarget] = useState<Option | null>(null);
   const [options, setOptions] = useState<Option[]>([]);
@@ -87,16 +109,33 @@ export default function ProductGuessGame({ items }: ProductGuessGameProps) {
   const [lastGain, setLastGain] = useState(0);
   const [score, setScore] = useState(0);
   const [streak, setStreak] = useState(0);
+  const [strikes, setStrikes] = useState(0);
+  const [final, setFinal] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
   const [lastTargetId, setLastTargetId] = useState<string | null>(null);
   const [best, setBest] = useState<number | null>(() => {
     try {
-      const n = Number(localStorage.getItem(BEST_KEY));
+      const n = Number(localStorage.getItem(BEST_ROUNDS_KEY));
       return Number.isFinite(n) && n > 0 ? n : null;
     } catch {
       return null;
     }
   });
+
+  const readModeBest = (key: string): number | null => {
+    try {
+      const n = Number(localStorage.getItem(key));
+      return Number.isFinite(n) && n > 0 ? n : null;
+    } catch {
+      return null;
+    }
+  };
+
+  // Best is tracked separately per mode (endless scores dwarf 13-round runs).
+  useEffect(() => {
+    if (stage === "idle") setBest(readModeBest(bestKey));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
   const [newBest, setNewBest] = useState(false);
   const [roundStart, setRoundStart] = useState(0);
   const [reduced] = useState(
@@ -136,6 +175,8 @@ export default function ProductGuessGame({ items }: ProductGuessGameProps) {
   const startGame = () => {
     setScore(0);
     setStreak(0);
+    setStrikes(0);
+    setFinal(false);
     setCorrectCount(0);
     setNewBest(false);
     deal(1, null);
@@ -144,11 +185,11 @@ export default function ProductGuessGame({ items }: ProductGuessGameProps) {
   const finishGame = (finalScore: number) => {
     setStage("done");
     let prev = 0;
-    try { prev = Number(localStorage.getItem(BEST_KEY)) || 0; } catch {}
+    try { prev = Number(localStorage.getItem(bestKey)) || 0; } catch {}
     if (finalScore > prev) {
       setBest(finalScore);
       setNewBest(true);
-      try { localStorage.setItem(BEST_KEY, String(finalScore)); } catch {}
+      try { localStorage.setItem(bestKey, String(finalScore)); } catch {}
       if (!reduced) {
         try {
           confetti({ particleCount: 90, spread: 75, origin: { y: 0.6 } });
@@ -176,12 +217,19 @@ export default function ProductGuessGame({ items }: ProductGuessGameProps) {
       setScore(nextScore);
       setStreak(streak + 1);
       setCorrectCount((c) => c + 1);
-      if (round >= ROUNDS) {
+      if (mode === "rounds" && round >= ROUNDS_TOTAL) {
+        setFinal(true);
         window.setTimeout(() => finishGame(nextScore), 900);
       }
     } else {
       setLastGain(0);
       setStreak(0);
+      const newStrikes = strikes + 1;
+      setStrikes(newStrikes);
+      if (mode === "endless" && newStrikes >= 3) {
+        setFinal(true);
+        window.setTimeout(() => finishGame(score), 900);
+      }
     }
     setStage("reveal");
   };
@@ -194,11 +242,17 @@ export default function ProductGuessGame({ items }: ProductGuessGameProps) {
     setTimedOut(true);
     setLastGain(0);
     setStreak(0);
+    const newStrikes = strikes + 1;
+    setStrikes(newStrikes);
+    if (mode === "endless" && newStrikes >= 3) {
+      setFinal(true);
+      window.setTimeout(() => finishGame(score), 900);
+    }
     setStage("reveal");
   };
 
   const next = () => {
-    if (round >= ROUNDS) {
+    if (final || (mode === "rounds" && round >= ROUNDS_TOTAL)) {
       finishGame(score);
     } else {
       deal(round + 1, lastTargetId);
@@ -243,11 +297,11 @@ export default function ProductGuessGame({ items }: ProductGuessGameProps) {
           <img src={dollar3d} alt="" aria-hidden draggable={false} className="absolute -left-10 -top-10 w-40 h-40 object-contain opacity-15 -rotate-12 pointer-events-none" />
           <div className="relative space-y-5">
             <p className="font-display font-black text-3xl text-[var(--theme-text)] tracking-tight leading-tight -rotate-2">
-              Guess the<br />
-              <span className="text-[var(--theme-primary)]">Product</span>
+              Product<br />
+              <span className="text-[var(--theme-primary)]">Trivia</span>
             </p>
-            <div className="flex items-center justify-center gap-2" role="group" aria-label="Difficulty">
-              {(["easy", "hard"] as Difficulty[]).map((d) => (
+            <div className="flex items-center justify-center gap-2 flex-wrap" role="group" aria-label="Difficulty">
+              {(Object.keys(DIFF_TAG) as Difficulty[]).map((d) => (
                 <button
                   key={d}
                   type="button"
@@ -259,7 +313,24 @@ export default function ProductGuessGame({ items }: ProductGuessGameProps) {
                       : "bg-transparent text-[var(--theme-text)] opacity-60 border-[var(--theme-card-border)] hover:opacity-100"
                   }`}
                 >
-                  {d === "easy" ? "Easy · 5s" : "Hard · 0.5s"}
+                  {DIFF_TAG[d]}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center justify-center gap-2" role="group" aria-label="Mode">
+              {(["rounds", "endless"] as GameMode[]).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMode(m)}
+                  aria-pressed={mode === m}
+                  className={`px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer border ${
+                    mode === m
+                      ? "bg-[var(--theme-primary)] text-white border-[var(--theme-primary)]"
+                      : "bg-transparent text-[var(--theme-text)] opacity-60 border-[var(--theme-card-border)] hover:opacity-100"
+                  }`}
+                >
+                  {m === "rounds" ? `${ROUNDS_TOTAL} Rounds` : "Endless · 3 misses"}
                 </button>
               ))}
             </div>
@@ -276,11 +347,21 @@ export default function ProductGuessGame({ items }: ProductGuessGameProps) {
         <>
           <div className="flex flex-col items-center justify-center text-center px-4 py-5 space-y-2.5 min-h-[132px]">
             <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[var(--theme-text)] opacity-70 leading-none">
-              Round {round} of {ROUNDS} · {difficulty === "hard" ? "Hard" : "Easy"}
+              {mode === "rounds" ? `Round ${round} of ${ROUNDS_TOTAL}` : `Round ${round} · Endless`} · {DIFF_LABEL[difficulty]}
             </p>
             <p className="font-display font-black text-2xl text-[var(--theme-primary)] tracking-tight leading-tight line-clamp-2">
               {target.name}
             </p>
+            {mode === "endless" && (
+              <span className="flex items-center justify-center gap-1.5" aria-label={`${3 - strikes} misses left`}>
+                {[0, 1, 2].map((i) => (
+                  <span
+                    key={i}
+                    className={`w-2 h-2 rounded-full ${i < strikes ? "bg-red-500" : "bg-[var(--theme-card-border)]/70"}`}
+                  />
+                ))}
+              </span>
+            )}
             <p className={`text-xs font-bold leading-none min-h-[14px] ${stage === "reveal" ? "text-[var(--theme-primary)]" : "text-[var(--theme-text)] opacity-60"}`}>
               {stage === "reveal"
                 ? timedOut
@@ -354,7 +435,7 @@ export default function ProductGuessGame({ items }: ProductGuessGameProps) {
 
           <div className="flex items-center justify-center min-h-[36px]">
             {stage === "reveal" && (
-              round >= ROUNDS && choiceCorrect ? (
+              final ? (
                 <p className="text-[11px] font-bold text-[var(--theme-text)] opacity-60">Final round — tallying…</p>
               ) : (
                 <Button variant="gold-glossy" size="sm" onClick={next} glow={false}>
@@ -375,7 +456,7 @@ export default function ProductGuessGame({ items }: ProductGuessGameProps) {
           ) : null}
           <p className="font-display font-black text-4xl text-[var(--theme-text)] tracking-tight tabular-nums">{score}</p>
           <p className="text-[11px] font-bold text-[var(--theme-text)] opacity-60">
-            {correctCount}/{ROUNDS} correct
+            {correctCount}/{mode === "rounds" ? ROUNDS_TOTAL : round} correct{mode === "endless" ? ` • reached round ${round}` : ""}
           </p>
           <div className="pt-1">
             <Button variant="gold-glossy" size="sm" onClick={startGame} glow={false}>
