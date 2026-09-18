@@ -4,11 +4,13 @@ import { Play, RotateCcw, Trophy, Flame, ArrowRight, PackageSearch } from "lucid
 import { Button } from "./ui/button";
 import type { SubscriptionItem } from "../types";
 import { fixGitHubImageUrl } from "../utils/imageUtils";
+import dollar3d from "@/src/assets/3d/3dicons-dollar-iso-premium.png";
+import trophy3d from "@/src/assets/3d/3dicons-trophy-iso-premium.png";
 import confetti from "canvas-confetti";
 
-const BEST_KEY = "hut12_guess_best";
-const ROUNDS = 8;
-const EASY_BUDGET_MS = 1000;
+const BEST_KEY = "hut12_guess_best_v2";
+const ROUNDS = 13;
+const EASY_BUDGET_MS = 5000;
 const HARD_BUDGET_MS = 500;
 
 type Difficulty = "easy" | "hard";
@@ -206,12 +208,9 @@ export default function ProductGuessGame({ items }: ProductGuessGameProps) {
   if (pool.length < 3) {
     return (
       <div className="space-y-3 select-none">
-        <div className="rounded-[20px] border border-[var(--theme-card-border)]/60 bg-[var(--theme-bg)]/40 p-8 text-center space-y-3">
+        <div className="rounded-[20px] border border-[var(--theme-card-border)]/60 bg-[var(--theme-bg)]/40 p-10 text-center space-y-3">
           <PackageSearch className="w-10 h-10 mx-auto text-[var(--theme-text)] opacity-40" />
-          <p className="text-sm font-black text-[var(--theme-text)]">Not enough product images yet</p>
-          <p className="text-[11px] font-bold text-[var(--theme-text)] opacity-60 leading-relaxed">
-            This game needs at least 3 products with images in the catalog.
-          </p>
+          <p className="font-display font-black text-xl text-[var(--theme-text)] tracking-tight">Come back later.</p>
         </div>
       </div>
     );
@@ -239,31 +238,37 @@ export default function ProductGuessGame({ items }: ProductGuessGameProps) {
       </div>
 
       {stage === "idle" && (
-        <div className="rounded-[20px] border border-[var(--theme-card-border)]/60 bg-[var(--theme-bg)]/40 p-8 text-center space-y-3">
-          <p className="font-display font-black text-lg text-[var(--theme-text)] tracking-tight">Guess the Product</p>
-          <p className="text-xs font-bold text-[var(--theme-text)] opacity-60 leading-relaxed max-w-[250px] mx-auto">
-            We name a product, you tap its photo. {ROUNDS} rounds — faster taps score more, streaks multiply.
-          </p>
-          <div className="flex items-center justify-center gap-2" role="group" aria-label="Difficulty">
-            {(["easy", "hard"] as Difficulty[]).map((d) => (
-              <button
-                key={d}
-                type="button"
-                onClick={() => setDifficulty(d)}
-                aria-pressed={difficulty === d}
-                className={`px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer border ${
-                  difficulty === d
-                    ? "bg-[var(--theme-primary)] text-white border-[var(--theme-primary)]"
-                    : "bg-transparent text-[var(--theme-text)] opacity-60 border-[var(--theme-card-border)] hover:opacity-100"
-                }`}
-              >
-                {d === "easy" ? "Easy · 1s" : "Hard · 0.5s"}
-              </button>
-            ))}
+        <div className="relative rounded-[20px] border border-[var(--theme-card-border)]/60 bg-[var(--theme-bg)]/40 px-6 py-10 text-center overflow-hidden">
+          <img src={trophy3d} alt="" aria-hidden draggable={false} className="absolute -right-8 -bottom-10 w-48 h-48 object-contain opacity-20 rotate-12 pointer-events-none" />
+          <img src={dollar3d} alt="" aria-hidden draggable={false} className="absolute -left-10 -top-10 w-40 h-40 object-contain opacity-15 -rotate-12 pointer-events-none" />
+          <div className="relative space-y-5">
+            <p className="font-display font-black text-3xl text-[var(--theme-text)] tracking-tight leading-tight -rotate-2">
+              Guess the<br />
+              <span className="text-[var(--theme-primary)]">Product</span>
+            </p>
+            <div className="flex items-center justify-center gap-2" role="group" aria-label="Difficulty">
+              {(["easy", "hard"] as Difficulty[]).map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => setDifficulty(d)}
+                  aria-pressed={difficulty === d}
+                  className={`px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer border ${
+                    difficulty === d
+                      ? "bg-[var(--theme-primary)] text-white border-[var(--theme-primary)]"
+                      : "bg-transparent text-[var(--theme-text)] opacity-60 border-[var(--theme-card-border)] hover:opacity-100"
+                  }`}
+                >
+                  {d === "easy" ? "Easy · 5s" : "Hard · 0.5s"}
+                </button>
+              ))}
+            </div>
+            <div>
+              <Button variant="gold-glossy" size="sm" onClick={startGame} glow={false}>
+                <Play className="w-4 h-4" /> Play
+              </Button>
+            </div>
           </div>
-          <Button variant="gold-glossy" size="sm" onClick={startGame} glow={false}>
-            <Play className="w-4 h-4" /> Play
-          </Button>
         </div>
       )}
 
