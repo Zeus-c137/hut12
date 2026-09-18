@@ -269,18 +269,22 @@ export default function ProductGuessGame({ items }: ProductGuessGameProps) {
 
       {(stage === "prompt" || stage === "reveal") && target && (
         <>
-          <div className="text-center px-2">
-            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--theme-text)] opacity-60 leading-none">
-              Round {round}/{ROUNDS} · {difficulty === "hard" ? "Hard" : "Easy"} · Which product is this?
+          <div className="flex flex-col items-center justify-center text-center px-4 py-5 space-y-2.5 min-h-[132px]">
+            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[var(--theme-text)] opacity-70 leading-none">
+              Round {round} of {ROUNDS} · {difficulty === "hard" ? "Hard" : "Easy"}
             </p>
-            <p className="font-display font-black text-xl text-[var(--theme-primary)] tracking-tight leading-tight mt-1.5 line-clamp-2">
+            <p className="font-display font-black text-2xl text-[var(--theme-primary)] tracking-tight leading-tight line-clamp-2">
               {target.name}
             </p>
-            {stage === "reveal" && (
-              <p className="text-[11px] font-black text-[var(--theme-primary)] leading-none mt-1.5">
-                {timedOut ? "Too slow!" : choiceCorrect ? `+${lastGain} pts • ${verdictFor(choiceMs)}` : "Wrong pick"}
-              </p>
-            )}
+            <p className={`text-xs font-bold leading-none min-h-[14px] ${stage === "reveal" ? "text-[var(--theme-primary)]" : "text-[var(--theme-text)] opacity-60"}`}>
+              {stage === "reveal"
+                ? timedOut
+                  ? "Too slow!"
+                  : choiceCorrect
+                    ? `+${lastGain} pts • ${verdictFor(choiceMs)}`
+                    : "Wrong pick"
+                : "Which product is this? Tap its photo"}
+            </p>
           </div>
 
           {stage === "prompt" && !reduced && (
