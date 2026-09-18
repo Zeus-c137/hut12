@@ -405,23 +405,17 @@ export default function ProductGuessGame({ items, onExit }: ProductGuessGameProp
           </div>
 
           {stage === "prompt" && !reduced && (
-            <div className="space-y-1">
+            <div
+              role="timer"
+              aria-label="Round time remaining"
+              className="w-full bg-[var(--theme-card-bg)] h-3 rounded-full overflow-hidden border border-[var(--theme-card-border)] p-0.5"
+            >
               <div
-                role="timer"
-                aria-label="Round time remaining"
-                className="w-full bg-[var(--theme-card-bg)] h-3 rounded-full overflow-hidden border border-[var(--theme-card-border)] p-0.5"
-              >
-                <div
-                  key={`${round}-${target.id}-${difficulty}`}
-                  onAnimationEnd={handleTimeout}
-                  className="round-timer-fill h-full rounded-full bg-[var(--theme-primary)]"
-                  style={{ animationDuration: `${budgetMs}ms`, animationPlayState: paused ? "paused" : "running" }}
-                />
-              </div>
-              <div className="flex items-center justify-between text-[10.5px] font-sans font-semibold text-[var(--theme-text)] opacity-70 px-0.5">
-                <span>Beat the clock</span>
-                <span>{budgetMs >= 1000 ? `${budgetMs / 1000}s` : `${budgetMs}ms`} • {DIFF_LABEL[difficulty]}</span>
-              </div>
+                key={`${round}-${target.id}-${difficulty}`}
+                onAnimationEnd={handleTimeout}
+                className="round-timer-fill h-full rounded-full bg-[var(--theme-primary)]"
+                style={{ animationDuration: `${budgetMs}ms`, animationPlayState: paused ? "paused" : "running" }}
+              />
             </div>
           )}
 
