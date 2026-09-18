@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "motion/react";
-import { Play, RotateCcw, Trophy, Flame, ArrowRight, PackageSearch } from "lucide-react";
+import { Play, RotateCcw, Flame, ArrowRight, ArrowLeft, Pause, PackageSearch } from "lucide-react";
 import { Button } from "./ui/button";
 import type { SubscriptionItem } from "../types";
 import { fixGitHubImageUrl } from "../utils/imageUtils";
@@ -37,6 +37,7 @@ const DIFF_TAG: Record<Difficulty, string> = {
 
 interface ProductGuessGameProps {
   items: SubscriptionItem[];
+  onExit: () => void;
 }
 
 interface Option {
@@ -85,7 +86,7 @@ function formatMs(ms: number): string {
 // Frontend-only product quiz. Shows a product name + 3 catalog images;
 // speed of the correct tap scores. Best lives in localStorage — nothing
 // here touches balances, so there is no ledger to game.
-export default function ProductGuessGame({ items }: ProductGuessGameProps) {
+export default function ProductGuessGame({ items, onExit }: ProductGuessGameProps) {
   const pool: PoolEntry[] = React.useMemo(
     () =>
       (items || [])
@@ -107,6 +108,9 @@ export default function ProductGuessGame({ items }: ProductGuessGameProps) {
   const [choiceCorrect, setChoiceCorrect] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const [lastGain, setLastGain] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const pauseStartRef = useRef(0);
+  const runIdRef = useRef(0);
   const [score, setScore] = useState(0);
   const [streak, setStreak] = useState(0);
   const [strikes, setStrikes] = useState(0);
@@ -167,19 +171,46 @@ export default function ProductGuessGame({ items }: ProductGuessGameProps) {
     setChoiceId(null);
     setTimedOut(false);
     setLastGain(0);
+    setPaused(false);
     setRound(roundNum);
     setRoundStart(Date.now());
     setStage("prompt");
   };
 
   const startGame = () => {
+    runIdRef.current += 1;
     setScore(0);
     setStreak(0);
     setStrikes(0);
     setFinal(false);
+    setPaused(false);
     setCorrectCount(0);
     setNewBest(false);
     deal(1, null);
+  };
+
+  const togglePause = () => {
+    if (stage !== "prompt") return;
+    if (paused) {
+      setRoundStart((prev) => prev + (Date.now() - pauseStartRef.current));
+      setPaused(false);
+    } else {
+      pauseStartRef.current = Date.now();
+      setPaused(true);
+    }
+  };
+
+  const handleBack = () => {
+    if (stage === "idle") {
+      onExit();
+      return;
+    }
+    // Invalidate any pending auto-finish, freeze the round, back to menu.
+    runIdRef.current += 1;
+    setPaused(false);
+    setTimedOut(false);
+    setChoiceId(null);
+    setStage("idle");
   };
 
   const finishGame = (finalScore: number) => {
@@ -201,7 +232,7 @@ export default function ProductGuessGame({ items }: ProductGuessGameProps) {
   };
 
   const pick = (id: string) => {
-    if (stage !== "prompt" || !target) return;
+    if (stage !== "prompt" || !target || paused) return;
     const ms = Date.now() - roundStart;
     const correct = id === target.id;
     setChoiceId(id);
@@ -219,7 +250,8 @@ export default function ProductGuessGame({ items }: ProductGuessGameProps) {
       setCorrectCount((c) => c + 1);
       if (mode === "rounds" && round >= ROUNDS_TOTAL) {
         setFinal(true);
-        window.setTimeout(() => finishGame(nextScore), 900);
+        const id = runIdRef.current;
+        window.setTimeout(() => { if (runIdRef.current === id) finishGame(nextScore); }, 900);
       }
     } else {
       setLastGain(0);
@@ -228,7 +260,8 @@ export default function ProductGuessGame({ items }: ProductGuessGameProps) {
       setStrikes(newStrikes);
       if (mode === "endless" && newStrikes >= 3) {
         setFinal(true);
-        window.setTimeout(() => finishGame(score), 900);
+        const id = runIdRef.current;
+        window.setTimeout(() => { if (runIdRef.current === id) finishGame(score); }, 900);
       }
     }
     setStage("reveal");
@@ -246,7 +279,8 @@ export default function ProductGuessGame({ items }: ProductGuessGameProps) {
     setStrikes(newStrikes);
     if (mode === "endless" && newStrikes >= 3) {
       setFinal(true);
-      window.setTimeout(() => finishGame(score), 900);
+      const id = runIdRef.current;
+      window.setTimeout(() => { if (runIdRef.current === id) finishGame(score); }, 900);
     }
     setStage("reveal");
   };
@@ -272,6 +306,16 @@ export default function ProductGuessGame({ items }: ProductGuessGameProps) {
 
   return (
     <div className="space-y-3 select-none">
+      <div className="flex items-center px-1">
+        <button
+          type="button"
+          onClick={handleBack}
+          className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-[var(--theme-text)] opacity-60 hover:opacity-100 transition-opacity cursor-pointer"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" /> {stage === "idle" ? "Profile" : "Menu"}
+        </button>
+      </div>
+
       {/* Scoreboard */}
       <div className="flex items-end justify-between gap-3 px-1">
         <div>
@@ -309,7 +353,7 @@ export default function ProductGuessGame({ items }: ProductGuessGameProps) {
                   aria-pressed={difficulty === d}
                   className={`px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer border ${
                     difficulty === d
-                      ? "bg-[var(--theme-primary)] text-white border-[var(--theme-primary)]"
+                      ? "bg-transparent text-[var(--theme-primary)] border-[var(--theme-primary)]"
                       : "bg-transparent text-[var(--theme-text)] opacity-60 border-[var(--theme-card-border)] hover:opacity-100"
                   }`}
                 >
@@ -326,7 +370,7 @@ export default function ProductGuessGame({ items }: ProductGuessGameProps) {
                   aria-pressed={mode === m}
                   className={`px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer border ${
                     mode === m
-                      ? "bg-[var(--theme-primary)] text-white border-[var(--theme-primary)]"
+                      ? "bg-transparent text-[var(--theme-primary)] border-[var(--theme-primary)]"
                       : "bg-transparent text-[var(--theme-text)] opacity-60 border-[var(--theme-card-border)] hover:opacity-100"
                   }`}
                 >
@@ -345,23 +389,10 @@ export default function ProductGuessGame({ items }: ProductGuessGameProps) {
 
       {(stage === "prompt" || stage === "reveal") && target && (
         <>
-          <div className="flex flex-col items-center justify-center text-center px-4 py-5 space-y-2.5 min-h-[132px]">
-            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[var(--theme-text)] opacity-70 leading-none">
-              {mode === "rounds" ? `Round ${round} of ${ROUNDS_TOTAL}` : `Round ${round} · Endless`} · {DIFF_LABEL[difficulty]}
-            </p>
+          <div className="flex flex-col items-center justify-center text-center px-4 py-4 space-y-2.5 min-h-[104px]">
             <p className="font-display font-black text-2xl text-[var(--theme-primary)] tracking-tight leading-tight line-clamp-2">
               {target.name}
             </p>
-            {mode === "endless" && (
-              <span className="flex items-center justify-center gap-1.5" aria-label={`${3 - strikes} misses left`}>
-                {[0, 1, 2].map((i) => (
-                  <span
-                    key={i}
-                    className={`w-2 h-2 rounded-full ${i < strikes ? "bg-red-500" : "bg-[var(--theme-card-border)]/70"}`}
-                  />
-                ))}
-              </span>
-            )}
             <p className={`text-xs font-bold leading-none min-h-[14px] ${stage === "reveal" ? "text-[var(--theme-primary)]" : "text-[var(--theme-text)] opacity-60"}`}>
               {stage === "reveal"
                 ? timedOut
@@ -383,7 +414,7 @@ export default function ProductGuessGame({ items }: ProductGuessGameProps) {
                 key={`${round}-${target.id}-${difficulty}`}
                 onAnimationEnd={handleTimeout}
                 className="round-timer-fill h-full w-full rounded-full bg-[var(--theme-primary)]"
-                style={{ animationDuration: `${budgetMs}ms` }}
+                style={{ animationDuration: `${budgetMs}ms`, animationPlayState: paused ? "paused" : "running" }}
               />
             </div>
           )}
@@ -434,6 +465,16 @@ export default function ProductGuessGame({ items }: ProductGuessGameProps) {
           </div>
 
           <div className="flex items-center justify-center min-h-[36px]">
+            {stage === "prompt" && (
+              <button
+                type="button"
+                onClick={togglePause}
+                aria-label={paused ? "Resume round" : "Pause round"}
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer border bg-transparent text-[var(--theme-text)] opacity-60 border-[var(--theme-card-border)] hover:opacity-100"
+              >
+                <Pause className="w-3.5 h-3.5" /> {paused ? "Resume" : "Pause"}
+              </button>
+            )}
             {stage === "reveal" && (
               final ? (
                 <p className="text-[11px] font-bold text-[var(--theme-text)] opacity-60">Final round — tallying…</p>
@@ -444,15 +485,34 @@ export default function ProductGuessGame({ items }: ProductGuessGameProps) {
               )
             )}
           </div>
+
+          {(stage === "prompt" || stage === "reveal") && (
+            <div className="flex flex-col items-center gap-1.5 pt-1">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[var(--theme-text)] opacity-70 leading-none">
+                {mode === "rounds" ? `Round ${round} of ${ROUNDS_TOTAL}` : `Round ${round} · Endless`} · {DIFF_LABEL[difficulty]}
+              </p>
+              {mode === "endless" && (
+                <span className="flex items-center justify-center gap-1.5" aria-label={`${3 - strikes} misses left`}>
+                  {[0, 1, 2].map((i) => (
+                    <span
+                      key={i}
+                      className={`w-2 h-2 rounded-full ${i < strikes ? "bg-red-500" : "bg-[var(--theme-card-border)]/70"}`}
+                    />
+                  ))}
+                </span>
+              )}
+            </div>
+          )}
         </>
       )}
 
       {stage === "done" && (
         <div className="rounded-[20px] border border-[var(--theme-card-border)]/60 bg-[var(--theme-bg)]/40 p-8 text-center space-y-2">
           {newBest ? (
-            <span className="inline-flex px-3 py-1 rounded-full bg-[var(--theme-primary)] text-white text-[11px] font-black uppercase tracking-widest items-center gap-1.5">
-              <Trophy className="w-3.5 h-3.5" /> New best!
-            </span>
+            <div className="flex flex-col items-center gap-1">
+              <img src={trophy3d} alt="" draggable={false} className="w-14 h-14 object-contain drop-shadow-lg pointer-events-none" />
+              <span className="text-[11px] font-black uppercase tracking-widest text-[var(--theme-primary)]">New best!</span>
+            </div>
           ) : null}
           <p className="font-display font-black text-4xl text-[var(--theme-text)] tracking-tight tabular-nums">{score}</p>
           <p className="text-[11px] font-bold text-[var(--theme-text)] opacity-60">

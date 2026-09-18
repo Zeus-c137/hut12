@@ -48,7 +48,6 @@ import {
   History,
   Cpu,
   Wallet,
-  ArrowLeft,
   ShoppingCartIcon
 } from "lucide-react";
 import navHome3d from "@/src/assets/3d/3dicons-star-iso-premium.png";
@@ -860,13 +859,7 @@ export default function App() {
                 transition={{ duration: 0.12 }}
                 className="w-full flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-1.5 sm:px-2 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               >
-                <button
-                  onClick={() => setActiveTab("profile")}
-                  className="mb-3 inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] text-xs font-black uppercase tracking-wider text-[var(--theme-text)] hover:border-[var(--theme-primary)]/30 transition-colors cursor-pointer"
-                >
-                  <ArrowLeft className="w-4 h-4 text-[var(--theme-primary)]" /> Back
-                </button>
-                <ProductGuessGame items={items} />
+                <ProductGuessGame items={items} onExit={() => setActiveTab("profile")} />
               </motion.div>
             )}
 
