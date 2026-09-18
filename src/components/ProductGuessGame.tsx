@@ -8,6 +8,10 @@ import confetti from "canvas-confetti";
 
 const BEST_KEY = "hut12_guess_best";
 const ROUNDS = 8;
+const EASY_BUDGET_MS = 1000;
+const HARD_BUDGET_MS = 500;
+
+type Difficulty = "easy" | "hard";
 
 interface ProductGuessGameProps {
   items: SubscriptionItem[];
@@ -45,6 +49,17 @@ function verdictFor(ms: number): string {
   return "Steady";
 }
 
+// Human units: 345ms stays ms, 105446ms becomes 1:45 — never a raw wall.
+function formatMs(ms: number): string {
+  const v = Math.max(0, Math.round(ms));
+  if (v < 1000) return `${v}ms`;
+  const totalSeconds = Math.floor(v / 1000);
+  const tenths = Math.floor((v % 1000) / 100);
+  if (totalSeconds < 60) return `${totalSeconds}.${tenths}s`;
+  const m = Math.floor(totalSeconds / 60);
+  return `${m}:${String(totalSeconds % 60).padStart(2, "0")}`;
+}
+
 // Frontend-only product quiz. Shows a product name + 3 catalog images;
 // speed of the correct tap scores. Best lives in localStorage — nothing
 // here touches balances, so there is no ledger to game.
@@ -58,12 +73,16 @@ export default function ProductGuessGame({ items }: ProductGuessGameProps) {
   );
 
   const [stage, setStage] = useState<Stage>("idle");
+  const [difficulty, setDifficulty] = useState<Difficulty>("easy");
+  const budgetMs = difficulty === "hard" ? HARD_BUDGET_MS : EASY_BUDGET_MS;
   const [round, setRound] = useState(1);
   const [target, setTarget] = useState<Option | null>(null);
   const [options, setOptions] = useState<Option[]>([]);
   const [choiceId, setChoiceId] = useState<string | null>(null);
   const [choiceMs, setChoiceMs] = useState(0);
   const [choiceCorrect, setChoiceCorrect] = useState(false);
+  const [timedOut, setTimedOut] = useState(false);
+  const [lastGain, setLastGain] = useState(0);
   const [score, setScore] = useState(0);
   const [streak, setStreak] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
@@ -105,6 +124,8 @@ export default function ProductGuessGame({ items }: ProductGuessGameProps) {
     setOptions(shuffled([{ id: picked.id, name: picked.name, image: picked.image }, ...distractors.map((d) => ({ id: d.id, name: d.name, image: d.image }))]));
     setLastTargetId(picked.id);
     setChoiceId(null);
+    setTimedOut(false);
+    setLastGain(0);
     setRound(roundNum);
     setRoundStart(Date.now());
     setStage("prompt");
@@ -143,10 +164,12 @@ export default function ProductGuessGame({ items }: ProductGuessGameProps) {
     setChoiceId(id);
     setChoiceMs(ms);
     setChoiceCorrect(correct);
+    setTimedOut(false);
     if (correct) {
       const speedBonus = Math.max(0, Math.round((600 - ms) / 4));
       const mult = streak >= 2 ? 1.5 : 1;
       const gained = Math.round((100 + speedBonus) * mult);
+      setLastGain(gained);
       const nextScore = score + gained;
       setScore(nextScore);
       setStreak(streak + 1);
@@ -155,8 +178,20 @@ export default function ProductGuessGame({ items }: ProductGuessGameProps) {
         window.setTimeout(() => finishGame(nextScore), 900);
       }
     } else {
+      setLastGain(0);
       setStreak(0);
     }
+    setStage("reveal");
+  };
+
+  const handleTimeout = () => {
+    if (stage !== "prompt") return;
+    setChoiceId(null);
+    setChoiceMs(budgetMs);
+    setChoiceCorrect(false);
+    setTimedOut(true);
+    setLastGain(0);
+    setStreak(0);
     setStage("reveal");
   };
 
@@ -209,6 +244,23 @@ export default function ProductGuessGame({ items }: ProductGuessGameProps) {
           <p className="text-xs font-bold text-[var(--theme-text)] opacity-60 leading-relaxed max-w-[250px] mx-auto">
             We name a product, you tap its photo. {ROUNDS} rounds — faster taps score more, streaks multiply.
           </p>
+          <div className="flex items-center justify-center gap-2" role="group" aria-label="Difficulty">
+            {(["easy", "hard"] as Difficulty[]).map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setDifficulty(d)}
+                aria-pressed={difficulty === d}
+                className={`px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer border ${
+                  difficulty === d
+                    ? "bg-[var(--theme-primary)] text-white border-[var(--theme-primary)]"
+                    : "bg-transparent text-[var(--theme-text)] opacity-60 border-[var(--theme-card-border)] hover:opacity-100"
+                }`}
+              >
+                {d === "easy" ? "Easy · 1s" : "Hard · 0.5s"}
+              </button>
+            ))}
+          </div>
           <Button variant="gold-glossy" size="sm" onClick={startGame} glow={false}>
             <Play className="w-4 h-4" /> Play
           </Button>
@@ -219,12 +271,32 @@ export default function ProductGuessGame({ items }: ProductGuessGameProps) {
         <>
           <div className="text-center px-2">
             <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--theme-text)] opacity-60 leading-none">
-              Round {round}/{ROUNDS} · Which product is this?
+              Round {round}/{ROUNDS} · {difficulty === "hard" ? "Hard" : "Easy"} · Which product is this?
             </p>
             <p className="font-display font-black text-xl text-[var(--theme-primary)] tracking-tight leading-tight mt-1.5 line-clamp-2">
               {target.name}
             </p>
+            {stage === "reveal" && (
+              <p className="text-[11px] font-black text-[var(--theme-primary)] leading-none mt-1.5">
+                {timedOut ? "Too slow!" : choiceCorrect ? `+${lastGain} pts • ${verdictFor(choiceMs)}` : "Wrong pick"}
+              </p>
+            )}
           </div>
+
+          {stage === "prompt" && !reduced && (
+            <div
+              role="timer"
+              aria-label="Round time remaining"
+              className="h-1.5 w-full rounded-full bg-[var(--theme-card-border)]/40 overflow-hidden"
+            >
+              <div
+                key={`${round}-${target.id}-${difficulty}`}
+                onAnimationEnd={handleTimeout}
+                className="round-timer-fill h-full w-full rounded-full bg-[var(--theme-primary)]"
+                style={{ animationDuration: `${budgetMs}ms` }}
+              />
+            </div>
+          )}
 
           <div className="grid grid-cols-3 gap-2">
             {options.map((o) => {
@@ -259,9 +331,9 @@ export default function ProductGuessGame({ items }: ProductGuessGameProps) {
                       <img src={o.image} alt="" loading="eager" decoding="async" draggable={false} className="w-full h-full object-contain drop-shadow pointer-events-none" />
                     </div>
                     {/* Time face (chosen card spins to reveal speed) */}
-                    <div className="absolute inset-0 rounded-2xl flex flex-col items-center justify-center gap-1 [backface-visibility:hidden] [transform:rotateY(180deg)] bg-[var(--theme-primary)] border border-[var(--theme-primary)]">
-                      <span className="font-display font-black text-lg text-white tabular-nums leading-none">{choiceMs}ms</span>
-                      <span className="text-[9px] font-black uppercase tracking-widest text-white/85 leading-none">
+                    <div className="absolute inset-0 rounded-2xl flex flex-col items-center justify-center gap-1 [backface-visibility:hidden] [transform:rotateY(180deg)] bg-[var(--theme-card-bg)]/85 backdrop-blur-xl border border-[var(--theme-card-border)]">
+                      <span className="font-display font-black text-lg text-[var(--theme-text)] tabular-nums leading-none">{formatMs(choiceMs)}</span>
+                      <span className="text-[9px] font-black uppercase tracking-widest text-[var(--theme-primary)] leading-none">
                         {choiceCorrect ? verdictFor(choiceMs) : "Wrong one"}
                       </span>
                     </div>
