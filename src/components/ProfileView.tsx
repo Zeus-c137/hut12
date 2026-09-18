@@ -228,15 +228,8 @@ export default function ProfileView({
   const calTodayAmount = baseBonus + (calTodayStreak - 1) * increment;
   // First day-of-month of the live run (<= 0 when the run started last month).
   const calRunStartDay = calTodayDay - calTodayStreak + 1;
-  const calStreakOfDay = (dayNum: number) => calTodayStreak + (dayNum - calTodayDay);
-  const calAmountOfDay = (dayNum: number) => baseBonus + (calStreakOfDay(dayNum) - 1) * increment;
   const calClaimedDays = Array.from({ length: calTodayDay }, (_, i) => i + 1)
     .filter((d) => d >= calRunStartDay && (d < calTodayDay || checkedInToday));
-  const calEarnedThisMonth = calClaimedDays.reduce((s, d) => s + calAmountOfDay(d), 0);
-  const calProjectedMonthTotal = calEarnedThisMonth
-    + (checkedInToday ? 0 : calTodayAmount)
-    + Array.from({ length: calDaysInMonth - calTodayDay }, (_, i) => calTodayDay + i + 1)
-        .reduce((s, d) => s + calAmountOfDay(d), 0);
   const compactUgx = (n: number) => n >= 1000 ? `${parseFloat((n / 1000).toFixed(1))}k` : `${n}`;
 
   const handleRedeemGiftCode = async (e: React.FormEvent) => {
@@ -320,14 +313,13 @@ export default function ProfileView({
         console.error("Confetti failed", confettiErr);
       }
 
-      // Update profile locally
+      // Update profile locally (modal stays open — the user dismisses it)
       onProfileUpdate({
         ...userProfile,
         points: userProfile.points + data.amount,
         lastCheckinDate: new Date().toISOString().split("T")[0],
         checkinStreak: data.streak
       });
-      setTimeout(() => setShowCheckinSheet(false), 3500);
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -657,33 +649,14 @@ export default function ProfileView({
                     </div>
 
                     <div className="p-4 sm:p-5 flex-1 overflow-y-auto space-y-5 scrollbar-none">
-                      {/* Hero Reward — today's payout + month haul */}
-                      <div className="rounded-2xl bg-[var(--theme-primary)]/10 border border-[var(--theme-primary)]/25 p-4 flex items-center gap-4">
-                        <img src={dollar3d} alt="" className="w-16 h-16 object-contain drop-shadow-lg shrink-0" loading="lazy" decoding="async" />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--theme-primary)] leading-none">
-                            {checkedInToday ? `Day ${currentStreak} claimed` : `Day ${calTodayStreak} reward`}
-                          </p>
-                          <p className="font-display font-black text-2xl text-[var(--theme-text)] tracking-tight leading-none mt-1.5">
-                            {formatCurrency(calTodayAmount)}
-                          </p>
-                          <p className="text-[11px] font-bold text-[var(--theme-text)] opacity-60 mt-1.5 leading-none">
-                            {formatCurrency(calEarnedThisMonth)} earned • up to {formatCurrency(calProjectedMonthTotal)} this month
-                          </p>
-                        </div>
-                        {!checkedInToday && (
-                          <Button
-                            variant="gold-glossy"
-                            size="sm"
-                            onClick={() => handleCheckin()}
-                            loading={isCheckingIn}
-                            disabled={isCheckingIn}
-                            glow={false}
-                            className="!min-w-0 shrink-0"
-                          >
-                            Claim
-                          </Button>
-                        )}
+                      {/* Hero Reward — today's payout */}
+                      <div className="rounded-2xl bg-[var(--theme-primary)]/10 border border-[var(--theme-primary)]/25 px-4 py-3.5 text-center">
+                        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--theme-primary)] leading-none">
+                          Day {calTodayStreak} reward
+                        </p>
+                        <p className="font-display font-black text-2xl text-[var(--theme-text)] tracking-tight leading-none mt-1.5">
+                          {formatCurrency(calTodayAmount)}
+                        </p>
                       </div>
 
                       {/* Month & Count Header */}
@@ -697,8 +670,8 @@ export default function ProfileView({
                               </span>
                             </div>
 
-                            {/* Calendar Grid Container */}
-                            <div className="bg-[var(--theme-bg)]/60 border border-[var(--theme-card-border)] rounded-2xl p-2.5 space-y-1.5">
+                            {/* Calendar Grid — bare tiles on the modal */}
+                            <div className="rounded-2xl p-2.5 space-y-1.5">
                               {/* Weekdays Row */}
                               <div className="grid grid-cols-7 gap-1 text-center font-sans font-bold text-[10px] text-[var(--theme-text)] opacity-60 pb-1">
                                 <div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div>
@@ -719,38 +692,41 @@ export default function ProfileView({
                                   // In-run days up to today are claimed (today only if done).
                                   const isClaimed = !isFuture && dayNum >= calRunStartDay && (!isToday || checkedInToday);
                                   const isMissed = !isFuture && !isToday && !isClaimed;
-                                  const dayAmount = (isClaimed || isToday || isFuture) ? calAmountOfDay(dayNum) : 0;
+                                  const claimable = isToday && !checkedInToday;
 
                                   return (
                                     <div
                                       key={`day-${dayNum}`}
                                       onClick={() => {
-                                        if (isToday && !checkedInToday && spinningIndex === null) {
+                                        if (claimable && spinningIndex === null) {
                                           handleCheckin();
                                         }
                                       }}
-                                      className={`aspect-square rounded-xl border flex flex-col items-center justify-center p-0.5 relative transition-all select-none text-center ${
-                                        isClaimed
-                                          ? "bg-[var(--theme-primary)] border-[var(--theme-primary)] text-white font-bold shadow-lg"
-                                          : isToday && !checkedInToday
-                                          ? "hut-btn-3d hut-gold-glossy cursor-pointer"
-                                          : isMissed
-                                          ? "bg-[var(--theme-card-bg)]/70 border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-70"
-                                          : "bg-[var(--theme-bg)]/60 border-[var(--theme-card-border)] text-[var(--theme-text)] opacity-60"
+                                      className={`aspect-square rounded-xl relative flex items-center justify-center transition-all select-none ${
+                                        claimable ? "cursor-pointer ring-2 ring-[var(--theme-primary)] bg-[var(--theme-primary)]/10" : ""
                                       }`}
                                     >
-                                      <span className="text-[10px] leading-none mb-0.5">{dayNum}</span>
-                                      
                                       {spinningIndex !== null && isToday ? (
-                                        <Loader2 className="w-3 h-3 animate-spin text-current" />
-                                      ) : isClaimed ? (
-                                        <Check className="w-3 h-3 text-white stroke-[3]" />
-                                      ) : isToday ? (
-                                        <span className="text-[9px] font-black leading-none text-[#2E1B00]">UGX {compactUgx(dayAmount)}</span>
-                                      ) : isMissed ? (
-                                        <X className="w-2.5 h-2.5 text-[var(--theme-text)] opacity-70 stroke-[3]" />
+                                        <Loader2 className="w-5 h-5 animate-spin text-[var(--theme-primary)]" />
                                       ) : (
-                                        <span className="text-[8px] font-bold leading-none opacity-60">{compactUgx(dayAmount)}</span>
+                                        <img
+                                          src={dollar3d}
+                                          alt=""
+                                          loading="lazy"
+                                          decoding="async"
+                                          className={`w-7 h-7 object-contain drop-shadow ${
+                                            claimable
+                                              ? "animate-pulse"
+                                              : isClaimed
+                                                ? ""
+                                                : isMissed
+                                                  ? "opacity-60"
+                                                  : "opacity-40 saturate-50"
+                                          }`}
+                                        />
+                                      )}
+                                      {isMissed && (
+                                        <div className="absolute inset-0 rounded-xl bg-red-500/45 pointer-events-none" />
                                       )}
                                     </div>
                                   );
