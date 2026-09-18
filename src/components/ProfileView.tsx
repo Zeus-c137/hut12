@@ -54,6 +54,7 @@ import update3d from "@/src/assets/3d/3dicons-tools-iso-premium.png";
 import guide3d from "@/src/assets/3d/3dicons-pencil-iso-premium.png";
 import community3d from "@/src/assets/3d/3dicons-megaphone-iso-premium.png";
 import { Button } from "./ui/button";
+import { useShimmerPulse } from "../hooks/useShimmerPulse";
 import confetti from "canvas-confetti";
 import ParticleBg from "./ParticleBg";
 import NewsCarousel from "./NewsCarousel";
@@ -191,6 +192,9 @@ export default function ProfileView({
 
   const todayStr = new Date().toISOString().split("T")[0];
   const checkedInToday = userProfile.lastCheckinDate === todayStr;
+  // Hero label shimmer — same gated pulse as balances; ProfileView stays
+  // mounted while the tab is open, so it dies off-page automatically.
+  const heroPulse = useShimmerPulse();
   const currentStreak = userProfile.checkinStreak || 0;
 
   useEffect(() => {
@@ -653,7 +657,7 @@ export default function ProfileView({
                       <div className="rounded-2xl px-4 py-3.5 flex items-center justify-center gap-3">
                         <img src={dollar3d} alt="" loading="lazy" decoding="async" className={`w-12 h-12 object-contain drop-shadow-lg shrink-0${checkedInToday ? " opacity-40 saturate-50" : ""}`} />
                         <div className="min-w-0">
-                          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--theme-primary)] leading-none">
+                          <p className={`text-[10px] font-black uppercase tracking-[0.14em] text-[var(--theme-primary)] leading-none${heroPulse ? " animate-shimmer-slow" : ""}`}>
                             {checkedInToday ? "Come back tomorrow" : `Day ${calTodayStreak} reward`}
                           </p>
                           <p className="font-display font-black text-2xl text-[var(--theme-text)] tracking-tight leading-none mt-1.5">
