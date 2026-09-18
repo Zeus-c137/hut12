@@ -47,8 +47,7 @@ import {
   History,
   Cpu,
   Wallet,
-  ShoppingCartIcon,
-  DollarSignIcon
+  ShoppingCartIcon
 } from "lucide-react";
 import navHome3d from "@/src/assets/3d/3dicons-star-iso-premium.png";
 import navProducts3d from "@/src/assets/3d/3dicons-fire-iso-premium.png";
@@ -578,11 +577,6 @@ export default function App() {
                 <p className="text-xs text-[var(--theme-text)] opacity-80 leading-relaxed font-[var(--theme-font-family)] px-1">
                   Your registration is complete! You have received a welcome bonus of <span className="font-black text-[var(--theme-primary)]">UGX {welcomeBonusAmount.toLocaleString()}</span> credited directly to your account.
                 </p>
-              </div>
-
-              <div className="relative z-10 flex items-center justify-center gap-2 rounded-[var(--theme-radius)] border border-[var(--theme-card-border)] bg-[var(--theme-bg)] px-3 py-2.5 text-[11px] font-[var(--theme-font-family)] font-bold text-[var(--theme-text)] opacity-80">
-                <DollarSignIcon className="w-4 h-4 text-[var(--theme-primary)]" />
-                <span>Automatically added to your withdrawable balance</span>
               </div>
             </motion.div>
           </div>
