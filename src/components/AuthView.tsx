@@ -170,6 +170,7 @@ export default function AuthView({ onAuthSuccess, siteConfig }: AuthViewProps) {
 
   const authBg = fixGitHubImageUrl(activeConfig?.authBgImage);
   const regBonus = Number(activeConfig?.registrationBonus ?? activeConfig?.welcomeBonus ?? 1000);
+  const inviteBonus = Number(activeConfig?.inviteBonus ?? 0);
   return (
     <div 
       className="min-h-screen bg-[var(--theme-bg)] text-[var(--theme-text)] font-[var(--theme-font-family)] flex flex-col items-center justify-center p-4 relative overflow-y-auto transition-colors"
@@ -216,7 +217,6 @@ export default function AuthView({ onAuthSuccess, siteConfig }: AuthViewProps) {
                         type="text"
                         autoComplete="nickname"
                         maxLength={64}
-                        placeholder="e.g. Kampala Miner"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
                         className="w-full pl-10 pr-4 py-3 input-frosted bg-[var(--theme-bg)]/60 backdrop-blur-xl border border-[var(--theme-card-border)] focus:border-[var(--theme-primary)] text-[var(--theme-text)] placeholder:text-[var(--theme-text-muted)] text-sm font-sans font-medium rounded-[14px] outline-none transition-colors select-text"
@@ -292,7 +292,9 @@ export default function AuthView({ onAuthSuccess, siteConfig }: AuthViewProps) {
                     <div className="space-y-1.5">
                       <div className="flex justify-between items-center">
                         <label className="text-[11px] font-sans font-semibold uppercase tracking-wide text-[var(--theme-text)] opacity-60">Invite Code <span className="normal-case font-normal opacity-50">(Optional)</span></label>
-                        <span className="text-[11px] font-sans font-medium text-emerald-600">Yield cashback</span>
+                        {inviteBonus > 0 && (
+                          <span className="text-[11px] font-sans font-medium text-emerald-600">Claim UGX {inviteBonus.toLocaleString()}</span>
+                        )}
                       </div>
                       <div className="relative">
                         <UserPlus className="w-4 h-4 text-[var(--theme-text)] opacity-40 absolute left-3.5 top-3.5" />
