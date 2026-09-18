@@ -210,7 +210,7 @@ export default function AuthView({ onAuthSuccess, siteConfig }: AuthViewProps) {
               <form onSubmit={handleSubmit} className="space-y-4">
                 {authMode === "register" && (
                   <div className="space-y-1.5">
-                    <label className="text-[11px] font-sans font-semibold uppercase tracking-wide text-[var(--theme-text)] opacity-60">Display Name <span className="normal-case font-normal opacity-50">(Optional)</span></label>
+                    <label className="text-xs font-sans font-bold uppercase tracking-wider text-[var(--theme-text)]">Display Name <span className="normal-case font-normal opacity-50">(Optional)</span></label>
                     <div className="relative">
                       <User className="w-4 h-4 text-[var(--theme-text)] opacity-40 absolute left-3.5 top-3.5" />
                       <input
@@ -226,7 +226,7 @@ export default function AuthView({ onAuthSuccess, siteConfig }: AuthViewProps) {
                 )}
 
                 <div className="space-y-1.5">
-                  <label className="text-[11px] font-sans font-semibold uppercase tracking-wide text-[var(--theme-text)] opacity-60">Phone Number</label>
+                  <label className="text-xs font-sans font-bold uppercase tracking-wider text-[var(--theme-text)]">Phone Number</label>
                   <div className="relative">
                     <Phone className="w-4 h-4 text-[var(--theme-text)] opacity-40 absolute left-3.5 top-3.5" />
                     <input
@@ -242,7 +242,7 @@ export default function AuthView({ onAuthSuccess, siteConfig }: AuthViewProps) {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-[11px] font-sans font-semibold uppercase tracking-wide text-[var(--theme-text)] opacity-60">Password</label>
+                  <label className="text-xs font-sans font-bold uppercase tracking-wider text-[var(--theme-text)]">Password</label>
                   <div className="relative">
                     <Lock className="w-4 h-4 text-[var(--theme-text)] opacity-40 absolute left-3.5 top-3.5" />
                     <input
@@ -267,7 +267,7 @@ export default function AuthView({ onAuthSuccess, siteConfig }: AuthViewProps) {
                 {authMode === "register" && (
                   <>
                     <div className="space-y-1.5">
-                      <label className="text-[11px] font-sans font-semibold uppercase tracking-wide text-[var(--theme-text)] opacity-60">Confirm Password</label>
+                      <label className="text-xs font-sans font-bold uppercase tracking-wider text-[var(--theme-text)]">Confirm Password</label>
                       <div className="relative">
                         <Lock className="w-4 h-4 text-[var(--theme-text)] opacity-40 absolute left-3.5 top-3.5" />
                         <input
@@ -291,7 +291,7 @@ export default function AuthView({ onAuthSuccess, siteConfig }: AuthViewProps) {
 
                     <div className="space-y-1.5">
                       <div className="flex justify-between items-center">
-                        <label className="text-[11px] font-sans font-semibold uppercase tracking-wide text-[var(--theme-text)] opacity-60">Invite Code <span className="normal-case font-normal opacity-50">(Optional)</span></label>
+                        <label className="text-xs font-sans font-bold uppercase tracking-wider text-[var(--theme-text)]">Invite Code <span className="normal-case font-normal opacity-50">(Optional)</span></label>
                         {inviteBonus > 0 && (
                           <span className="text-[11px] font-sans font-medium text-emerald-600">Claim UGX {inviteBonus.toLocaleString()}</span>
                         )}
