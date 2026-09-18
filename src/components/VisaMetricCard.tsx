@@ -80,7 +80,7 @@ export default function VisaMetricCard({
       {mode === "single" ? (
         <div className="relative mt-4 min-w-0">
           <p
-            className={`text-[10px] font-sans font-black uppercase tracking-[0.14em] leading-none ${
+            className={`text-[11px] font-sans font-black uppercase tracking-[0.14em] leading-none ${
               isDark ? "text-white/40" : "text-black/40"
             }${pulse ? " animate-shimmer-slow" : ""}`}
           >
@@ -89,7 +89,7 @@ export default function VisaMetricCard({
           <p
             className={`text-[20px] sm:text-[22px] font-display font-black tracking-tight leading-none mt-1.5 truncate ${
               isDark ? "text-white" : "text-[#1a1a1a]"
-            }${pulse ? " animate-shimmer-slow" : ""}`}
+            }`}
           >
             {leftValue}
           </p>
@@ -101,7 +101,7 @@ export default function VisaMetricCard({
       <div className="relative grid grid-cols-2 gap-6 mt-4">
         <div className="text-left min-w-0">
           <p
-            className={`text-[10px] font-sans font-black uppercase tracking-[0.14em] leading-none ${
+            className={`text-[11px] font-sans font-black uppercase tracking-[0.14em] leading-none ${
               isDark ? "text-white/40" : "text-black/40"
             }${pulse ? " animate-shimmer-slow" : ""}`}
           >
@@ -110,7 +110,7 @@ export default function VisaMetricCard({
           <p
             className={`text-[20px] sm:text-[22px] font-display font-black tracking-tight leading-none mt-1.5 truncate ${
               isDark ? "text-white" : "text-[#1a1a1a]"
-            }${pulse ? " animate-shimmer-slow" : ""}`}
+            }`}
           >
             {leftValue}
           </p>
@@ -120,7 +120,7 @@ export default function VisaMetricCard({
         </div>
         <div className="text-left min-w-0">
           <p
-            className={`text-[10px] font-sans font-black uppercase tracking-[0.14em] leading-none ${
+            className={`text-[11px] font-sans font-black uppercase tracking-[0.14em] leading-none ${
               isDark ? "text-white/40" : "text-black/40"
             }${pulse ? " animate-shimmer-slow" : ""}`}
           >
@@ -129,7 +129,7 @@ export default function VisaMetricCard({
           <p
             className={`text-[20px] sm:text-[22px] font-display font-black tracking-tight leading-none mt-1.5 truncate ${
               isDark ? "text-white" : "text-[#1a1a1a]"
-            }${pulse ? " animate-shimmer-slow" : ""}`}
+            }`}
           >
             {rightValue}
           </p>
