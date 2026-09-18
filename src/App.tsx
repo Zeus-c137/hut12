@@ -18,6 +18,7 @@ import GuideView from "./components/GuideView";
 import ChatView from "./components/ChatView";
 import TransactionHistoryView from "./components/TransactionHistoryView";
 import VipTasksPage from "./components/VipTasksPage";
+import HarvestGame from "./components/HarvestGame";
 import ParticleBg from "./components/ParticleBg";
 import AlertsView from "./components/AlertsView";
 import AdminView from "./components/AdminView";
@@ -47,6 +48,7 @@ import {
   History,
   Cpu,
   Wallet,
+  ArrowLeft,
   ShoppingCartIcon
 } from "lucide-react";
 import navHome3d from "@/src/assets/3d/3dicons-star-iso-premium.png";
@@ -159,7 +161,7 @@ export default function App() {
       cancelled = true;
     };
   }, [isAdminRoute]);
-  const [activeTab, setActiveTab] = useState<"dashboard" | "catalog" | "income" | "history" | "referral" | "chat" | "profile" | "account" | "guide" | "deposit" | "withdraw" | "alerts" | "vip">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "catalog" | "income" | "history" | "referral" | "chat" | "profile" | "account" | "guide" | "deposit" | "withdraw" | "alerts" | "vip" | "arcade">("dashboard");
   const [siteConfig, setSiteConfig] = useState<any>(null);
   const chatUnread = useChatUnread(userProfile?.phone);
   const [vipBadgeLevel, setVipBadgeLevel] = useState(0);
@@ -295,7 +297,7 @@ export default function App() {
     }
   }, [siteConfig]);
 
-  const [previousTab, setPreviousTab] = useState<"dashboard" | "catalog" | "income" | "history" | "referral" | "chat" | "profile" | "deposit" | "withdraw">("dashboard");
+  const [previousTab, setPreviousTab] = useState<"dashboard" | "catalog" | "income" | "history" | "referral" | "chat" | "profile" | "deposit" | "withdraw" | "arcade">("dashboard");
 
   useEffect(() => {
     if (activeTab !== "alerts") {
@@ -846,6 +848,25 @@ export default function App() {
                   siteConfig={siteConfig}
                   onBack={() => setActiveTab("profile")}
                 />
+              </motion.div>
+            )}
+
+            {(activeTab === "arcade" || (activeTab === "alerts" && previousTab === "arcade")) && (
+              <motion.div
+                key="arcade"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.12 }}
+                className="w-full flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-1.5 sm:px-2 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              >
+                <button
+                  onClick={() => setActiveTab("profile")}
+                  className="mb-3 inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)] text-xs font-black uppercase tracking-wider text-[var(--theme-text)] hover:border-[var(--theme-primary)]/30 transition-colors cursor-pointer"
+                >
+                  <ArrowLeft className="w-4 h-4 text-[var(--theme-primary)]" /> Back
+                </button>
+                <HarvestGame />
               </motion.div>
             )}
 
