@@ -53,6 +53,7 @@ import bank3d from "@/src/assets/3d/3dicons-wallet-iso-premium.png";
 import update3d from "@/src/assets/3d/3dicons-tools-iso-premium.png";
 import guide3d from "@/src/assets/3d/3dicons-pencil-iso-premium.png";
 import community3d from "@/src/assets/3d/3dicons-megaphone-iso-premium.png";
+import play3d from "@/src/assets/3d/3dicons-play-iso-premium.png";
 import { Button } from "./ui/button";
 import { useShimmerPulse } from "../hooks/useShimmerPulse";
 import confetti from "canvas-confetti";
@@ -60,6 +61,7 @@ import ParticleBg from "./ParticleBg";
 import NewsCarousel from "./NewsCarousel";
 import VisaMetricCard from "./VisaMetricCard";
 import CommunitySheet from "./CommunitySheet";
+import HarvestGame from "./HarvestGame";
 
 interface ProfileViewProps {
   userProfile: UserProfile;
@@ -337,6 +339,7 @@ export default function ProfileView({
 
   const [showHistorySheet, setShowHistorySheet] = useState(false);
   const [showCommunitySheet, setShowCommunitySheet] = useState(false);
+  const [showGameSheet, setShowGameSheet] = useState(false);
 
   // Withdraw form fields (bind-account settings moved to BindAccountView page)
   const [usdtAddress, setUsdtAddress] = useState(userProfile.usdtAddress || "");
@@ -526,6 +529,10 @@ export default function ProfileView({
             <button onClick={() => onNavigate("guide")} className="flex flex-col items-center gap-1.5 focus:outline-none group">
               <img src={guide3d} alt="" loading="lazy" decoding="async" className="w-12 h-12 object-contain drop-shadow-sm" />
               <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">Guide</span>
+            </button>
+            <button onClick={() => setShowGameSheet(true)} className="flex flex-col items-center gap-1.5 focus:outline-none group">
+              <img src={play3d} alt="" loading="lazy" decoding="async" className="w-12 h-12 object-contain drop-shadow-sm" />
+              <span className="text-[11px] font-sans text-[var(--theme-text)] font-extrabold tracking-wide">Arcade</span>
             </button>
           </div>
           <div className="h-px bg-[var(--theme-card-border)]/60" />
@@ -950,6 +957,36 @@ export default function ProfileView({
 
       {/* 3.5 Community Sheet — shared with DashboardView */}
       <CommunitySheet open={showCommunitySheet} onClose={() => setShowCommunitySheet(false)} siteConfig={siteConfig} />
+
+      {/* 3.6 Arcade minigame sheet (frontend-only, localStorage scores) */}
+      <AnimatePresence>
+        {showGameSheet && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowGameSheet(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
+            />
+            <motion.div
+              initial={{ y: 40, opacity: 0, scale: 0.97 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 40, opacity: 0, scale: 0.97 }}
+              transition={{ type: "spring", damping: 26, stiffness: 340 }}
+              className="relative w-full max-w-sm rounded-[28px] border border-white/10 shadow-2xl bg-[var(--theme-card-bg)]/60 backdrop-blur-[20px] backdrop-saturate-[180%] p-5 space-y-4 max-h-[92vh] overflow-y-auto scrollbar-none"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-[11px] font-black uppercase tracking-[0.14em] text-[var(--theme-text)] opacity-70">Coin Harvest</h3>
+                <button onClick={() => setShowGameSheet(false)} aria-label="Close game" className="w-8 h-8 rounded-full bg-transparent hover:opacity-80 flex items-center justify-center text-[var(--theme-text)] opacity-60 transition-colors border-0 cursor-pointer">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <HarvestGame />
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
