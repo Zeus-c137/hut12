@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion } from "motion/react";
 import { Play, RotateCcw, Flame, ArrowRight, ArrowLeft, Pause, PackageSearch } from "lucide-react";
 import { Button } from "./ui/button";
