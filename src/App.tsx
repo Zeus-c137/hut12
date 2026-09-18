@@ -18,7 +18,7 @@ import GuideView from "./components/GuideView";
 import ChatView from "./components/ChatView";
 import TransactionHistoryView from "./components/TransactionHistoryView";
 import VipTasksPage from "./components/VipTasksPage";
-import ReactionGame from "./components/ReactionGame";
+import ProductGuessGame from "./components/ProductGuessGame";
 import ParticleBg from "./components/ParticleBg";
 import AlertsView from "./components/AlertsView";
 import AdminView from "./components/AdminView";
@@ -866,7 +866,7 @@ export default function App() {
                 >
                   <ArrowLeft className="w-4 h-4 text-[var(--theme-primary)]" /> Back
                 </button>
-                <ReactionGame />
+                <ProductGuessGame items={items} />
               </motion.div>
             )}
 
