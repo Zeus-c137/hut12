@@ -1308,7 +1308,9 @@ app.post("/api/copilot/chat", async (req, res) => {
   ].map(k => k?.trim()).filter(Boolean).filter(k => k && k !== "MY_OPENROUTER_API_KEY" && k !== "YOUR_OPENROUTER_API_KEY" && k.length > 10) as string[];
 
   if (keys.length === 0) {
-    return res.status(503).json({ error: "AI Copilot Service is offline. No valid API key configured. Set OPENROUTER_API_KEY in env." });
+    // Server-config state, never a user-facing key message.
+    console.error("[OpenRouter] No API keys configured.");
+    return res.status(503).json({ error: "The AI assistant is busy right now. Please try again in a moment." });
   }
 
   try {
@@ -1384,56 +1386,83 @@ Instructions:
     ];
 
     const model = process.env.OPENROUTER_MODEL?.trim() || "openrouter/free";
-    let responseText = "";
-    let lastError: any = null;
 
-    for (let i = 0; i < keys.length; i++) {
-      const currentKey = keys[i];
-      try {
-        console.log(`[OpenRouter] Attempting model ${model} with key index ${i}`);
-        const appUrl = process.env.APP_URL?.replace(/\/$/, "") || process.env.VITE_APP_URL?.replace(/\/$/, "") || "https://www.pjnatal.com";
-        const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${currentKey}`,
-            "Content-Type": "application/json",
-            "HTTP-Referer": appUrl,
-            "X-Title": brand
-          },
-          body: JSON.stringify({
-            model,
-            messages: openRouterMessages,
-            max_tokens: 512,
-            temperature: 0.7
-          })
-        });
+    // Only auth-class failures implicate a key — and even those just rotate,
+    // they never surface key wording to the user. Everything else (429/5xx,
+    // timeouts, empty bodies) is transient and worth an automatic retry.
+    const isAuthFailure = (status: number, message: string) =>
+      status === 401 || status === 403 ||
+      /api[_-]?key|unauthori[sz]ed|forbidden|invalid[^a-z0-9]*key|credential/i.test(message || "");
+    const isRetryableFailure = (status: number, message: string) =>
+      !isAuthFailure(status, message) &&
+      (status === 408 || status === 425 || status === 429 || status >= 500 ||
+        /timeout|abort|econn|enotfound|socket|rate.?limit|overload|try again|empty response|invalid json/i.test(message || ""));
 
-        const raw = await res.text();
-        if (!res.ok) {
-          let parsed: any = null;
-          try { parsed = JSON.parse(raw); } catch {}
-          const msg = parsed?.error?.message || parsed?.error || raw || `OpenRouter ${res.status}`;
-          throw new Error(msg);
-        }
+    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-        let data: any = null;
-        try { data = JSON.parse(raw); } catch { throw new Error("Invalid JSON from OpenRouter"); }
+    const attemptKey = async (key: string): Promise<string> => {
+      const appUrl = process.env.APP_URL?.replace(/\/$/, "") || process.env.VITE_APP_URL?.replace(/\/$/, "") || "https://www.pjnatal.com";
+      const res = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${key}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": appUrl,
+          "X-Title": brand
+        },
+        body: JSON.stringify({
+          model,
+          messages: openRouterMessages,
+          max_tokens: 512,
+          temperature: 0.7
+        })
+      });
 
-        const content = data?.choices?.[0]?.message?.content || data?.choices?.[0]?.text || "";
-        if (!content) throw new Error("Empty response from OpenRouter");
-        // Wrap as our expected JSON envelope
-        responseText = JSON.stringify({ text: String(content).trim() });
-        lastError = null;
-        if (responseText) break;
-      } catch (err: any) {
-        console.warn(`[AI Model warning] key index ${i} failed.`, err.message || err);
-        lastError = err;
+      const raw = await res.text();
+      if (!res.ok) {
+        let parsed: any = null;
+        try { parsed = JSON.parse(raw); } catch {}
+        const msg = parsed?.error?.message || parsed?.error || raw || `OpenRouter ${res.status}`;
+        const err: any = new Error(String(msg).slice(0, 300));
+        err.status = res.status;
+        throw err;
       }
-      if (!lastError && responseText) break;
+
+      let data: any = null;
+      try { data = JSON.parse(raw); } catch { throw new Error("Invalid JSON from OpenRouter"); }
+
+      const content = data?.choices?.[0]?.message?.content || data?.choices?.[0]?.text || "";
+      if (!content) throw new Error("Empty response from OpenRouter");
+      return String(content).trim();
+    };
+
+    let responseText = "";
+    for (let i = 0; i < keys.length && !responseText; i++) {
+      // Two attempts per key: the retry that used to require the user to tap
+      // again now happens here before any error is manufactured.
+      for (let attempt = 0; attempt < 2 && !responseText; attempt++) {
+        try {
+          console.log(`[OpenRouter] Attempting model ${model} with key index ${i}, try ${attempt}`);
+          const content = await attemptKey(keys[i]);
+          // Wrap as our expected JSON envelope
+          responseText = JSON.stringify({ text: content });
+        } catch (err: any) {
+          const status = Number(err?.status || 0);
+          console.warn(`[AI Model warning] key index ${i} try ${attempt} failed (${status || "network"}).`, err.message || err);
+          if (isAuthFailure(status, err?.message || "")) break; // bad key: rotate, never retry it
+          if (attempt === 0 && isRetryableFailure(status, err?.message || "")) {
+            await sleep(800 + i * 400);
+            continue;
+          }
+          break; // non-retryable or out of attempts: next key
+        }
+      }
     }
 
-    if (lastError || !responseText) {
-      throw lastError || new Error("Failed to get any valid response from AI rotation pool.");
+    if (!responseText) {
+      // Neutral in every case — real cause stays in server logs. Key state
+      // is a server-config concern and is never reported to the user.
+      throw new Error("AI busy");
     }
 
     // Strip any markdown codeblock wrappers if present
@@ -1464,8 +1493,8 @@ Instructions:
 
     res.json(result);
   } catch (err: any) {
-    console.error("AI Copilot Error:", err);
-    res.status(503).json({ error: "The AI Copilot service is undergoing system calibration. Please ensure a valid OPENROUTER_API_KEY is saved in settings.", details: err.message });
+    console.error("AI Copilot Error:", err?.message || err);
+    res.status(503).json({ error: "The AI assistant is busy right now. Please try again in a moment." });
   }
 });
 
