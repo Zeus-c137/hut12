@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import MetricCard from "./MetricCard";
 import VisaMetricCard from "./VisaMetricCard";
+import { Button } from "./ui/button";
 import { useCurrency } from "../currency";
 import confetti from "canvas-confetti";
 import { toast } from "sonner";
@@ -118,13 +119,16 @@ export default function IncomeView({
             <div className="space-y-1">
               <h4 className="font-bold text-[var(--theme-text)] opacity-60 text-xs uppercase font-sans">No Active Products </h4>
             </div>
-            <button
+            <Button
+              variant="gold-glossy"
+              size="sm"
               onClick={onNavigateToCatalog}
-              className="px-4.5 py-2.5 btn-3d-primary text-white rounded-[var(--theme-radius)] text-xs font-sans font-bold flex items-center gap-1.5 mx-auto outline-none transition-colors cursor-pointer active:scale-95 shadow-md"
+              glow={false}
+              className="mx-auto"
             >
               <Plus className="w-4 h-4" />
               Rent
-            </button>
+            </Button>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3.5">
