@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, { useRef, useEffect, useMemo } from "react";
 import { useGatedInterval } from "../hooks/useGatedInterval";
 import { ArrowUpRight, Cpu } from "lucide-react";
 import { SubscriptionItem } from "../types";
@@ -14,7 +14,6 @@ const POPULARITY = ["2.1k+", "1.4k+", "980+", "560+", "310+", "180+"];
 
 export default function FeaturedProducts({ items, onBrowseProducts }: FeaturedProductsProps) {
   const { formatCurrency } = useCurrency();
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const pausedRef = useRef(false);
   const featuredItems = useMemo(() => items.filter((item) => !item.disabled && !item.outOfStock).slice(0, 6), [items]);
@@ -106,12 +105,7 @@ export default function FeaturedProducts({ items, onBrowseProducts }: FeaturedPr
             aria-label={`View ${item.name}`}
           >
             <div
-              onClick={(e) => {
-                if (!item.imageUrl) return;
-                e.stopPropagation();
-                setPreviewImage(item.imageUrl);
-              }}
-              className={`relative h-32 sm:h-40 bg-transparent overflow-hidden shrink-0 p-3 flex items-center justify-center ${item.imageUrl ? "cursor-zoom-in" : ""}`}
+              className="relative h-32 sm:h-40 bg-transparent overflow-hidden shrink-0 p-3 flex items-center justify-center"
             >
               {item.imageUrl ? (
                 <img
@@ -146,11 +140,6 @@ export default function FeaturedProducts({ items, onBrowseProducts }: FeaturedPr
           </button>
         ))}
       </div>
-      {previewImage && (
-        <div className="fixed inset-0 z-[80] bg-black/85 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setPreviewImage(null)}>
-          <img src={previewImage} alt="Preview" className="max-w-full max-h-[85vh] rounded-[var(--theme-radius)] shadow-2xl object-contain" />
-        </div>
-      )}
     </section>
   );
 }

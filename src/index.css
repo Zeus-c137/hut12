@@ -38,17 +38,8 @@
   --theme-text-muted: #78716c;
 }
 
-/* Fix browser autofill */
-input:-webkit-autofill,
-input:-webkit-autofill:hover,
-input:-webkit-autofill:focus,
-textarea:-webkit-autofill,
-select:-webkit-autofill {
-  -webkit-text-fill-color: var(--theme-text) !important;
-  -webkit-box-shadow: 0 0 0px 1000px var(--theme-card-bg) inset !important;
-  box-shadow: 0 0 0px 1000px var(--theme-card-bg) inset !important;
-  transition: background-color 5000s ease-in-out 0s;
-}
+/* (Browser autofill is handled by the single consolidated block below —
+   one rule per context so the cascade can't split text vs background.) */
 
 html {
   font-size: var(--theme-font-base);
@@ -200,9 +191,15 @@ textarea:focus {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-primary) 20%, transparent);
   outline: none;
 }
-/* autofill both modes — opaque inset shadow matching the preset input bg so the
-   browser's white/yellow autofill paint can never show through; text comes
-   from --theme-text so it tracks light/dark via vars (no hard-coded colors) */
+/* Autofill — consolidated single source. Light + dark resolve through the
+   same vars, so both presets share one rule and the cascade can never paint
+   theme text over a native background (the inversion). Covers three paths:
+   1. :-webkit-autofill — classic Chromium/Edge autofill. Inset shadow AND
+      background-color are both set so neither paint layer leaks native gray.
+   2. :autofill — the standard pseudo (Firefox / future Chromium).
+   3. :-internal-autofill-selected — Edge Wallet fills often populate values
+      without matching (1); this keeps those on-theme instead of browser gray.
+   (textarea/select folded in so nothing regresses from the old split block.) */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus,
@@ -210,7 +207,10 @@ input:-webkit-autofill:active,
 input:autofill,
 input:autofill:hover,
 input:autofill:focus,
-input:autofill:active {
+input:autofill:active,
+input:-internal-autofill-selected,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
   -webkit-text-fill-color: var(--theme-text) !important;
   color: var(--theme-text) !important;
   caret-color: var(--theme-text) !important;
@@ -218,20 +218,7 @@ input:autofill:active {
   -webkit-box-shadow: 0 0 0px 1000px color-mix(in srgb, var(--theme-card-bg) 92%, var(--theme-bg)) inset !important;
   box-shadow: 0 0 0px 1000px color-mix(in srgb, var(--theme-card-bg) 92%, var(--theme-bg)) inset !important;
   border-color: var(--theme-card-border) !important;
-  transition: background-color 5000s ease-in-out 0s;
-}
-.dark input:-webkit-autofill,
-.dark input:-webkit-autofill:hover,
-.dark input:-webkit-autofill:focus,
-.dark input:-webkit-autofill:active,
-.dark input:autofill {
-  -webkit-text-fill-color: var(--theme-text) !important;
-  color: var(--theme-text) !important;
-  caret-color: var(--theme-text) !important;
-  background-color: color-mix(in srgb, var(--theme-card-bg) 92%, var(--theme-bg)) !important;
-  -webkit-box-shadow: 0 0 0px 1000px color-mix(in srgb, var(--theme-card-bg) 92%, var(--theme-bg)) inset !important;
-  box-shadow: 0 0 0px 1000px color-mix(in srgb, var(--theme-card-bg) 92%, var(--theme-bg)) inset !important;
-  border-color: var(--theme-card-border) !important;
+  transition: background-color 5000s ease-in-out 0s, color 5000s ease-in-out 0s;
 }
 
 /* Frosted inputs (auth + admin login, bg-[var(--theme-bg)]/60 + backdrop-blur-xl):
@@ -245,7 +232,8 @@ input:autofill:active {
 .input-frosted:autofill,
 .input-frosted:autofill:hover,
 .input-frosted:autofill:focus,
-.input-frosted:autofill:active {
+.input-frosted:autofill:active,
+.input-frosted:-internal-autofill-selected {
   -webkit-text-fill-color: var(--theme-text) !important;
   color: var(--theme-text) !important;
   caret-color: var(--theme-text) !important;
