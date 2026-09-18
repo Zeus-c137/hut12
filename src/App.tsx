@@ -18,6 +18,7 @@ import GuideView from "./components/GuideView";
 import ChatView from "./components/ChatView";
 import TransactionHistoryView from "./components/TransactionHistoryView";
 import VipTasksPage from "./components/VipTasksPage";
+import ProductGuessGame from "./components/ProductGuessGame";
 import ParticleBg from "./components/ParticleBg";
 import AlertsView from "./components/AlertsView";
 import AdminView from "./components/AdminView";
@@ -159,7 +160,7 @@ export default function App() {
       cancelled = true;
     };
   }, [isAdminRoute]);
-  const [activeTab, setActiveTab] = useState<"dashboard" | "catalog" | "income" | "history" | "referral" | "chat" | "profile" | "account" | "guide" | "deposit" | "withdraw" | "alerts" | "vip">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "catalog" | "income" | "history" | "referral" | "chat" | "profile" | "account" | "guide" | "deposit" | "withdraw" | "alerts" | "vip" | "arcade">("dashboard");
   const [siteConfig, setSiteConfig] = useState<any>(null);
   const chatUnread = useChatUnread(userProfile?.phone);
   const [vipBadgeLevel, setVipBadgeLevel] = useState(0);
@@ -295,7 +296,7 @@ export default function App() {
     }
   }, [siteConfig]);
 
-  const [previousTab, setPreviousTab] = useState<"dashboard" | "catalog" | "income" | "history" | "referral" | "chat" | "profile" | "deposit" | "withdraw">("dashboard");
+  const [previousTab, setPreviousTab] = useState<"dashboard" | "catalog" | "income" | "history" | "referral" | "chat" | "profile" | "deposit" | "withdraw" | "arcade">("dashboard");
 
   useEffect(() => {
     if (activeTab !== "alerts") {
@@ -846,6 +847,19 @@ export default function App() {
                   siteConfig={siteConfig}
                   onBack={() => setActiveTab("profile")}
                 />
+              </motion.div>
+            )}
+
+            {(activeTab === "arcade" || (activeTab === "alerts" && previousTab === "arcade")) && (
+              <motion.div
+                key="arcade"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.12 }}
+                className="w-full flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-1.5 sm:px-2 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              >
+                <ProductGuessGame items={items} onExit={() => setActiveTab("profile")} />
               </motion.div>
             )}
 

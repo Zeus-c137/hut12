@@ -601,6 +601,16 @@ input:-webkit-autofill::first-line { font-size: 14px; }
 }
 @keyframes hut-shimmer-x { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
+/* Round countdown: compositor-only scaleX drain, duration set inline per
+   difficulty. onAnimationEnd is the timeout signal — no JS ticking. */
+@keyframes hut-round-timer { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+.round-timer-fill {
+  transform-origin: left center;
+  animation-name: hut-round-timer;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
 /* Slow balance shimmer — single drifting sweep per pulse, toggled from
    useShimmerPulse on a gated interval (not infinite: background-position
    repaints every frame, so a perpetual sweep would cost paint forever for
