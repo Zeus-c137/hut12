@@ -651,10 +651,10 @@ export default function ProfileView({
                     <div className="p-4 sm:p-5 flex-1 overflow-y-auto space-y-5 scrollbar-none">
                       {/* Hero Reward — today's payout */}
                       <div className="rounded-2xl px-4 py-3.5 flex items-center justify-center gap-3">
-                        <img src={dollar3d} alt="" className="w-12 h-12 object-contain drop-shadow-lg shrink-0" loading="lazy" decoding="async" />
+                        <img src={dollar3d} alt="" loading="lazy" decoding="async" className={`w-12 h-12 object-contain drop-shadow-lg shrink-0${checkedInToday ? " opacity-40 saturate-50" : ""}`} />
                         <div className="min-w-0">
                           <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--theme-primary)] leading-none">
-                            Day {calTodayStreak} reward
+                            {checkedInToday ? "Come back tomorrow" : `Day ${calTodayStreak} reward`}
                           </p>
                           <p className="font-display font-black text-2xl text-[var(--theme-text)] tracking-tight leading-none mt-1.5">
                             {formatCurrency(calTodayAmount)}
@@ -668,7 +668,7 @@ export default function ProfileView({
                               <span className="font-display font-black text-xs text-[var(--theme-text)]">
                                 {calMonthName} {calYear}
                               </span>
-                              <span className="bg-[var(--theme-primary)] text-white font-sans text-[10px] font-bold px-2.5 py-0.5 rounded-full">
+                              <span className="bg-transparent text-[var(--theme-primary)] border border-[var(--theme-primary)] font-sans text-[10px] font-bold px-2.5 py-0.5 rounded-full">
                                 {calClaimedDays.length} / {calDaysInMonth}
                               </span>
                             </div>
