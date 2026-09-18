@@ -47,7 +47,6 @@ import {
   History,
   Cpu,
   Wallet,
-  Gift,
   ShoppingCartIcon,
   DollarSignIcon
 } from "lucide-react";
@@ -60,6 +59,7 @@ import navProfile3d from "@/src/assets/3d/3dicons-setting-iso-premium.png";
 import headerAi3d from "@/src/assets/3d/3dicons-lock-iso-premium.png";
 import headerBell3d from "@/src/assets/3d/3dicons-bell-iso-premium.png";
 import headerBoy3d from "@/src/assets/3d/3dicons-boy-iso-premium.png";
+import welcomeGift3d from "@/src/assets/3d/3dicons-gift-box-iso-premium.png";
 import { motion, AnimatePresence } from "motion/react";
 
 import { ThemeProvider } from "./context/ThemeContext";
@@ -549,15 +549,15 @@ export default function App() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-[var(--theme-text)]/45 backdrop-blur-sm"
+              className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
               onClick={handleCloseWelcomeModal}
             />
             <motion.div
               initial={{ scale: 0.9, y: 15, opacity: 0 }}
               animate={{ scale: 1, y: 0, opacity: 1 }}
-              exit={{ scale: 0.9, y: -15, opacity: 0 }}
+              exit={{ scale: 0.9, y: 15, opacity: 0 }}
               transition={{ type: "spring", damping: 20, stiffness: 225 }}
-              className="relative w-full max-w-sm theme-card border-2 border-[var(--theme-card-border)] text-[var(--theme-text)] rounded-[var(--theme-radius)] p-6 pt-7 text-center space-y-4 shadow-2xl z-[210] overflow-hidden font-[var(--theme-font-family)]"
+              className="relative w-full max-w-sm bg-white dark:bg-[#1a1a1a] border border-black/10 dark:border-white/10 text-[var(--theme-text)] rounded-[var(--theme-radius)] p-6 pt-7 text-center space-y-4 shadow-2xl z-[210] overflow-hidden font-[var(--theme-font-family)]"
             >
               <div className="absolute top-0 inset-x-0 h-36 bg-gradient-to-b from-[var(--theme-primary)]/20 to-transparent pointer-events-none" />
 
@@ -570,9 +570,7 @@ export default function App() {
                 <X className="w-4 h-4" />
               </button>
 
-              <div className="w-16 h-16 rounded-2xl bg-[var(--theme-primary)]/15 border border-[var(--theme-primary)]/30 mx-auto flex items-center justify-center text-[var(--theme-primary)] relative z-10 shadow-lg">
-                <Gift className="w-8 h-8 text-[var(--theme-primary)]" />
-              </div>
+              <img src={welcomeGift3d} alt="Welcome gift" decoding="async" className="w-20 h-20 object-contain drop-shadow-xl relative z-10 mx-auto" />
 
               <div className="space-y-2 relative z-10">
                 {/* <span className="text-[11px] font-[var(--theme-font-family)] text-[var(--theme-primary)] font-extrabold uppercase tracking-widest block">WELCOME BONUS CREDITED</span> */}
