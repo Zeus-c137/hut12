@@ -18,7 +18,7 @@ import GuideView from "./components/GuideView";
 import ChatView from "./components/ChatView";
 import TransactionHistoryView from "./components/TransactionHistoryView";
 import VipTasksPage from "./components/VipTasksPage";
-import MemoryGame from "./components/MemoryGame";
+import WhackGame from "./components/WhackGame";
 import ParticleBg from "./components/ParticleBg";
 import AlertsView from "./components/AlertsView";
 import AdminView from "./components/AdminView";
@@ -866,7 +866,7 @@ export default function App() {
                 >
                   <ArrowLeft className="w-4 h-4 text-[var(--theme-primary)]" /> Back
                 </button>
-                <MemoryGame />
+                <WhackGame />
               </motion.div>
             )}
 
