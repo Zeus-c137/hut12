@@ -987,7 +987,7 @@ export default function ProfileView({
               animate={{ y: 0, opacity: 1, scale: 1 }}
               exit={{ y: 40, opacity: 0, scale: 0.97 }}
               transition={{ type: "spring", damping: 26, stiffness: 340 }}
-              className="relative w-full max-w-sm rounded-[28px] overflow-hidden border border-[var(--theme-card-border)] shadow-[0_20px_60px_rgba(0,0,0,0.3)] bg-[var(--theme-card-bg)]"
+              className="relative w-full max-w-sm rounded-[28px] overflow-hidden border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.3)] bg-[var(--theme-card-bg)]/40 backdrop-blur-[20px] backdrop-saturate-[180%]"
             >
               <div className="relative p-5 pb-6 overflow-hidden">
                 <canvas ref={communityConfettiRef} className="absolute inset-0 pointer-events-none" />
